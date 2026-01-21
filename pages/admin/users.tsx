@@ -17,8 +17,8 @@ interface User {
 }
 
 interface UserFormValues {
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   email: string;
   role: string;
   password?: string;
@@ -100,8 +100,8 @@ export default function AdminUsers() {
   const handleEdit = (user: User) => {
     setEditingUser(user);
     form.setFieldsValue({
-      firstName: user.first_name,
-      lastName: user.last_name,
+      first_name: user.first_name,
+      last_name: user.last_name,
       email: user.email,
       role: user.role,
     });
@@ -218,17 +218,17 @@ export default function AdminUsers() {
           form={form}
           layout="vertical"
           name="userForm"
-          initialValues={{ role: 'user' }}
+          initialValues={{ role: 'Admin' }}
         >
           <Form.Item
-            name="firstName"
+            name="first_name"
             label="First Name"
             rules={[{ required: true, message: 'Please input first name!' }]}
           >
             <Input />
           </Form.Item>
           <Form.Item
-            name="lastName"
+            name="last_name"
             label="Last Name"
             rules={[{ required: true, message: 'Please input last name!' }]}
           >
@@ -250,7 +250,6 @@ export default function AdminUsers() {
             rules={[{ required: true, message: 'Please select a role!' }]}
           >
             <Select>
-              <Option value="user">User</Option>
               <Option value="admin">Admin</Option>
             </Select>
           </Form.Item>
