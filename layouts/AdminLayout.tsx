@@ -1,10 +1,14 @@
-import { Layout, Menu, MenuProps, message, Spin } from 'antd';
+import { Layout, Menu, MenuProps, message, Spin, Dropdown, Avatar, Space, Typography, Badge, Button } from 'antd';
 import {
   DashboardOutlined,
   UserOutlined,
   TeamOutlined,
   CalendarOutlined,
   TrophyOutlined,
+  LogoutOutlined,
+  DownOutlined,
+  BellOutlined,
+  HomeOutlined,
 } from '@ant-design/icons';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
@@ -12,14 +16,24 @@ import { ReactNode, useEffect, useState } from 'react';
 import { api } from '@/utils/api';
 
 const { Header, Content, Footer, Sider } = Layout;
+const { Text } = Typography;
 
 interface AdminLayoutProps {
   children: ReactNode;
 }
 
+interface UserProfile {
+  first_name: string;
+  last_name: string;
+  email: string;
+  image?: string;
+  role?: string;
+}
+
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
+  const [user, setUser] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -30,8 +44,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       }
 
       try {
-        console.log('######token: ', token);
-        await api.get('/auth/user-session', token);
+        const profile = await api.get('/auth/profile', token) as UserProfile;
+        setUser(profile);
         setAuthorized(true);
       } catch (error) {
         localStorage.removeItem('token');
@@ -42,6 +56,36 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
     checkAuth();
   }, [router]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    router.push('/signin');
+  };
+
+  const userMenu: MenuProps['items'] = [
+    {
+      key: 'profile',
+      icon: <UserOutlined />,
+      label: 'Profile',
+      onClick: () => router.push('/admin/home'),
+    },
+    {
+      key: 'home-page',
+      icon: <HomeOutlined />,
+      label: 'Home page',
+      onClick: () => router.push('/'),
+    },
+    {
+      type: 'divider',
+    },
+    {
+      key: 'logout',
+      icon: <LogoutOutlined />,
+      label: 'Logout',
+      danger: true,
+      onClick: handleLogout,
+    },
+  ];
 
   const menuItems: MenuProps['items'] = [
     {
@@ -110,8 +154,29 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         />
       </Sider>
       <Layout style={{ marginLeft: 200 }}>
-        <Header style={{ padding: '0 24px', background: '#fff', display: 'flex', alignItems: 'center' }}>
-          <h2 style={{ margin: 0 }}>Badmintoner Administration</h2>
+        <Header style={{ padding: '0 24px', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 1px 4px rgba(0,21,41,0.08)', zIndex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>Badmintoner Admin</h2>
+          </div>
+          {user && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+              <Dropdown menu={{ items: userMenu }} placement="bottomRight" arrow={{ pointAtCenter: true }} trigger={['click']}>
+                <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '4px 0', transition: 'all 0.3s' }}>
+                  <Avatar 
+                    src={user.image} 
+                    icon={<UserOutlined />} 
+                    style={{ backgroundColor: '#1890ff', marginRight: '12px', border: '2px solid #e6f7ff' }} 
+                    size={40}
+                  />
+                  <div style={{ display: 'flex', flexDirection: 'column', marginRight: '12px', lineHeight: '1.3' }}>
+                    <Text strong style={{ fontSize: '14px', color: '#262626' }}>{user.first_name} {user.last_name}</Text>
+                    <Text style={{ fontSize: '12px', color: '#8c8c8c', textTransform: 'capitalize' }}>{user.role || 'Admin'}</Text>
+                  </div>
+                  <DownOutlined style={{ fontSize: '12px', color: '#bfbfbf' }} />
+                </div>
+              </Dropdown>
+            </div>
+          )}
         </Header>
         <Content style={{ margin: '24px 16px 0', overflow: 'initial' }}>
           <div style={{ padding: 24, background: '#fff', minHeight: 'calc(100vh - 134px)' }}>
