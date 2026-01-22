@@ -44,19 +44,45 @@ export default function AdminLogin() {
     // Check existing auth first
     const checkAuth = async () => {
       const token = localStorage.getItem('token');
+      const userType = localStorage.getItem('user_type');
+      
+      console.log('AdminLogin checkAuth:', { token: !!token, userType });
+
       if (token) {
-        try {
-          await api.get('/auth/profile', token);
-          message.info('You are already logged in');
-          router.replace('/admin/home');
-          setSecurityChecked(true); // Skip security check if already logged in
-        } catch {
-          localStorage.removeItem('token');
-          checkSecurity();
+        if (userType === 'player') {
+          console.log('User is player, verifying profile...');
+          try {
+            await api.get('/players/profile', token);
+            console.log('Player profile verified, redirecting to not-found');
+            // message.info('You are logged in as a Player'); 
+            router.replace('/not-found');
+            return;
+          } catch (err) {
+            console.error('Player profile verification failed:', err);
+            localStorage.removeItem('token');
+            localStorage.removeItem('user_type');
+          }
+        } else {
+          console.log('User is admin (or unknown), verifying profile...');
+          try {
+            await api.get('/auth/profile', token);
+            console.log('Admin profile verified, redirecting to admin home');
+            message.info('You are already logged in');
+            router.replace('/admin/home');
+            setSecurityChecked(true); // Skip security check if already logged in
+            return;
+          } catch (err) {
+            console.error('Admin profile verification failed:', err);
+            localStorage.removeItem('token');
+            localStorage.removeItem('user_type');
+          }
         }
       } else {
-        checkSecurity();
+        console.log('No token found');
       }
+      
+      console.log('Proceeding to security check');
+      checkSecurity();
     };
     
     // Only run on client side
