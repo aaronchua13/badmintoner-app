@@ -4,6 +4,7 @@ import { UserOutlined, MailOutlined, LockOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { api } from '@/utils/api';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 
 const { Title, Paragraph } = Typography;
 
@@ -19,7 +20,7 @@ interface LoginResponse {
   access_token: string;
 }
 
-export default function SignUp() {
+export default function AdminSignUp() {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -28,7 +29,7 @@ export default function SignUp() {
     setLoading(true);
     
     try {
-      const response = await api.post<LoginResponse>('/auth/signup', {
+      const response = await api.post<LoginResponse>('/auth/admin/signup', {
         email: values.email,
         password: values.password,
         first_name: values.first_name,
@@ -37,12 +38,14 @@ export default function SignUp() {
 
       if (response.access_token) {
         localStorage.setItem('token', response.access_token);
+        localStorage.setItem('user_type', 'admin');
         message.success('Account created successfully!');
-        router.push('/');
+        router.push('/admin/home');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Sign up error:', error);
-      message.error(error.message || 'Sign up failed. Please try again.');
+      const err = error as Error;
+      message.error(err.message || 'Sign up failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -53,8 +56,8 @@ export default function SignUp() {
       <div style={{ maxWidth: '500px', margin: '0 auto' }}>
         <Card>
           <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <Title level={2}>Sign Up</Title>
-            <Paragraph>Create your Badmintoner account</Paragraph>
+            <Title level={2}>Admin Sign Up</Title>
+            <Paragraph>Create your Badmintoner Admin account</Paragraph>
           </div>
 
           <Form
@@ -135,7 +138,7 @@ export default function SignUp() {
             </Form.Item>
 
             <div style={{ textAlign: 'center' }}>
-              Already have an account? <a href="/signin">Sign In</a>
+              Already have an account? <Link href="/admin/login">Sign In</Link>
             </div>
           </Form>
         </Card>
