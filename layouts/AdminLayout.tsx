@@ -53,10 +53,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
       // Prevent Players from accessing Admin area
       if (userType === 'player') {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user_type');
-        message.error('Access denied: You are logged in as a Player. Please log in as Admin.');
-        router.replace('/admin/login');
+        // Do not clear token, just redirect to not-found to simulate non-existence
+        // localStorage.removeItem('token');
+        // localStorage.removeItem('user_type');
+        // message.error('Access denied: You are logged in as a Player. Please log in as Admin.');
+        router.replace('/not-found');
         return;
       }
 

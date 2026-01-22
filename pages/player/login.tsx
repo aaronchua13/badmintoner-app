@@ -27,14 +27,29 @@ export default function PlayerLogin() {
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem('token');
+      const userType = localStorage.getItem('user_type');
+
       if (token) {
-        try {
-          await api.get('/players/profile', token);
-          message.info('You are already logged in');
-          router.replace('/');
-        } catch {
-          // Token invalid, stay on sign in page
-          localStorage.removeItem('token');
+        if (userType === 'admin') {
+          try {
+            await api.get('/auth/profile', token);
+            message.info('You are logged in as Admin');
+            router.replace('/admin/home');
+            return;
+          } catch {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user_type');
+          }
+        } else {
+          try {
+            await api.get('/players/profile', token);
+            message.info('You are already logged in');
+            router.replace('/');
+          } catch {
+            // Token invalid, stay on sign in page
+            localStorage.removeItem('token');
+            localStorage.removeItem('user_type');
+          }
         }
       }
     };
