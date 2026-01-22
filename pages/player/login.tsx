@@ -29,7 +29,7 @@ export default function PlayerLogin() {
       const token = localStorage.getItem('token');
       if (token) {
         try {
-          await api.get('/player/profile', token);
+          await api.get('/players/profile', token);
           message.info('You are already logged in');
           router.replace('/');
         } catch {
@@ -45,7 +45,7 @@ export default function PlayerLogin() {
     setLoading(true);
     
     try {
-      const response = await api.post<LoginResponse>('/player/login', {
+      const response = await api.post<LoginResponse>('/auth/player/login', {
         email: values.email,
         password: values.password,
       });

@@ -45,13 +45,13 @@ export default function PlayerProfile() {
     try {
       const token = localStorage.getItem('token');
       // Fetch public profile based on slug
-      const data = await api.get<PlayerProfileData>(`/player/profile/${slug}`, token || undefined);
+      const data = await api.get<PlayerProfileData>(`/players/profile/${slug}`, token || undefined);
       setProfile(data);
 
       // Also fetch current user if logged in to check ownership
       if (token) {
         try {
-          const me = await api.get<PlayerProfileData>('/player/profile', token);
+          const me = await api.get<PlayerProfileData>('/players/profile', token);
           setCurrentUser(me);
         } catch {
           // Ignore if "me" fetch fails, just means we can't edit
@@ -77,7 +77,7 @@ export default function PlayerProfile() {
     setUpdatingProfile(true);
     try {
       const token = localStorage.getItem('token');
-      await api.patch('/player/profile', values, token!);
+      await api.patch('/players/profile', values, token!);
       message.success('Profile updated successfully');
       setIsEditProfileOpen(false);
       fetchProfile();
@@ -108,7 +108,7 @@ export default function PlayerProfile() {
         return;
       }
 
-      await api.patch('/player/profile', updateData, token!);
+      await api.patch('/players/profile', updateData, token!);
       message.success('Account settings updated successfully');
       setIsAccountSettingsOpen(false);
       fetchProfile();

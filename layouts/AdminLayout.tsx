@@ -44,7 +44,18 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem('token');
+      const userType = localStorage.getItem('user_type');
+
       if (!token) {
+        router.replace('/admin/login');
+        return;
+      }
+
+      // Prevent Players from accessing Admin area
+      if (userType === 'player') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user_type');
+        message.error('Access denied: You are logged in as a Player. Please log in as Admin.');
         router.replace('/admin/login');
         return;
       }
@@ -53,9 +64,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         const profile = await api.get('/auth/profile', token) as UserProfile;
         setUser(profile);
         setAuthorized(true);
-      } catch {
+      } catch (error) {
+        console.error('Authentication check failed:', error);
         localStorage.removeItem('token');
-        message.error('Session expired or invalid. Please sign in again.');
+        localStorage.removeItem('user_type');
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        message.error(`Session expired or invalid: ${errorMessage}`);
         router.replace('/admin/login');
       }
     };
@@ -65,6 +79,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('user_type');
     router.push('/admin/login');
   };
 

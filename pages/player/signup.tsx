@@ -30,7 +30,7 @@ export default function PlayerSignUp() {
     setLoading(true);
     
     try {
-      const response = await api.post<LoginResponse>('/player/signup', {
+      const response = await api.post<LoginResponse>('/auth/player/signup', {
         email: values.email,
         username: values.username,
         password: values.password,
@@ -40,6 +40,7 @@ export default function PlayerSignUp() {
 
       if (response.access_token) {
         localStorage.setItem('token', response.access_token);
+        localStorage.setItem('user_type', 'player');
         message.success('Account created successfully!');
         router.push('/');
       }

@@ -29,7 +29,7 @@ export default function AdminSignUp() {
     setLoading(true);
     
     try {
-      const response = await api.post<LoginResponse>('/auth/signup', {
+      const response = await api.post<LoginResponse>('/auth/admin/signup', {
         email: values.email,
         password: values.password,
         first_name: values.first_name,
@@ -38,6 +38,7 @@ export default function AdminSignUp() {
 
       if (response.access_token) {
         localStorage.setItem('token', response.access_token);
+        localStorage.setItem('user_type', 'admin');
         message.success('Account created successfully!');
         router.push('/admin/home');
       }

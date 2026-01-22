@@ -69,7 +69,7 @@ export default function AdminLogin() {
     setLoading(true);
     
     try {
-      const response = await api.post<LoginResponse>('/auth/login', {
+      const response = await api.post<LoginResponse>('/auth/admin/login', {
         email: values.email,
         password: values.password,
       });

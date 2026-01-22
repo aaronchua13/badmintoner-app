@@ -22,7 +22,7 @@ export default function ProfileRedirect() {
       }
 
       try {
-        const data = await api.get<ProfileResponse>('/player/profile', token);
+        const data = await api.get<ProfileResponse>('/players/profile', token);
         const identifier = data.username || data._id;
         router.replace(`/player/profile/${identifier}`);
       } catch {

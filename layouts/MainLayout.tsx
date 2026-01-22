@@ -35,7 +35,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         try {
           let profile: UserProfile;
           if (type === 'player') {
-            profile = await api.get('/player/profile', token) as UserProfile;
+            profile = await api.get('/players/profile', token) as UserProfile;
           } else {
             profile = await api.get('/auth/profile', token) as UserProfile;
           }
