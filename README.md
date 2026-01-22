@@ -33,4 +33,12 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
+### Environment Variables
+
+When deploying to Vercel, make sure to add the following environment variables in your project settings:
+
+- `API_TARGET_URL`: The URL of your backend API (e.g., `https://badmintoner-api.onrender.com`)
+- `NEXT_PUBLIC_API_BASIC_AUTH_USER`: The username for API basic auth (default: `admin`)
+- `NEXT_PUBLIC_API_BASIC_AUTH_PASSWORD`: The password for API basic auth (default: `password123`)
+
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
