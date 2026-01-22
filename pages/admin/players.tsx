@@ -56,7 +56,7 @@ export default function AdminPlayers() {
       handleModalCancel();
       queryClient.invalidateQueries({ queryKey: ['users', 'players'] });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       message.error(error.message || 'Failed to create player');
     },
   });
@@ -72,7 +72,7 @@ export default function AdminPlayers() {
       handleModalCancel();
       queryClient.invalidateQueries({ queryKey: ['users', 'players'] });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       message.error(error.message || 'Failed to update player');
     },
   });
@@ -87,7 +87,7 @@ export default function AdminPlayers() {
       message.success('Player deleted successfully');
       queryClient.invalidateQueries({ queryKey: ['users', 'players'] });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       message.error(error.message || 'Failed to delete player');
     },
   });
@@ -117,7 +117,7 @@ export default function AdminPlayers() {
     form.validateFields().then((values) => {
       if (editingPlayer) {
         // For update, exclude password if empty
-        const updateData: any = { ...values };
+        const updateData: Partial<PlayerFormValues> = { ...values };
         if (!updateData.password) {
           delete updateData.password;
         }
@@ -139,7 +139,7 @@ export default function AdminPlayers() {
       title: 'First Name',
       key: 'first_name',
       width: 150,
-      render: (_: any, record: Player) => (
+      render: (_: unknown, record: Player) => (
         <Space>
           <Avatar icon={<UserOutlined />} src={record.image} />
           <span>{record.first_name}</span>

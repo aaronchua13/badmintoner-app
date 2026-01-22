@@ -4,6 +4,7 @@ import { UserOutlined, MailOutlined, LockOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { api } from '@/utils/api';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 
 const { Title, Paragraph } = Typography;
 
@@ -40,9 +41,10 @@ export default function AdminSignUp() {
         message.success('Account created successfully!');
         router.push('/admin/home');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Sign up error:', error);
-      message.error(error.message || 'Sign up failed. Please try again.');
+      const err = error as Error;
+      message.error(err.message || 'Sign up failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -135,7 +137,7 @@ export default function AdminSignUp() {
             </Form.Item>
 
             <div style={{ textAlign: 'center' }}>
-              Already have an account? <a href="/admin/login">Sign In</a>
+              Already have an account? <Link href="/admin/login">Sign In</Link>
             </div>
           </Form>
         </Card>

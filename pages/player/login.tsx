@@ -4,6 +4,7 @@ import { MailOutlined, LockOutlined } from '@ant-design/icons';
 import { useState, useEffect } from 'react';
 import { api } from '@/utils/api';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 
 const { Title, Paragraph } = Typography;
 
@@ -31,7 +32,7 @@ export default function PlayerLogin() {
           await api.get('/player/profile', token);
           message.info('You are already logged in');
           router.replace('/');
-        } catch (error) {
+        } catch {
           // Token invalid, stay on sign in page
           localStorage.removeItem('token');
         }
@@ -57,8 +58,9 @@ export default function PlayerLogin() {
       } else {
         message.error('Sign in failed: No token received');
       }
-    } catch (error: any) {
-      message.error(error.message || 'Sign in failed. Please try again.');
+    } catch (error) {
+      const err = error as Error;
+      message.error(err.message || 'Sign in failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -117,7 +119,7 @@ export default function PlayerLogin() {
             </Form.Item>
 
             <div style={{ textAlign: 'center' }}>
-              Don&apos;t have an account? <a href="/player/signup">Sign Up</a>
+              Don&apos;t have an account? <Link href="/player/signup">Sign Up</Link>
             </div>
           </Form>
         </Card>

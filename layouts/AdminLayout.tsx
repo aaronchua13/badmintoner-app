@@ -1,4 +1,4 @@
-import { Layout, Menu, MenuProps, message, Spin, Dropdown, Avatar, Space, Typography, Badge, Button, Skeleton, theme } from 'antd';
+import { Layout, Menu, MenuProps, message, Dropdown, Avatar, Typography, Badge, Button, Skeleton, theme } from 'antd';
 import {
   DashboardOutlined,
   UserOutlined,
@@ -53,7 +53,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         const profile = await api.get('/auth/profile', token) as UserProfile;
         setUser(profile);
         setAuthorized(true);
-      } catch (error) {
+      } catch {
         localStorage.removeItem('token');
         message.error('Session expired or invalid. Please sign in again.');
         router.replace('/admin/login');

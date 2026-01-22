@@ -1,5 +1,5 @@
 import AdminLayout from '@/layouts/AdminLayout';
-import { Typography, Card, Row, Col, Statistic, Skeleton, List, Avatar } from 'antd';
+import { Typography, Card, Row, Col, Skeleton, List, Avatar } from 'antd';
 import { UserOutlined, TeamOutlined, CalendarOutlined, TrophyOutlined, ArrowUpOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/utils/api';
@@ -7,13 +7,19 @@ import Link from 'next/link';
 
 const { Title, Text } = Typography;
 
+interface DashboardUser {
+  first_name: string;
+  last_name: string;
+  email: string;
+}
+
 export default function AdminHome() {
   // Fetch Users
   const { data: users = [], isLoading: isLoadingUsers } = useQuery({
     queryKey: ['users'],
     queryFn: async () => {
       const token = localStorage.getItem('token');
-      return api.get<any[]>('/users', token || undefined);
+      return api.get<DashboardUser[]>('/users', token || undefined);
     },
   });
 
@@ -143,9 +149,9 @@ export default function AdminHome() {
                 loading={isLoadingUsers}
                 itemLayout="horizontal"
                 dataSource={users.slice(0, 5)}
-                renderItem={(item: any) => (
-                  <List.Item>
-                    <List.Item.Meta
+              renderItem={(item: DashboardUser) => (
+                <List.Item>
+                  <List.Item.Meta
                       avatar={<Avatar style={{ backgroundColor: '#1890ff' }}>{item.first_name?.[0]}{item.last_name?.[0]}</Avatar>}
                       title={<Text strong>{item.first_name} {item.last_name}</Text>}
                       description={item.email}

@@ -1,9 +1,10 @@
 import MainLayout from '@/layouts/MainLayout';
-import { Typography, Card, Form, Input, Button, Checkbox, App, Alert, Modal } from 'antd';
+import { Typography, Card, Form, Input, Button, Checkbox, App, Alert } from 'antd';
 import { MailOutlined, LockOutlined } from '@ant-design/icons';
 import { useState, useEffect, useRef } from 'react';
 import { api } from '@/utils/api';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 
 const { Title, Paragraph } = Typography;
 
@@ -49,7 +50,7 @@ export default function AdminLogin() {
           message.info('You are already logged in');
           router.replace('/admin/home');
           setSecurityChecked(true); // Skip security check if already logged in
-        } catch (error) {
+        } catch {
           localStorage.removeItem('token');
           checkSecurity();
         }
@@ -81,8 +82,9 @@ export default function AdminLogin() {
       } else {
         message.error('Sign in failed: No token received');
       }
-    } catch (error: any) {
-      message.error(error.message || 'Sign in failed. Please try again.');
+    } catch (error) {
+      const err = error as Error;
+      message.error(err.message || 'Sign in failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -157,7 +159,7 @@ export default function AdminLogin() {
             </Form.Item>
 
             <div style={{ textAlign: 'center' }}>
-              Don&apos;t have an account? <a href="/admin/signup">Sign Up</a>
+              Don&apos;t have an account? <Link href="/admin/signup">Sign Up</Link>
             </div>
           </Form>
         </Card>

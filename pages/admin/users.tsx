@@ -1,5 +1,6 @@
 import AdminLayout from '@/layouts/AdminLayout';
 import { Typography, Card, Table, Button, Space, Modal, Form, Input, Select, Popconfirm, App, Tag } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -36,8 +37,7 @@ export default function AdminUsers() {
     queryKey: ['users'],
     queryFn: async () => {
       const token = localStorage.getItem('token');
-      // Use any as the type for now to avoid strict type checking on return
-      return api.get<any[]>('/users', token || undefined);
+      return api.get<User[]>('/users', token || undefined);
     },
   });
 
@@ -53,7 +53,7 @@ export default function AdminUsers() {
       form.resetFields();
       queryClient.invalidateQueries({ queryKey: ['users'] });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       message.error(error.message || 'Failed to create user');
     },
   });
@@ -71,7 +71,7 @@ export default function AdminUsers() {
       form.resetFields();
       queryClient.invalidateQueries({ queryKey: ['users'] });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       message.error(error.message || 'Failed to update user');
     },
   });
@@ -86,7 +86,7 @@ export default function AdminUsers() {
       message.success('User deleted successfully');
       queryClient.invalidateQueries({ queryKey: ['users'] });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       message.error(error.message || 'Failed to delete user');
     },
   });
@@ -116,7 +116,7 @@ export default function AdminUsers() {
     form.validateFields().then((values) => {
       if (editingUser) {
         // For update, we might not send password if it's empty
-        const updateData: any = { ...values };
+        const updateData: Partial<UserFormValues> = { ...values };
         if (!updateData.password) {
           delete updateData.password;
         }
@@ -133,7 +133,7 @@ export default function AdminUsers() {
     form.resetFields();
   };
 
-  const columns: any[] = [
+  const columns: ColumnsType<User> = [
     {
       title: 'First Name',
       dataIndex: 'first_name',
@@ -167,7 +167,7 @@ export default function AdminUsers() {
       title: 'Actions',
       key: 'actions',
       width: 120,
-      render: (_: any, record: any) => (
+      render: (_: unknown, record: User) => (
         <Space>
           <Button 
             type="link" 

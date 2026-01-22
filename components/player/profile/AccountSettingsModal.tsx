@@ -2,10 +2,15 @@ import React, { useEffect } from 'react';
 import { Modal, Form, Input, Button } from 'antd';
 import { MailOutlined, LockOutlined } from '@ant-design/icons';
 
+interface AccountSettingsValues {
+  email: string;
+  password?: string;
+}
+
 interface AccountSettingsModalProps {
   open: boolean;
   onCancel: () => void;
-  onFinish: (values: any) => Promise<void>;
+  onFinish: (values: AccountSettingsValues) => Promise<void>;
   loading: boolean;
   initialValues: {
     email?: string;
@@ -28,7 +33,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
     }
   }, [open, initialValues, form]);
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: AccountSettingsValues) => {
     await onFinish(values);
     form.setFieldValue('password', '');
   };

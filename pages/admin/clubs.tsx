@@ -1,11 +1,19 @@
 import AdminLayout from '@/layouts/AdminLayout';
 import { Typography, Card, Table, Button, Space } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 
 const { Title } = Typography;
 
+interface Club {
+  id: string;
+  name: string;
+  location: string;
+  members: number;
+}
+
 export default function AdminClubs() {
-  const columns: any[] = [
+  const columns: ColumnsType<Club> = [
     {
       title: 'ID',
       dataIndex: 'id',

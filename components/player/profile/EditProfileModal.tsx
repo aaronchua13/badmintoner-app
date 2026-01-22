@@ -4,10 +4,17 @@ import { UserOutlined } from '@ant-design/icons';
 
 const { TextArea } = Input;
 
+interface EditProfileValues {
+  first_name: string;
+  last_name: string;
+  username: string;
+  bio?: string;
+}
+
 interface EditProfileModalProps {
   open: boolean;
   onCancel: () => void;
-  onFinish: (values: any) => Promise<void>;
+  onFinish: (values: EditProfileValues) => Promise<void>;
   loading: boolean;
   initialValues: {
     first_name?: string;
@@ -32,7 +39,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     }
   }, [open, initialValues, form]);
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: EditProfileValues) => {
     await onFinish(values);
   };
 

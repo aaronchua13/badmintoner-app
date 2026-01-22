@@ -85,20 +85,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
     },
   ];
 
-  const handleLoginClick = async () => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        await api.get('/auth/profile', token);
-        router.push('/admin/home');
-        return;
-      } catch {
-        localStorage.removeItem('token');
-      }
-    }
-    router.push('/player/login');
-  };
-
   const menuItems: MenuProps['items'] = [
     {
       key: '/',
@@ -120,7 +106,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const hideLoginButton = ['/admin/login', '/admin/signup', '/player/login', '/player/signup'].includes(router.pathname);
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Layout className="layout" style={{ minHeight: '100vh' }}>
       <Header style={{ display: 'flex', alignItems: 'center', padding: '0 24px' }}>
         <div style={{ color: 'white', fontSize: '20px', fontWeight: 'bold', marginRight: '40px' }}>
           Badmintoner
