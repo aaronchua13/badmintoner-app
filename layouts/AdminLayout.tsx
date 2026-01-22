@@ -1,4 +1,4 @@
-import { Layout, Menu, MenuProps, message, Spin, Dropdown, Avatar, Space, Typography, Badge, Button } from 'antd';
+import { Layout, Menu, MenuProps, message, Spin, Dropdown, Avatar, Space, Typography, Badge, Button, Skeleton, theme } from 'antd';
 import {
   DashboardOutlined,
   UserOutlined,
@@ -9,6 +9,8 @@ import {
   DownOutlined,
   BellOutlined,
   HomeOutlined,
+  MenuUnfoldOutlined,
+  MenuFoldOutlined,
 } from '@ant-design/icons';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
@@ -34,6 +36,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
+  const {
+    token: { colorBgContainer, borderRadiusLG },
+  } = theme.useToken();
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -117,17 +123,24 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   if (!authorized) {
     return (
-      <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        <Spin size="large" tip="Verifying session..." />
-      </div>
+      <Layout style={{ minHeight: '100vh' }}>
+         <Content style={{ padding: '50px' }}>
+            <Skeleton active avatar paragraph={{ rows: 4 }} />
+         </Content>
+      </Layout>
     );
   }
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Sider
+        trigger={null}
+        collapsible
+        collapsed={collapsed}
         breakpoint="lg"
-        collapsedWidth="0"
+        onBreakpoint={(broken) => {
+          if (broken) setCollapsed(true);
+        }}
         style={{
           overflow: 'auto',
           height: '100vh',
@@ -135,55 +148,94 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           left: 0,
           top: 0,
           bottom: 0,
+          zIndex: 1001,
+          boxShadow: '2px 0 8px 0 rgba(29,35,41,.05)',
         }}
+        width={220}
       >
         <div style={{ 
-          color: 'white', 
-          fontSize: '18px', 
-          fontWeight: 'bold', 
-          padding: '16px',
-          textAlign: 'center'
+          height: '64px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'rgba(255, 255, 255, 0.1)',
+          margin: '16px',
+          borderRadius: '6px',
+          overflow: 'hidden',
+          transition: 'all 0.2s'
         }}>
-          Admin Panel
+           {collapsed ? (
+             <span style={{ color: 'white', fontWeight: 'bold', fontSize: '18px' }}>B</span>
+           ) : (
+             <span style={{ color: 'white', fontWeight: 'bold', fontSize: '18px' }}>Badmintoner</span>
+           )}
         </div>
         <Menu
           theme="dark"
           mode="inline"
           selectedKeys={[router.pathname]}
           items={menuItems}
+          style={{ borderRight: 0 }}
         />
       </Sider>
-      <Layout style={{ marginLeft: 200 }}>
-        <Header style={{ padding: '0 24px', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 1px 4px rgba(0,21,41,0.08)', zIndex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>Badmintoner Admin</h2>
-          </div>
-          {user && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+      <Layout style={{ marginLeft: collapsed ? 80 : 220, transition: 'all 0.2s' }}>
+        <Header style={{ 
+          padding: 0, 
+          background: colorBgContainer, 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          position: 'sticky',
+          top: 0,
+          zIndex: 1000,
+          boxShadow: '0 1px 4px rgba(0,21,41,0.08)'
+        }}>
+          <Button
+            type="text"
+            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            onClick={() => setCollapsed(!collapsed)}
+            style={{
+              fontSize: '16px',
+              width: 64,
+              height: 64,
+            }}
+          />
+          
+          <div style={{ display: 'flex', alignItems: 'center', marginRight: '24px', gap: '20px' }}>
+            <Badge count={5} size="small">
+               <Button type="text" icon={<BellOutlined />} style={{ fontSize: '18px' }} />
+            </Badge>
+            
+            {user && (
               <Dropdown menu={{ items: userMenu }} placement="bottomRight" arrow={{ pointAtCenter: true }} trigger={['click']}>
-                <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '4px 0', transition: 'all 0.3s' }}>
+                <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '4px 8px', borderRadius: '6px', transition: 'all 0.3s' }} className="user-dropdown">
                   <Avatar 
                     src={user.image} 
                     icon={<UserOutlined />} 
-                    style={{ backgroundColor: '#1890ff', marginRight: '12px', border: '2px solid #e6f7ff' }} 
-                    size={40}
+                    style={{ backgroundColor: '#1890ff', marginRight: '8px' }} 
+                    size={32}
                   />
-                  <div style={{ display: 'flex', flexDirection: 'column', marginRight: '12px', lineHeight: '1.3' }}>
-                    <Text strong style={{ fontSize: '14px', color: '#262626' }}>{user.first_name} {user.last_name}</Text>
-                    <Text style={{ fontSize: '12px', color: '#8c8c8c', textTransform: 'capitalize' }}>{user.role || 'Admin'}</Text>
+                  <div style={{ display: 'flex', flexDirection: 'column', marginRight: '8px', lineHeight: '1.2' }}>
+                    <Text strong style={{ fontSize: '14px' }}>{user.first_name}</Text>
+                    <Text type="secondary" style={{ fontSize: '11px', textTransform: 'capitalize' }}>{user.role || 'Admin'}</Text>
                   </div>
-                  <DownOutlined style={{ fontSize: '12px', color: '#bfbfbf' }} />
+                  <DownOutlined style={{ fontSize: '10px', color: '#bfbfbf' }} />
                 </div>
               </Dropdown>
-            </div>
-          )}
+            )}
+          </div>
         </Header>
         <Content style={{ margin: '24px 16px 0', overflow: 'initial' }}>
-          <div style={{ padding: 24, background: '#fff', minHeight: 'calc(100vh - 134px)' }}>
+          <div style={{ 
+            padding: 24, 
+            background: colorBgContainer, 
+            minHeight: 'calc(100vh - 112px)', // Adjusted calculation
+            borderRadius: borderRadiusLG
+          }}>
             {children}
           </div>
         </Content>
-        <Footer style={{ textAlign: 'center' }}>
+        <Footer style={{ textAlign: 'center', background: 'transparent' }}>
           Badmintoner Admin ©{new Date().getFullYear()}
         </Footer>
       </Layout>

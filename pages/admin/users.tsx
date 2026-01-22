@@ -133,26 +133,30 @@ export default function AdminUsers() {
     form.resetFields();
   };
 
-  const columns = [
+  const columns: any[] = [
     {
       title: 'First Name',
       dataIndex: 'first_name',
       key: 'first_name',
+      width: 150,
     },
     {
       title: 'Last Name',
       dataIndex: 'last_name',
       key: 'last_name',
+      width: 150,
     },
     {
       title: 'Email',
       dataIndex: 'email',
       key: 'email',
+      width: 250,
     },
     {
       title: 'Role',
       dataIndex: 'role',
       key: 'role',
+      width: 120,
       render: (role: string) => (
         <Tag color={role === 'admin' ? 'blue' : 'green'}>
           {role ? role.toUpperCase() : 'USER'}
@@ -162,7 +166,8 @@ export default function AdminUsers() {
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: any, record: User) => (
+      width: 120,
+      render: (_: any, record: any) => (
         <Space>
           <Button 
             type="link" 
@@ -196,14 +201,18 @@ export default function AdminUsers() {
         </Button>
       </div>
 
-      <Card>
+      <Card 
+        bordered={false} 
+        style={{ borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
+        bodyStyle={{ padding: '0' }}
+      >
         <Table
+          loading={isLoading}
           columns={columns}
           dataSource={users}
           rowKey="_id"
-          loading={isLoading}
-          locale={{ emptyText: 'No users yet. Add your first user!' }}
           pagination={{ pageSize: 10 }}
+          scroll={{ x: 900 }}
         />
       </Card>
 
