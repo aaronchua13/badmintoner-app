@@ -23,17 +23,28 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const router = useRouter();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userType, setUserType] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
       const token = localStorage.getItem('token');
+      const type = localStorage.getItem('user_type');
+      setUserType(type);
+
       if (token) {
         try {
-          const profile = await api.get('/auth/profile', token) as UserProfile;
+          let profile: UserProfile;
+          if (type === 'player') {
+            profile = await api.get('/player/profile', token) as UserProfile;
+          } else {
+            profile = await api.get('/auth/profile', token) as UserProfile;
+          }
           setUser(profile);
         } catch {
           localStorage.removeItem('token');
+          localStorage.removeItem('user_type');
           setUser(null);
+          setUserType(null);
         }
       }
       setLoading(false);
@@ -42,9 +53,17 @@ export default function MainLayout({ children }: MainLayoutProps) {
   }, []);
 
   const handleLogout = () => {
+    const type = localStorage.getItem('user_type');
     localStorage.removeItem('token');
+    localStorage.removeItem('user_type');
     setUser(null);
-    router.push('/signin');
+    setUserType(null);
+    
+    if (type === 'admin') {
+      router.push('/admin/login');
+    } else {
+      router.push('/player/login');
+    }
   };
 
   const userMenu: MenuProps['items'] = [
@@ -52,7 +71,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
       key: 'profile',
       icon: <UserOutlined />,
       label: 'Profile',
-      onClick: () => router.push('/admin/home'),
+      onClick: () => router.push(userType === 'player' ? '/player/profile' : '/admin/home'),
     },
     {
       type: 'divider',
@@ -77,7 +96,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         localStorage.removeItem('token');
       }
     }
-    router.push('/signin');
+    router.push('/player/login');
   };
 
   const menuItems: MenuProps['items'] = [
@@ -98,7 +117,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
     },
   ];
 
-  const hideLoginButton = ['/signin', '/signup'].includes(router.pathname);
+  const hideLoginButton = ['/admin/login', '/admin/signup', '/player/login', '/player/signup'].includes(router.pathname);
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -133,7 +152,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
             <Button 
               type="primary" 
               icon={<LoginOutlined />} 
-              onClick={handleLoginClick}
+              onClick={() => router.push('/player/login')}
               loading={loading}
             >
               Login

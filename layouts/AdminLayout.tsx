@@ -39,7 +39,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     const checkAuth = async () => {
       const token = localStorage.getItem('token');
       if (!token) {
-        router.replace('/signin');
+        router.replace('/admin/login');
         return;
       }
 
@@ -50,7 +50,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       } catch (error) {
         localStorage.removeItem('token');
         message.error('Session expired or invalid. Please sign in again.');
-        router.replace('/signin');
+        router.replace('/admin/login');
       }
     };
 
@@ -59,7 +59,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
-    router.push('/signin');
+    router.push('/admin/login');
   };
 
   const userMenu: MenuProps['items'] = [

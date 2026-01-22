@@ -1,7 +1,7 @@
 import MainLayout from '@/layouts/MainLayout';
-import { Typography, Card, Form, Input, Button, Checkbox, App, Alert } from 'antd';
+import { Typography, Card, Form, Input, Button, Checkbox, App, Alert, Modal } from 'antd';
 import { MailOutlined, LockOutlined } from '@ant-design/icons';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '@/utils/api';
 import { useRouter } from 'next/router';
 
@@ -17,13 +17,30 @@ interface LoginResponse {
   access_token: string;
 }
 
-export default function SignIn() {
+export default function AdminLogin() {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { message } = App.useApp();
+  const [securityChecked, setSecurityChecked] = useState(false);
+  const hasCheckedRef = useRef(false);
 
   useEffect(() => {
+    if (hasCheckedRef.current) return;
+    hasCheckedRef.current = true;
+
+    // Security check for admin access
+    const checkSecurity = () => {
+      const password = prompt('Please enter the security password to access Admin Login:');
+      if (password === 'iamadmin') {
+        setSecurityChecked(true);
+      } else {
+        message.error('Incorrect security password.');
+        router.replace('/');
+      }
+    };
+
+    // Check existing auth first
     const checkAuth = async () => {
       const token = localStorage.getItem('token');
       if (token) {
@@ -31,13 +48,20 @@ export default function SignIn() {
           await api.get('/auth/profile', token);
           message.info('You are already logged in');
           router.replace('/admin/home');
+          setSecurityChecked(true); // Skip security check if already logged in
         } catch (error) {
-          // Token invalid, stay on sign in page
           localStorage.removeItem('token');
+          checkSecurity();
         }
+      } else {
+        checkSecurity();
       }
     };
-    checkAuth();
+    
+    // Only run on client side
+    if (typeof window !== 'undefined') {
+      checkAuth();
+    }
   }, [router, message]);
 
   const onFinish = async (values: SignInFormValues) => {
@@ -51,6 +75,7 @@ export default function SignIn() {
 
       if (response.access_token) {
         localStorage.setItem('token', response.access_token);
+        localStorage.setItem('user_type', 'admin');
         message.success('Sign in successful!');
         router.push('/admin/home');
       } else {
@@ -63,25 +88,29 @@ export default function SignIn() {
     }
   };
 
+  if (!securityChecked) {
+    return null; // Or a loading spinner
+  }
+
   return (
     <MainLayout>
       <div style={{ maxWidth: '400px', margin: '0 auto' }}>
         <Card>
           <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <Title level={2}>Sign In</Title>
-            <Paragraph>Welcome back to Badmintoner</Paragraph>
+            <Title level={2}>Admin Sign In</Title>
+            <Paragraph>Welcome back to Badmintoner Admin</Paragraph>
             <Alert
-        message="Test Credentials"
-        description={
-          <div>
-            <p>Email: aaronchua13@gmail.com</p>
-            <p>Password: aaron123</p>
-          </div>
-        }
-        type="info"
-        showIcon
-        style={{ marginBottom: 16, textAlign: 'left' }}
-      />
+              message="Test Credentials"
+              description={
+                <div>
+                  <p>Email: aaronchua13@gmail.com</p>
+                  <p>Password: aaron123</p>
+                </div>
+              }
+              type="info"
+              showIcon
+              style={{ marginBottom: 16, textAlign: 'left' }}
+            />
           </div>
 
           <Form
@@ -128,7 +157,7 @@ export default function SignIn() {
             </Form.Item>
 
             <div style={{ textAlign: 'center' }}>
-              Don&apos;t have an account? <a href="/signup">Sign Up</a>
+              Don&apos;t have an account? <a href="/admin/signup">Sign Up</a>
             </div>
           </Form>
         </Card>

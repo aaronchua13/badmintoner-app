@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import MainLayout from '@/layouts/MainLayout';
 import { Typography, Card, Form, Input, Button, message } from 'antd';
 import { UserOutlined, MailOutlined, LockOutlined } from '@ant-design/icons';
@@ -11,6 +12,7 @@ interface SignUpFormValues {
   first_name: string;
   last_name: string;
   email: string;
+  username?: string;
   password: string;
   confirmPassword: string;
 }
@@ -19,7 +21,7 @@ interface LoginResponse {
   access_token: string;
 }
 
-export default function SignUp() {
+export default function PlayerSignUp() {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -28,8 +30,9 @@ export default function SignUp() {
     setLoading(true);
     
     try {
-      const response = await api.post<LoginResponse>('/auth/signup', {
+      const response = await api.post<LoginResponse>('/player/signup', {
         email: values.email,
+        username: values.username,
         password: values.password,
         first_name: values.first_name,
         last_name: values.last_name,
@@ -40,9 +43,10 @@ export default function SignUp() {
         message.success('Account created successfully!');
         router.push('/');
       }
-    } catch (error: any) {
-      console.error('Sign up error:', error);
-      message.error(error.message || 'Sign up failed. Please try again.');
+    } catch (error) {
+      const err = error as Error;
+      console.error('Sign up error:', err);
+      message.error(err.message || 'Sign up failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -53,8 +57,8 @@ export default function SignUp() {
       <div style={{ maxWidth: '500px', margin: '0 auto' }}>
         <Card>
           <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <Title level={2}>Sign Up</Title>
-            <Paragraph>Create your Badmintoner account</Paragraph>
+            <Title level={2}>Player Sign Up</Title>
+            <Paragraph>Create your Player account</Paragraph>
           </div>
 
           <Form
@@ -82,6 +86,17 @@ export default function SignUp() {
                 <Input prefix={<UserOutlined />} placeholder="Doe" />
               </Form.Item>
             </div>
+
+            <Form.Item
+              label="Username"
+              name="username"
+              rules={[
+                { pattern: /^[a-zA-Z0-9_]+$/, message: 'Username can only contain letters, numbers and underscores' }
+              ]}
+              tooltip="Optional. If left blank, one will be generated from your email."
+            >
+              <Input prefix={<UserOutlined />} placeholder="johndoe123" />
+            </Form.Item>
 
             <Form.Item
               label="Email"
@@ -135,7 +150,7 @@ export default function SignUp() {
             </Form.Item>
 
             <div style={{ textAlign: 'center' }}>
-              Already have an account? <a href="/signin">Sign In</a>
+              Already have an account? <Link href="/player/login">Sign In</Link>
             </div>
           </Form>
         </Card>
