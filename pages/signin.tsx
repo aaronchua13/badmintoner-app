@@ -118,7 +118,6 @@ export default function SignIn() {
                 <Form.Item name="remember" valuePropName="checked" noStyle>
                   <Checkbox>Remember me</Checkbox>
                 </Form.Item>
-                <a href="#" style={{ color: '#1890ff' }}>Forgot password?</a>
               </div>
             </Form.Item>
 

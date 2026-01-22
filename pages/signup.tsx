@@ -1,6 +1,6 @@
 import MainLayout from '@/layouts/MainLayout';
 import { Typography, Card, Form, Input, Button, message } from 'antd';
-import { UserOutlined, MailOutlined, LockOutlined, PhoneOutlined } from '@ant-design/icons';
+import { UserOutlined, MailOutlined, LockOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { api } from '@/utils/api';
 import { useRouter } from 'next/router';
@@ -8,9 +8,9 @@ import { useRouter } from 'next/router';
 const { Title, Paragraph } = Typography;
 
 interface SignUpFormValues {
-  name: string;
+  first_name: string;
+  last_name: string;
   email: string;
-  phone: string;
   password: string;
   confirmPassword: string;
 }
@@ -28,17 +28,11 @@ export default function SignUp() {
     setLoading(true);
     
     try {
-      // Split name into firstName and lastName
-      const nameParts = values.name.trim().split(' ');
-      const firstName = nameParts[0];
-      const lastName = nameParts.slice(1).join(' ') || '';
-
       const response = await api.post<LoginResponse>('/auth/signup', {
         email: values.email,
         password: values.password,
-        firstName,
-        lastName: lastName || firstName, // Fallback if no last name
-        // phone is not supported by API yet
+        first_name: values.first_name,
+        last_name: values.last_name,
       });
 
       if (response.access_token) {
@@ -70,16 +64,24 @@ export default function SignUp() {
             layout="vertical"
             autoComplete="off"
           >
-            <Form.Item
-              label="Full Name"
-              name="name"
-              rules={[
-                { required: true, message: 'Please input your name!' },
-                { min: 2, message: 'Name must be at least 2 characters!' },
-              ]}
-            >
-              <Input prefix={<UserOutlined />} placeholder="John Doe" />
-            </Form.Item>
+            <div style={{ display: 'flex', gap: '16px' }}>
+              <Form.Item
+                label="First Name"
+                name="first_name"
+                rules={[{ required: true, message: 'Please input your first name!' }]}
+                style={{ flex: 1 }}
+              >
+                <Input prefix={<UserOutlined />} placeholder="John" />
+              </Form.Item>
+              <Form.Item
+                label="Last Name"
+                name="last_name"
+                rules={[{ required: true, message: 'Please input your last name!' }]}
+                style={{ flex: 1 }}
+              >
+                <Input prefix={<UserOutlined />} placeholder="Doe" />
+              </Form.Item>
+            </div>
 
             <Form.Item
               label="Email"
@@ -90,17 +92,6 @@ export default function SignUp() {
               ]}
             >
               <Input prefix={<MailOutlined />} placeholder="john@example.com" />
-            </Form.Item>
-
-            <Form.Item
-              label="Phone Number"
-              name="phone"
-              rules={[
-                { required: true, message: 'Please input your phone number!' },
-                { pattern: /^[0-9]{10,15}$/, message: 'Please enter a valid phone number!' },
-              ]}
-            >
-              <Input prefix={<PhoneOutlined />} placeholder="1234567890" />
             </Form.Item>
 
             <Form.Item

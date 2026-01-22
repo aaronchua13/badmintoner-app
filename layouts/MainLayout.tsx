@@ -98,6 +98,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
     },
   ];
 
+  const hideLoginButton = ['/signin', '/signup'].includes(router.pathname);
+
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Header style={{ display: 'flex', alignItems: 'center', padding: '0 24px' }}>
@@ -127,14 +129,16 @@ export default function MainLayout({ children }: MainLayoutProps) {
             </Space>
           </Dropdown>
         ) : (
-          <Button 
-            type="primary" 
-            icon={<LoginOutlined />} 
-            onClick={handleLoginClick}
-            loading={loading}
-          >
-            Login
-          </Button>
+          !hideLoginButton && (
+            <Button 
+              type="primary" 
+              icon={<LoginOutlined />} 
+              onClick={handleLoginClick}
+              loading={loading}
+            >
+              Login
+            </Button>
+          )
         )}
       </Header>
       <Content style={{ padding: '24px 50px', minHeight: 'calc(100vh - 134px)' }}>
