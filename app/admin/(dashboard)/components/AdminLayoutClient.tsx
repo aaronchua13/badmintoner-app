@@ -115,10 +115,14 @@ export default function AdminLayoutClient({ children, user }: AdminLayoutClientP
             if (broken) setCollapsed(true);
         }}
       >
-        <div style={{ padding: '16px', textAlign: 'center' }}>
-            <Text strong style={{ color: 'white', fontSize: '18px' }}>
-                {collapsed ? '' : 'Badmintoner Admin'}
-            </Text>
+        <div style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {collapsed ? (
+                <TrophyOutlined style={{ fontSize: '24px', color: 'white' }} />
+            ) : (
+                <Text strong style={{ color: 'white', fontSize: '18px', whiteSpace: 'nowrap' }}>
+                     Badmintoner
+                </Text>
+            )}
         </div>
         <Menu theme="dark" mode="inline" selectedKeys={[pathname]} items={menuItems} />
       </Sider>

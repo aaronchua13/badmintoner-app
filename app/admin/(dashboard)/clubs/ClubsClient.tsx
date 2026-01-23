@@ -114,7 +114,7 @@ export default function ClubsClient({ initialClubs }: { initialClubs: Club[] }) 
       <Card
         variant="borderless" 
         style={{ borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
-        bodyStyle={{ padding: '0' }}
+        styles={{ body: { padding: '0' } }}
       >
         <Table
           columns={columns}

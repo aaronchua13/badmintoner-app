@@ -36,7 +36,7 @@ export async function loginAdminAction(formData: FormData) {
       console.log('Setting token cookie:', token);
       cookieStore.set('token', token, { 
         httpOnly: true, 
-        secure: false, // process.env.NODE_ENV === 'production', // Force false for debugging
+        secure: process.env.NODE_ENV === 'production',
         path: '/',
         maxAge: 60 * 60 * 24 * 7 // 1 week
       });
@@ -80,7 +80,7 @@ export async function loginPlayerAction(formData: FormData) {
         console.log('Setting player token cookie');
         cookieStore.set('token', token, {
             httpOnly: true,
-            secure: false, // process.env.NODE_ENV === 'production', // Force false for debugging
+            secure: process.env.NODE_ENV === 'production',
             path: '/',
             maxAge: 60 * 60 * 24 * 7 // 1 week
         });
