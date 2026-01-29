@@ -1,11 +1,12 @@
 'use client';
 
 import { Layout, Menu, MenuProps, Button, Dropdown, Avatar, Space, Typography, Grid, Drawer, App } from 'antd';
-import { HomeOutlined, TeamOutlined, CalendarOutlined, LoginOutlined, UserOutlined, LogoutOutlined, DownOutlined, MenuOutlined } from '@ant-design/icons';
+import { HomeOutlined, TeamOutlined, CalendarOutlined, LoginOutlined, UserOutlined, LogoutOutlined, DownOutlined, MenuOutlined, PlusOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { logoutAction } from '@/app/actions/auth';
 import { useState, useEffect } from 'react';
+import CreateEventModal from './CreateEventModal';
 
 const { Header, Content, Footer } = Layout;
 const { Text } = Typography;
@@ -17,6 +18,7 @@ interface UserProfile {
   email: string;
   image?: string;
   role?: string;
+  _id?: string;
   [key: string]: unknown;
 }
 
@@ -30,6 +32,7 @@ export default function MainLayoutClient({ children, user }: MainLayoutClientPro
   const { message } = App.useApp();
   const screens = useBreakpoint();
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const [createEventOpen, setCreateEventOpen] = useState(false);
   // Fix hydration mismatch by only rendering responsive parts after mount
   const [mounted, setMounted] = useState(false);
 
@@ -57,6 +60,7 @@ export default function MainLayoutClient({ children, user }: MainLayoutClientPro
           }
       },
     },
+    ...(user?.role !== 'admin' ? [] : []),
     {
       type: 'divider',
     },
@@ -84,6 +88,20 @@ export default function MainLayoutClient({ children, user }: MainLayoutClientPro
       key: '/events',
       icon: <CalendarOutlined />,
       label: <Link href="/events">Events</Link>,
+    },
+  ];
+
+  const createMenu: MenuProps['items'] = [
+    {
+      key: 'create-club',
+      label: <Link href="/create-club">Create Club</Link>,
+      icon: <TeamOutlined />,
+    },
+    {
+      key: 'create-event',
+      label: 'Create Event',
+      icon: <CalendarOutlined />,
+      onClick: () => setCreateEventOpen(true),
     },
   ];
 
@@ -134,13 +152,20 @@ export default function MainLayoutClient({ children, user }: MainLayoutClientPro
             />
           ) : (
              mounted && (user ? (
-                <Dropdown menu={{ items: userMenu }} placement="bottomRight" arrow>
-                  <Space style={{ cursor: 'pointer' }}>
-                    <Avatar src={user.image} icon={<UserOutlined />} />
-                    <span style={{ color: '#000' }}>{user.first_name}</span>
-                    <DownOutlined style={{ fontSize: '12px', color: '#999' }} />
-                  </Space>
-                </Dropdown>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  {user.role !== 'admin' && (
+                    <Dropdown menu={{ items: createMenu }} placement="bottomRight" arrow>
+                      <Button type="primary" shape="circle" icon={<PlusOutlined />} />
+                    </Dropdown>
+                  )}
+                  <Dropdown menu={{ items: userMenu }} placement="bottomRight" arrow>
+                    <Space style={{ cursor: 'pointer' }}>
+                      <Avatar src={user.image} icon={<UserOutlined />} />
+                      <span style={{ color: '#000' }}>{user.first_name}</span>
+                      <DownOutlined style={{ fontSize: '12px', color: '#999' }} />
+                    </Space>
+                  </Dropdown>
+                </div>
               ) : (
                 <Space>
                   <Link href="/player/login">
@@ -160,6 +185,16 @@ export default function MainLayoutClient({ children, user }: MainLayoutClientPro
             {children}
         </div>
       </Content>
+      
+      {user && (
+        <>
+          <CreateEventModal 
+            open={createEventOpen} 
+            onCancel={() => setCreateEventOpen(false)} 
+            userId={user._id || ''} 
+          />
+        </>
+      )}
 
       <Footer style={{ textAlign: 'center' }}>
         Badmintoner ©{new Date().getFullYear()} Created with Ant Design

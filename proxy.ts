@@ -11,6 +11,7 @@ export function proxy(request: NextRequest) {
   const validRoutes = [
     '/',
     '/clubs',
+    '/create-club',
     '/events',
     '/not-found',
     '/admin/login',
@@ -28,7 +29,8 @@ export function proxy(request: NextRequest) {
   // Check if route is valid (including dynamic routes)
   const isValidRoute = 
     validRoutes.includes(pathname) || 
-    /^\/player\/profile\/[^/]+$/.test(pathname);
+    pathname.startsWith('/player/profile/') ||
+    /^\/clubs\/[^/]+$/.test(pathname);
 
   if (!isValidRoute) {
     return NextResponse.redirect(new URL('/not-found', request.url));
