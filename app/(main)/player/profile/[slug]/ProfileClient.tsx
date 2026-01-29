@@ -79,6 +79,10 @@ export default function ProfileClient({ profile: initialProfile, currentUser }: 
   };
 
   const handleAccountSettings = async (values: { email?: string; password?: string }) => {
+    if (!values.email || !values.password) {
+        message.error('Please provide email or password to update');
+        return;
+    }
     setUpdatingAccount(true);
     const result = await updateAccountAction(values);
     setUpdatingAccount(false);
