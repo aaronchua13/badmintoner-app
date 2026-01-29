@@ -65,6 +65,13 @@ export function proxy(request: NextRequest) {
       }
   }
 
+  // Protect Player Profile Routes
+  if (pathname.startsWith('/player/profile')) {
+      if (!token) {
+          return NextResponse.redirect(new URL('/player/login', request.url));
+      }
+  }
+
   return NextResponse.next();
 }
 

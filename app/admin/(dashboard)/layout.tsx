@@ -28,10 +28,19 @@ export default async function AdminLayout({ children }: { children: React.ReactN
              user = await fetchServer<UserProfile>('/auth/profile');
              if (user) {
                  user.role = 'admin';
+             } else {
+                 // Token invalid or expired (fetch failed)
+                 redirect('/api/logout');
              }
         }
+      } else {
+          // No token, redirect to login
+          redirect('/admin/login');
       }
-  } catch {
+  } catch (error) {
+      if ((error as { digest?: string }).digest?.startsWith('NEXT_REDIRECT')) {
+          throw error;
+      }
       // ignore
   }
 
