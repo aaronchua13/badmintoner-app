@@ -1,6 +1,6 @@
 'use client';
 
-import { Typography, Card, Input, Button, App } from 'antd';
+import { Typography, Card, Input, Button, App, Alert } from 'antd';
 import { MailOutlined, LockOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import Link from 'next/link';
@@ -30,6 +30,19 @@ export default function PlayerLoginPage() {
             <Title level={2}>Player Sign In</Title>
             <Paragraph>Welcome back, Player!</Paragraph>
           </div>
+
+          <Alert
+            message="Demo Credentials"
+            description={
+                <div style={{ fontSize: '13px' }}>
+                    <div>Email: <b>player@gmail.com</b></div>
+                    <div>Password: <b>Player123</b></div>
+                </div>
+            }
+            type="info"
+            showIcon
+            style={{ marginBottom: 24, textAlign: 'left' }}
+          />
 
           <form action={onFinish}>
              <div style={{ marginBottom: 16 }}>
