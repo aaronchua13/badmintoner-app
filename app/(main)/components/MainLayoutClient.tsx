@@ -76,14 +76,14 @@ export default function MainLayoutClient({ children, user }: MainLayoutClientPro
       label: <Link href="/">Home</Link>,
     },
     {
-      key: '/club',
+      key: '/clubs',
       icon: <TeamOutlined />,
-      label: <Link href="/club">Club</Link>,
+      label: <Link href="/clubs">Clubs</Link>,
     },
     {
-      key: '/event',
+      key: '/events',
       icon: <CalendarOutlined />,
-      label: <Link href="/event">Event</Link>,
+      label: <Link href="/events">Events</Link>,
     },
   ];
 

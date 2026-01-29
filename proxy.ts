@@ -10,8 +10,8 @@ export function proxy(request: NextRequest) {
   // Define valid routes
   const validRoutes = [
     '/',
-    '/club',
-    '/event',
+    '/clubs',
+    '/events',
     '/not-found',
     '/admin/login',
     '/admin/signup',
