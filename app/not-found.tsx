@@ -23,12 +23,15 @@ export default async function NotFound() {
         if (userType === 'player') {
             user = await fetchServer<UserProfile>('/players/profile');
             if (user) user.role = 'player';
-        } else {
+        } else if (userType === 'admin') {
             user = await fetchServer<UserProfile>('/auth/profile');
             if (user) user.role = 'admin';
         }
      }
-  } catch {
+  } catch (error) {
+      if ((error as { digest?: string }).digest?.startsWith('NEXT_REDIRECT')) {
+          throw error;
+      }
       // ignore
   }
 

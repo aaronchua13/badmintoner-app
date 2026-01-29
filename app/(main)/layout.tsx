@@ -17,19 +17,24 @@ export default async function MainLayout({ children }: { children: React.ReactNo
   try {
       const cookieStore = await cookies();
       const token = cookieStore.get('token')?.value;
+      console.log('token: ', token);
       const userType = cookieStore.get('user_type')?.value;
+      console.log('userType: ', userType);
 
       if (token) {
         if (userType === 'player') {
              user = await fetchServer<UserProfile>('/players/profile');
              if (user) user.role = 'player';
-        } else {
-             // Admin might visit home page too
+        } else if (userType === 'admin') {
              user = await fetchServer<UserProfile>('/auth/profile');
+             console.log('#######user: ', user);
              if (user) user.role = 'admin';
         }
       }
-  } catch {
+  } catch (error) {
+      if ((error as { digest?: string }).digest?.startsWith('NEXT_REDIRECT')) {
+          throw error;
+      }
       // ignore error, just not logged in
   }
 

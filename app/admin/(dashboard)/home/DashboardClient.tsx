@@ -140,9 +140,8 @@ export default function AdminDashboardClient({
     },
   ];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const renderList = (
-    data: any[],
+    data: (User | Club | Event | Player)[],
     type: 'user' | 'club' | 'event' | 'player',
   ) => {
     if (!data || data.length === 0) {

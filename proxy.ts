@@ -10,8 +10,9 @@ export function proxy(request: NextRequest) {
   // Define valid routes
   const validRoutes = [
     '/',
-    '/club',
-    '/event',
+    '/clubs',
+    '/create-club',
+    '/events',
     '/not-found',
     '/admin/login',
     '/admin/signup',
@@ -28,7 +29,8 @@ export function proxy(request: NextRequest) {
   // Check if route is valid (including dynamic routes)
   const isValidRoute = 
     validRoutes.includes(pathname) || 
-    /^\/player\/profile\/[^/]+$/.test(pathname);
+    pathname.startsWith('/player/profile/') ||
+    /^\/clubs\/[^/]+$/.test(pathname);
 
   if (!isValidRoute) {
     return NextResponse.redirect(new URL('/not-found', request.url));
@@ -62,6 +64,13 @@ export function proxy(request: NextRequest) {
           } else if (userType === 'admin') {
               return NextResponse.redirect(new URL('/admin/home', request.url));
           }
+      }
+  }
+
+  // Protect Player Profile Routes
+  if (pathname.startsWith('/player/profile')) {
+      if (!token) {
+          return NextResponse.redirect(new URL('/player/login', request.url));
       }
   }
 

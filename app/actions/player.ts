@@ -53,7 +53,7 @@ export async function updateAccountAction(data: UpdateAccountData) {
     if (!token) return { error: 'Unauthorized' };
   
     try {
-      const res = await fetch(`${API_URL}/players/profile/account`, {
+      const res = await fetch(`${API_URL}/players/profile`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
