@@ -1,6 +1,6 @@
 'use client';
 
-import { Typography, Card, Table, Button, Space, App, Modal, Form, Input, Popconfirm } from 'antd';
+import { Typography, Card, Table, Button, Space, App, Modal, Form, Input, Popconfirm, Tag, Select } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useState } from 'react';
@@ -14,6 +14,7 @@ interface Club {
   name: string;
   location: string;
   members: number;
+  allowed_player_levels?: string[];
   [key: string]: unknown;
 }
 
@@ -86,6 +87,22 @@ export default function ClubsClient({ initialClubs }: { initialClubs: Club[] }) 
       key: 'location',
     },
     {
+      title: 'Player Levels',
+      dataIndex: 'allowed_player_levels',
+      key: 'allowed_player_levels',
+      render: (levels: string[]) => (
+        <>
+          {levels && levels.length > 0 ? (
+            levels.map(level => (
+              <Tag key={level} color="blue">{level}</Tag>
+            ))
+          ) : (
+            <span style={{ color: '#999' }}>All</span>
+          )}
+        </>
+      ),
+    },
+    {
       title: 'Members',
       dataIndex: 'members',
       key: 'members',
@@ -139,6 +156,17 @@ export default function ClubsClient({ initialClubs }: { initialClubs: Club[] }) 
           </Form.Item>
           <Form.Item name="location" label="Location" rules={[{ required: true }]}>
             <Input />
+          </Form.Item>
+          <Form.Item name="allowed_player_levels" label="Allowed Player Levels">
+            <Select
+              mode="multiple"
+              placeholder="Select player levels"
+              options={[
+                { value: 'beginner', label: 'Beginner' },
+                { value: 'intermediate', label: 'Intermediate' },
+                { value: 'advanced', label: 'Advanced' },
+              ]}
+            />
           </Form.Item>
         </Form>
       </Modal>

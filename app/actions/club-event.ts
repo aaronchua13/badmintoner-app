@@ -119,9 +119,32 @@ export async function createEventAction(data: any) {
 }
 
  
-export async function getClubsAction(page: number = 1, limit: number = 10) {
+export async function getClubsAction(
+  page: number = 1, 
+  limit: number = 10, 
+  filters?: {
+    location?: string[];
+    day?: string[];
+    timeOfDay?: ('Morning' | 'Afternoon' | 'Evening')[];
+  }
+) {
   try {
-    const res = await fetch(`${API_URL}/clubs/detailed-list?page=${page}&limit=${limit}`, {
+    const queryParams = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+
+    if (filters?.location && filters.location.length > 0) {
+      queryParams.append('court_location', filters.location.join(','));
+    }
+    if (filters?.day && filters.day.length > 0) {
+      queryParams.append('day', filters.day.join(','));
+    }
+    if (filters?.timeOfDay && filters.timeOfDay.length > 0) {
+      queryParams.append('time_of_day', filters.timeOfDay.map(t => t.toLowerCase()).join(','));
+    }
+
+    const res = await fetch(`${API_URL}/clubs/detailed-list?${queryParams.toString()}`, {
       cache: 'no-store'
     });
     

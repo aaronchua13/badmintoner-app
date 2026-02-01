@@ -25,6 +25,7 @@ interface Club {
   name: string;
   contact_person_name: string;
   fb_link?: string;
+  allowed_player_levels?: string[];
   established_date?: string;
   schedules: {
     id?: string;
@@ -119,6 +120,17 @@ export default function ClubDetailPage() {
             <Descriptions.Item label="In Charge">{club.contact_person_name || 'N/A'}</Descriptions.Item>
             <Descriptions.Item label="Established">
               {club.established_date ? new Date(club.established_date).getFullYear() : 'N/A'}
+            </Descriptions.Item>
+            <Descriptions.Item label="Player Levels">
+              {club.allowed_player_levels && club.allowed_player_levels.length > 0 ? (
+                <Space size={4} wrap>
+                  {club.allowed_player_levels.map(level => (
+                    <Tag key={level} color="blue" style={{ margin: 0 }}>
+                      {level.charAt(0).toUpperCase() + level.slice(1)}
+                    </Tag>
+                  ))}
+                </Space>
+              ) : 'All Levels'}
             </Descriptions.Item>
             <Descriptions.Item label="Social Media">
               {club.fb_link ? (
