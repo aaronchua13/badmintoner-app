@@ -50,11 +50,14 @@ export async function updateClubAction(id: string, data: any) {
     }
   
     try {
+      console.log(`[updateClubAction] Updating club ${id} at ${API_URL}/clubs/${id} with PATCH`);
       const res = await fetch(`${API_URL}/clubs/${id}`, {
         method: 'PATCH',
+        cache: 'no-store',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
+          'X-HTTP-Method-Override': 'PATCH',
         },
         body: JSON.stringify(data),
       });
@@ -116,9 +119,32 @@ export async function createEventAction(data: any) {
 }
 
  
-export async function getClubsAction(page: number = 1, limit: number = 10) {
+export async function getClubsAction(
+  page: number = 1, 
+  limit: number = 10, 
+  filters?: {
+    location?: string[];
+    day?: string[];
+    timeOfDay?: ('Morning' | 'Afternoon' | 'Evening')[];
+  }
+) {
   try {
-    const res = await fetch(`${API_URL}/clubs/detailed-list?page=${page}&limit=${limit}`, {
+    const queryParams = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+
+    if (filters?.location && filters.location.length > 0) {
+      queryParams.append('court_location', filters.location.join(','));
+    }
+    if (filters?.day && filters.day.length > 0) {
+      queryParams.append('day', filters.day.join(','));
+    }
+    if (filters?.timeOfDay && filters.timeOfDay.length > 0) {
+      queryParams.append('time_of_day', filters.timeOfDay.map(t => t.toLowerCase()).join(','));
+    }
+
+    const res = await fetch(`${API_URL}/clubs/detailed-list?${queryParams.toString()}`, {
       cache: 'no-store'
     });
     
@@ -136,12 +162,24 @@ export async function getClubsByPlayerAction(playerId: string) {
     const res = await fetch(`${API_URL}/clubs`, { cache: 'no-store' });
     if (!res.ok) return [];
     
-    const allClubs = await res.json();
-    if (!Array.isArray(allClubs)) return [];
+    const responseData = await res.json();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let allClubs: any[] = [];
+
+    if (Array.isArray(responseData)) {
+        allClubs = responseData;
+    } else if (responseData && Array.isArray(responseData.data)) {
+        allClubs = responseData.data;
+    } else {
+        return [];
+    }
 
     // Filter by player_id
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const playerClubs = allClubs.filter((c: any) => c.player_id === playerId);
+    const playerClubs = allClubs.filter((c: any) => {
+        const cPlayerId = typeof c.player_id === 'object' ? c.player_id?._id : c.player_id;
+        return String(cPlayerId) === String(playerId);
+    });
 
     // Fetch schedules and courts for each club
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -220,7 +258,13 @@ export async function getCourtsAction() {
     
     if (!res.ok) return [];
     
-    return await res.json();
+    const responseData = await res.json();
+    if (Array.isArray(responseData)) {
+        return responseData;
+    } else if (responseData && Array.isArray(responseData.data)) {
+        return responseData.data;
+    }
+    return [];
   } catch (error) {
     console.error('Failed to fetch courts:', error);
     return [];

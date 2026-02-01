@@ -243,6 +243,7 @@ export default function CreateClubClient({
         player_id: userId,
         contact_person_name: values.contact_person_name,
         fb_link: values.fb_link || '',
+        allowed_player_levels: values.allowed_player_levels || [],
         established_date: values.established_date
           ? values.established_date.toISOString()
           : '',
@@ -321,6 +322,22 @@ export default function CreateClubClient({
             rules={[{ required: false }]}
           >
             <DatePicker style={{ width: '100%' }} />
+          </Form.Item>
+
+          <Form.Item
+            name="allowed_player_levels"
+            label="Allowed Player Levels"
+            rules={[{ required: false }]}
+          >
+            <Select
+              mode="multiple"
+              placeholder="Select player levels"
+              options={[
+                { value: 'beginner', label: 'Beginner' },
+                { value: 'intermediate', label: 'Intermediate' },
+                { value: 'advanced', label: 'Advanced' },
+              ]}
+            />
           </Form.Item>
 
           <div

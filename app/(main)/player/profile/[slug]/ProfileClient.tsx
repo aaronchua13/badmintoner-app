@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Typography, Card, Button, Avatar, App, Row, Col, Grid, Space, Tooltip, Spin, Empty } from 'antd';
+import { Typography, Card, Button, Avatar, App, Row, Col, Grid, Space, Tooltip, Spin, Empty, Tag } from 'antd';
 import { UserOutlined, EditOutlined, SettingOutlined, TeamOutlined, CalendarOutlined, DeleteOutlined, EyeOutlined, PlusOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { EditProfileModal } from './components/EditProfileModal';
@@ -41,6 +41,7 @@ interface Club {
   name: string;
   contact_person_name: string;
   fb_link?: string;
+  allowed_player_levels?: string[];
   established_date?: string;
   schedules?: Schedule[];
 }
@@ -268,7 +269,7 @@ export default function ProfileClient({ profile: initialProfile, currentUser }: 
                                         {isOwnProfile && (
                                             <>
                                                 <Tooltip title="Edit">
-                                                    <Link href={`/player/profile/${profile.username || profile._id}/clubs/edit/${club.id || club._id}`}>
+                                                    <Link href={`/player/profile/${profile.username || profile._id}/clubs/${club.id || club._id}/edit`}>
                                                         <Button 
                                                             type="text" 
                                                             icon={<EditOutlined />} 
@@ -294,6 +295,17 @@ export default function ProfileClient({ profile: initialProfile, currentUser }: 
                                     <Text type="secondary" style={{ fontSize: '12px' }}>
                                         Established: {club.established_date ? new Date(club.established_date).getFullYear() : 'N/A'}
                                     </Text>
+                                    {club.allowed_player_levels && club.allowed_player_levels.length > 0 && (
+                                        <div style={{ marginTop: 4 }}>
+                                            <Space size={4} wrap>
+                                                {club.allowed_player_levels.map(level => (
+                                                    <Tag key={level} color="blue" style={{ margin: 0, fontSize: '10px' }}>
+                                                        {level.charAt(0).toUpperCase() + level.slice(1)}
+                                                    </Tag>
+                                                ))}
+                                            </Space>
+                                        </div>
+                                    )}
                                     {club.schedules && club.schedules.length > 0 ? (
                                         <div style={{ marginTop: 8 }}>
                                             <Text strong style={{ fontSize: '12px' }}>Schedules:</Text>

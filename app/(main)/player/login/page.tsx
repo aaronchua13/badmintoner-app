@@ -32,7 +32,7 @@ export default function PlayerLoginPage() {
           </div>
 
           <Alert
-            message="Demo Credentials"
+            title="Demo Credentials"
             description={
                 <div style={{ fontSize: '13px' }}>
                     <div>Email: <b>player@gmail.com</b></div>
