@@ -50,11 +50,14 @@ export async function updateClubAction(id: string, data: any) {
     }
   
     try {
+      console.log(`[updateClubAction] Updating club ${id} at ${API_URL}/clubs/${id} with PATCH`);
       const res = await fetch(`${API_URL}/clubs/${id}`, {
         method: 'PATCH',
+        cache: 'no-store',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
+          'X-HTTP-Method-Override': 'PATCH',
         },
         body: JSON.stringify(data),
       });
@@ -136,12 +139,24 @@ export async function getClubsByPlayerAction(playerId: string) {
     const res = await fetch(`${API_URL}/clubs`, { cache: 'no-store' });
     if (!res.ok) return [];
     
-    const allClubs = await res.json();
-    if (!Array.isArray(allClubs)) return [];
+    const responseData = await res.json();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let allClubs: any[] = [];
+
+    if (Array.isArray(responseData)) {
+        allClubs = responseData;
+    } else if (responseData && Array.isArray(responseData.data)) {
+        allClubs = responseData.data;
+    } else {
+        return [];
+    }
 
     // Filter by player_id
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const playerClubs = allClubs.filter((c: any) => c.player_id === playerId);
+    const playerClubs = allClubs.filter((c: any) => {
+        const cPlayerId = typeof c.player_id === 'object' ? c.player_id?._id : c.player_id;
+        return String(cPlayerId) === String(playerId);
+    });
 
     // Fetch schedules and courts for each club
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -220,7 +235,13 @@ export async function getCourtsAction() {
     
     if (!res.ok) return [];
     
-    return await res.json();
+    const responseData = await res.json();
+    if (Array.isArray(responseData)) {
+        return responseData;
+    } else if (responseData && Array.isArray(responseData.data)) {
+        return responseData.data;
+    }
+    return [];
   } catch (error) {
     console.error('Failed to fetch courts:', error);
     return [];

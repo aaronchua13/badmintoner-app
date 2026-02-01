@@ -268,7 +268,7 @@ export default function ProfileClient({ profile: initialProfile, currentUser }: 
                                         {isOwnProfile && (
                                             <>
                                                 <Tooltip title="Edit">
-                                                    <Link href={`/player/profile/${profile.username || profile._id}/clubs/edit/${club.id || club._id}`}>
+                                                    <Link href={`/player/profile/${profile.username || profile._id}/clubs/${club.id || club._id}/edit`}>
                                                         <Button 
                                                             type="text" 
                                                             icon={<EditOutlined />} 
