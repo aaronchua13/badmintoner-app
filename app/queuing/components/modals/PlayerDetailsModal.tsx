@@ -60,7 +60,7 @@ const PlayerDetailsModal: React.FC<PlayerDetailsModalProps> = ({
                       value={winRate} 
                       suffix="%" 
                       prefix={<TrophyOutlined />}
-                      valueStyle={{ color: winRate > 50 ? '#3f8600' : '#cf1322' }} 
+                      styles={{ content: { color: winRate > 50 ? '#3f8600' : '#cf1322' } }}
                     />
                   </Col>
                   <Col span={8}>

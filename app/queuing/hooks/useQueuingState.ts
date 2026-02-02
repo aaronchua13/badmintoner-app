@@ -421,6 +421,40 @@ export const useQueuingState = () => {
     });
   };
 
+  const restartSession = () => {
+    setQueueData(prev => {
+      // Reset players: keep list but reset stats/status
+      const resetPlayers = prev.players.map(p => ({
+        ...p,
+        isActive: true,
+        joinedAt: Date.now(),
+        gamesPlayed: 0,
+        wins: 0,
+        losses: 0,
+        totalIdleTime: 0,
+        lastMatchEndTime: Date.now(),
+        firstMatchTime: null,
+        partners: {},
+        isPlaying: false
+      }));
+
+      // Reset courts: keep list but reset status
+      const resetCourts = prev.courts.map(c => ({
+        ...c,
+        status: 'idle' as const,
+        players: [null, null, null, null],
+        startTime: null
+      }));
+
+      return {
+        sessionStartTime: null,
+        courts: resetCourts,
+        players: resetPlayers,
+        history: []
+      };
+    });
+  };
+
   return {
     state: {
       sessionStartTime: queueData.sessionStartTime,
@@ -446,7 +480,8 @@ export const useQueuingState = () => {
       removePlayer,
       togglePlayerActive,
       startSession,
-      resetState
+      resetState,
+      restartSession
     }
   };
 };
