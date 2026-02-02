@@ -16,7 +16,7 @@ import {
 import Link from 'next/link';
 import { getClubByIdAction } from '@/app/actions/club-event';
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
 
 interface Club {

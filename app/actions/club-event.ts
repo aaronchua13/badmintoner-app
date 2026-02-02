@@ -36,7 +36,7 @@ export async function createClubAction(data: any) {
     revalidatePath('/clubs');
     revalidatePath('/player/profile');
     return { success: true, data: await res.json() };
-  } catch (error) {
+  } catch {
     return { error: 'Failed to create club' };
   }
 }
@@ -71,12 +71,12 @@ export async function updateClubAction(id: string, data: any) {
       revalidatePath(`/clubs/${id}`);
       revalidatePath('/player/profile');
       return { success: true };
-    } catch (error) {
-      return { error: 'Failed to update club' };
-    }
+  } catch {
+    return { error: 'Failed to update club' };
   }
+}
 
-  export async function deleteClubAction(id: string) {
+export async function deleteClubAction(id: string) {
     const token = await getToken();
   
     if (!token) {
@@ -97,12 +97,12 @@ export async function updateClubAction(id: string, data: any) {
       }
       
       revalidatePath('/clubs');
-      revalidatePath('/player/profile');
-      return { success: true };
-    } catch (error) {
-      return { error: 'Failed to delete club' };
-    }
+    revalidatePath('/player/profile');
+    return { success: true };
+  } catch {
+    return { error: 'Failed to delete club' };
   }
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function createEventAction(data: any) {

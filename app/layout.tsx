@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     type: 'website',
     images: [
       {
-        url: '/og-image.png', // Placeholder for actual OG image
+        url: '/og-image.jpg', // Placeholder for actual OG image
         width: 1200,
         height: 630,
         alt: 'Badmintoner Preview',
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Badmintoner - Badminton Club Management',
     description: 'Efficiently manage badminton courts, player queues, and match history.',
-    images: ['/og-image.png'], // Placeholder
+    images: ['/og-image.jpg'], // Placeholder
   },
   robots: {
     index: true,

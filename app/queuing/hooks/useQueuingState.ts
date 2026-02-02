@@ -37,6 +37,7 @@ export const useQueuingState = () => {
           isActive: p.isActive !== undefined ? p.isActive : true
         }));
         
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setQueueData({
           sessionStartTime: parsed.sessionStartTime,
           courts: parsed.courts,
@@ -218,8 +219,8 @@ export const useQueuingState = () => {
       const team1Count = [court.players[0], court.players[1]].filter(Boolean).length;
       const team2Count = [court.players[2], court.players[3]].filter(Boolean).length;
 
-      if (team1Count === 0 || team2Count === 0) {
-        alert("Need at least 1 player per team");
+      if (team1Count !== 2 || team2Count !== 2) {
+        alert("Games are strictly 2 vs 2. Need exactly 2 players per team.");
         return prev;
       }
 

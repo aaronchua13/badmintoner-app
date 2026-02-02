@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { Layout, Row, Col, FloatButton, Form, Grid } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { PlusOutlined, UserAddOutlined, AppstoreAddOutlined } from '@ant-design/icons';
+import { PlayerLevel, Gender } from './types';
 import { useQueuingState } from './hooks/useQueuingState';
 import { useCustomBreakpoints } from './hooks/useCustomBreakpoints';
 import QueuingHeader from './components/QueuingHeader';
@@ -37,7 +38,7 @@ export default function QueuingClient() {
   const [stopMatchForm] = Form.useForm();
 
   const screens = Grid.useBreakpoint();
-  const { isHeaderCompact, isCourtsSingleColumn } = useCustomBreakpoints();
+  const { isCourtsSingleColumn } = useCustomBreakpoints();
   // Use isHeaderCompact for mobile layout switching as it aligns with the "mobile view" request
   // But strictly speaking, mobile layout stacking might be better tied to a smaller breakpoint like 768px (md) or just reuse isHeaderCompact if user wants full mobile experience below 1000px
   // User said "header look like mobile header" below 1000px.
@@ -58,7 +59,7 @@ export default function QueuingClient() {
 
   if (!isLoaded) return null;
 
-  const handleAddPlayer = (values: any) => {
+  const handleAddPlayer = (values: { name: string; level: PlayerLevel; gender: Gender }) => {
     actions.addPlayer(values);
     addPlayerForm.resetFields(['name']);
     if (addPlayerMode === 'close') {
@@ -66,13 +67,13 @@ export default function QueuingClient() {
     }
   };
 
-  const handleAddCourt = (values: any) => {
+  const handleAddCourt = (values: { name: string }) => {
     actions.addCourt(values.name);
     addCourtForm.resetFields();
     setIsAddCourtOpen(false);
   };
 
-  const handleFinishMatch = (values: any) => {
+  const handleFinishMatch = (values: { team1Score?: number; team2Score?: number; winningTeam?: number }) => {
     if (finishingCourtId) {
       actions.finishMatch(finishingCourtId, values);
       finishMatchForm.resetFields();
@@ -80,7 +81,7 @@ export default function QueuingClient() {
     }
   };
 
-  const handleStopMatch = (values: any) => {
+  const handleStopMatch = (values: { reason: string }) => {
     if (stoppingCourtId) {
       actions.stopMatch(stoppingCourtId, values.reason);
       stopMatchForm.resetFields();
@@ -101,8 +102,6 @@ export default function QueuingClient() {
         onOpenHistory={() => setIsHistoryOpen(true)}
         onOpenInstructions={() => setIsInstructionsOpen(true)}
         onPopulateDummy={() => actions.populateDummyPlayers(['Beginner', 'Intermediate', 'Advanced', 'Intermediate +', 'Advanced +'])}
-        onOpenAddPlayer={() => setIsAddPlayerOpen(true)}
-        onOpenAddCourt={() => setIsAddCourtOpen(true)}
       />
 
       <Content style={{ padding: isMobileLayout ? '12px' : '24px' }}>
@@ -177,12 +176,23 @@ export default function QueuingClient() {
         )}
       </Content>
 
-      <FloatButton 
-        icon={<PlusOutlined />} 
-        type="primary" 
-        style={{ right: 24, bottom: 24 }} 
-        onClick={() => setIsAddPlayerOpen(true)} 
-      />
+      <FloatButton.Group
+        trigger="click"
+        type="primary"
+        style={{ right: 24, bottom: 24 }}
+        icon={<PlusOutlined />}
+      >
+        <FloatButton 
+          icon={<UserAddOutlined />} 
+          tooltip="Add Player" 
+          onClick={() => setIsAddPlayerOpen(true)} 
+        />
+        <FloatButton 
+          icon={<AppstoreAddOutlined />} 
+          tooltip="Add Court" 
+          onClick={() => setIsAddCourtOpen(true)} 
+        />
+      </FloatButton.Group>
 
       <AddPlayerModal
         visible={isAddPlayerOpen}

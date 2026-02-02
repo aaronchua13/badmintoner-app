@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, Descriptions, Select, Radio, Space, Tabs, Statistic, Row, Col, List, Tag } from 'antd';
-import { ManOutlined, WomanOutlined, TrophyOutlined, FireOutlined, HistoryOutlined } from '@ant-design/icons';
+import { ManOutlined, WomanOutlined, TrophyOutlined, FireOutlined } from '@ant-design/icons';
 import { Player, PlayerLevel, LEVEL_COLORS, MatchHistory } from '../../types';
 import { formatDuration } from '../../utils';
 import LevelTag from '../LevelTag';

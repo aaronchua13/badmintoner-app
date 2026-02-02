@@ -23,7 +23,7 @@ interface LocationMapProps {
 }
 
 function DraggableMarker({ position, onPositionChange }: { position: L.LatLngExpression, onPositionChange: (lat: number, lon: number) => void }) {
-  const [draggable, setDraggable] = useState(true);
+  const [draggable] = useState(true);
   const markerRef = useRef<L.Marker>(null);
   
   const eventHandlers = useMemo(

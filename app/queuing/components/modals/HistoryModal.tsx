@@ -24,13 +24,13 @@ const HistoryModal: React.FC<HistoryModalProps> = ({
     { title: 'Court', dataIndex: 'courtName' },
     { title: 'Duration', dataIndex: 'duration', render: (d: number) => formatMatchTime(d) },
     { title: 'Score', dataIndex: 'score', render: (s: string, r: MatchHistory) => r.isStopped ? 'Stopped' : s },
-    { title: 'Winner', render: (_: any, r: MatchHistory) => {
+    { title: 'Winner', render: (_: unknown, r: MatchHistory) => {
        if (r.isStopped) return <Tag color="default">Stopped: {r.reason}</Tag>;
        if (r.winners === 1) return <Tag color="green">Team 1</Tag>;
        if (r.winners === 2) return <Tag color="green">Team 2</Tag>;
        return '-';
     }},
-    { title: 'Players', render: (_: any, r: MatchHistory) => (
+    { title: 'Players', render: (_: unknown, r: MatchHistory) => (
        <div style={{ fontSize: '12px' }}>
           <div>T1: {r.players.filter(p => p.team === 1).map(p => p.name).join(', ')}</div>
           <div>T2: {r.players.filter(p => p.team === 2).map(p => p.name).join(', ')}</div>
@@ -46,6 +46,7 @@ const HistoryModal: React.FC<HistoryModalProps> = ({
       footer={null}
       width={isMobile ? '100%' : 800}
       style={isMobile ? { top: 0, margin: 0, maxWidth: '100%' } : {}}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       styles={isMobile ? { content: { height: '100vh', display: 'flex', flexDirection: 'column' }, body: { flex: 1, overflowY: 'auto' } } as any : {}}
       centered={!isMobile}
     >

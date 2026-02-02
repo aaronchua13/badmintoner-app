@@ -5,7 +5,6 @@ import {
   TeamOutlined,
   UserOutlined,
   FacebookFilled,
-  EyeOutlined,
   DownOutlined,
   UpOutlined,
   CheckOutlined,
@@ -18,7 +17,6 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { getClubsAction, getCourtsAction } from '@/app/actions/club-event';
 
 const { Title, Text } = Typography;
-const { Meta } = Card;
 
 interface Club {
   id: string;
