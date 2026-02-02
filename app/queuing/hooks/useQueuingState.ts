@@ -3,6 +3,8 @@ import { Player, Court, MatchHistory, PlayerLevel } from '../types';
 
 interface QueueData {
   sessionStartTime: number | null;
+  sessionEndTime: number | null;
+  sessionStatus: 'idle' | 'active' | 'ended';
   courts: Court[];
   players: Player[];
   history: MatchHistory[];
@@ -12,6 +14,8 @@ export const useQueuingState = () => {
   // -- State --
   const [queueData, setQueueData] = useState<QueueData>({
     sessionStartTime: null,
+    sessionEndTime: null,
+    sessionStatus: 'idle',
     courts: [
       { id: 'c1', name: 'Court 1', status: 'idle', players: [null, null, null, null], startTime: null },
       { id: 'c2', name: 'Court 2', status: 'idle', players: [null, null, null, null], startTime: null },
@@ -40,6 +44,8 @@ export const useQueuingState = () => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setQueueData({
           sessionStartTime: parsed.sessionStartTime,
+          sessionEndTime: parsed.sessionEndTime || null,
+          sessionStatus: parsed.sessionStatus || (parsed.sessionStartTime ? 'active' : 'idle'),
           courts: parsed.courts,
           players: patchedPlayers,
           history: parsed.history
@@ -408,13 +414,28 @@ export const useQueuingState = () => {
   };
 
   const startSession = () => {
-    setQueueData(prev => ({ ...prev, sessionStartTime: Date.now() }));
+    setQueueData(prev => ({ 
+      ...prev, 
+      sessionStartTime: Date.now(),
+      sessionStatus: 'active',
+      sessionEndTime: null
+    }));
+  };
+
+  const stopSession = () => {
+    setQueueData(prev => ({
+      ...prev,
+      sessionStatus: 'ended',
+      sessionEndTime: Date.now()
+    }));
   };
 
   const resetState = () => {
     localStorage.removeItem('badminton_queue_data');
     setQueueData({
       sessionStartTime: null,
+      sessionEndTime: null,
+      sessionStatus: 'idle',
       courts: [],
       players: [],
       history: []
@@ -448,6 +469,8 @@ export const useQueuingState = () => {
 
       return {
         sessionStartTime: null,
+        sessionEndTime: null,
+        sessionStatus: 'idle',
         courts: resetCourts,
         players: resetPlayers,
         history: []
@@ -458,6 +481,8 @@ export const useQueuingState = () => {
   return {
     state: {
       sessionStartTime: queueData.sessionStartTime,
+      sessionEndTime: queueData.sessionEndTime,
+      sessionStatus: queueData.sessionStatus,
       currentTime,
       courts: queueData.courts,
       players: queueData.players,
@@ -480,6 +505,7 @@ export const useQueuingState = () => {
       removePlayer,
       togglePlayerActive,
       startSession,
+      stopSession,
       resetState,
       restartSession
     }
