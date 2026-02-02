@@ -99,21 +99,26 @@ const PlayerList: React.FC<PlayerListProps> = ({
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: 6, borderTop: '1px solid #f5f5f5' }}>
-                  <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap', maxWidth: '70%' }}>
-                    {showCourtButtons ? idleCourts.map(court => {
-                      const isSelected = court.players.includes(player.id);
-                      return (
-                        <Button 
-                          key={court.id} 
-                          size="small" 
-                          type={isSelected ? 'primary' : 'default'}
-                          onClick={() => onToggleSelection(court.id, player.id)}
-                          style={{ fontSize: '10px', height: '20px', padding: '0 6px', minWidth: '20px' }}
-                        >
-                          {court.name.replace('Court ', 'C')}
-                        </Button>
-                      );
-                    }) : (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', maxWidth: '100%', alignItems: 'center' }}>
+                    {showCourtButtons ? (
+                      <>
+                        <span style={{ fontSize: '10px', color: '#888', lineHeight: 'normal' }}>Assign to:</span>
+                        {idleCourts.map(court => {
+                          const isSelected = court.players.includes(player.id);
+                          return (
+                            <Button 
+                              key={court.id} 
+                              size="small" 
+                              type={isSelected ? 'primary' : 'default'}
+                              onClick={() => onToggleSelection(court.id, player.id)}
+                              style={{ fontSize: '10px', height: '20px', padding: '0 8px', minWidth: '24px' }}
+                            >
+                              {court.name.replace('Court ', 'C')}
+                            </Button>
+                          );
+                        })}
+                      </>
+                    ) : (
                       <span style={{ fontSize: '10px', color: '#ccc' }}>
                         {player.isPlaying ? 'Playing' : (!player.isActive ? 'Away' : 'No Courts')}
                       </span>
@@ -243,21 +248,26 @@ const PlayerList: React.FC<PlayerListProps> = ({
                 ) : !player.isActive ? (
                   <Tag style={{ margin: 0, fontSize: '10px', padding: '0 4px' }}>Away</Tag>
                 ) : (
-                  <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                    {idleCourts.length > 0 ? idleCourts.map(court => {
-                       const isSelected = court.players.includes(player.id);
-                       return (
-                         <Button 
-                           key={court.id} 
-                           size="small" 
-                           type={isSelected ? 'primary' : 'default'}
-                           onClick={() => onToggleSelection(court.id, player.id)}
-                           style={{ fontSize: '10px', height: '20px', padding: '0 6px', minWidth: '20px' }}
-                         >
-                           {court.name.replace('Court ', 'C')}
-                         </Button>
-                       );
-                     }) : (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                    {idleCourts.length > 0 ? (
+                      <>
+                        <span style={{ fontSize: '10px', color: '#888', lineHeight: 'normal' }}>Assign to:</span>
+                        {idleCourts.map(court => {
+                           const isSelected = court.players.includes(player.id);
+                           return (
+                             <Button 
+                               key={court.id} 
+                               size="small" 
+                               type={isSelected ? 'primary' : 'default'}
+                               onClick={() => onToggleSelection(court.id, player.id)}
+                               style={{ fontSize: '10px', height: '20px', padding: '0 8px', minWidth: '24px' }}
+                             >
+                               {court.name.replace('Court ', 'C')}
+                             </Button>
+                           );
+                         })}
+                      </>
+                    ) : (
                        <span style={{ fontSize: '10px', color: '#ccc' }}>No Courts</span>
                      )}
                   </div>
