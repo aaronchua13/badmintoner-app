@@ -21,8 +21,8 @@ interface PlayerListProps {
 
 const getWaitColor = (seconds: number) => {
   const minutes = seconds / 60;
-  if (minutes >= 20) return '#ff4d4f'; // Red (Danger)
-  if (minutes >= 15) return '#faad14'; // Orange (Warning)
+  if (minutes >= 20) return 'error'; // Red (Danger)
+  if (minutes >= 15) return 'warning'; // Orange (Warning)
   return undefined; // Default
 };
 
@@ -74,7 +74,7 @@ const PlayerList: React.FC<PlayerListProps> = ({
                   </Text>
                   <Tag 
                     color={player.isPlaying ? 'green' : (waitColor || 'default')} 
-                    style={{ margin: 0, fontSize: '10px', lineHeight: '16px', padding: '0 4px', color: waitColor ? '#fff' : undefined, border: 'none' }}
+                    style={{ margin: 0, fontSize: '10px', lineHeight: '16px', padding: '0 4px', border: 'none' }}
                   >
                     {getWaitTime(player, sessionStartTime, currentTime)}
                   </Tag>
@@ -206,7 +206,7 @@ const PlayerList: React.FC<PlayerListProps> = ({
 
                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <Tag 
-                    style={{ margin: 0, fontSize: '10px', padding: '0 4px', color: waitColor ? '#fff' : undefined, border: 'none' }}
+                    style={{ margin: 0, fontSize: '10px', padding: '0 4px', border: 'none' }}
                     color={waitColor}
                   >
                      {getWaitTime(player, sessionStartTime, currentTime)}
