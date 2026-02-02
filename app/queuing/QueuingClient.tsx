@@ -1,16 +1,16 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Layout, Card, Button, Typography, Row, Col, Modal, Form, Input, 
-  Select, Tag, Space, Avatar, Badge, List, Statistic, InputNumber, Divider,
-  Tabs, Radio, Tooltip, Dropdown, MenuProps, Table, Descriptions
+  Select, Tag, Space, Avatar, Badge, Statistic, InputNumber, Divider,
+  Tabs, Radio, Dropdown, Table, Descriptions
 } from 'antd';
 import { 
   PlusOutlined, DeleteOutlined, 
   ClockCircleOutlined, TeamOutlined,
   PlayCircleOutlined, ManOutlined, WomanOutlined,
-  PauseCircleOutlined, CheckCircleOutlined, MoreOutlined,
+  MoreOutlined,
   InfoCircleOutlined, StopOutlined, HistoryOutlined,
   SortAscendingOutlined, SortDescendingOutlined,
   AppstoreOutlined, BarsOutlined, CloseOutlined,
@@ -18,7 +18,7 @@ import {
 } from '@ant-design/icons';
 import Link from 'next/link';
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 const { Header, Content } = Layout;
 
 // --- Types ---
@@ -186,7 +186,7 @@ export default function QueuingClient() {
   const [finishForm] = Form.useForm();
   const [stopForm] = Form.useForm();
   const [addPlayerMode, setAddPlayerMode] = useState<'close' | 'keep'>('close');
-  const [playerTab, setPlayerTab] = useState<'active' | 'inactive'>('active');
+  const [playerTab, setPlayerTab] = useState<'all' | 'active' | 'inactive'>('all');
   const [levelFilter, setLevelFilter] = useState<PlayerLevel[]>([]);
   const [genderFilter, setGenderFilter] = useState<'All' | 'Male' | 'Female'>('All');
   const [sortConfig, setSortConfig] = useState<{ field: string; direction: 'asc' | 'desc' }>({ field: 'idle_time', direction: 'desc' });
@@ -378,9 +378,36 @@ export default function QueuingClient() {
       const emptyIndex = court.players.indexOf(null);
       if (emptyIndex === -1) return; // Full
       
-      const newPlayers = [...court.players];
-      newPlayers[emptyIndex] = playerId;
-      setCourts(courts.map(c => c.id === courtId ? { ...c, players: newPlayers } : c));
+      // Check if player is already on another court and remove them
+      const otherCourt = courts.find(c => c.id !== courtId && c.players.includes(playerId));
+      
+      let updatedCourts = [...courts];
+      
+      if (otherCourt) {
+        // Remove from other court
+        const updatedOtherCourtPlayers = otherCourt.players.map(p => p === playerId ? null : p);
+        updatedCourts = updatedCourts.map(c => c.id === otherCourt.id ? { ...c, players: updatedOtherCourtPlayers } : c);
+      }
+      
+      // Add to target court
+      // We need to fetch the target court again from updatedCourts or just modify it
+      // Since we map over updatedCourts, we can do it in one pass or two
+      
+      updatedCourts = updatedCourts.map(c => {
+        if (c.id === courtId) {
+           const newPlayers = [...c.players];
+           // Re-check empty index in case it changed? (Unlikely unless concurrency, but here we just use the original logic)
+           // Actually, if we just removed from another court, the target court is unchanged.
+           // BUT, if the user clicked "Add" on a full court, we already returned.
+           // So we are safe to add.
+           const idx = newPlayers.indexOf(null);
+           if (idx !== -1) newPlayers[idx] = playerId;
+           return { ...c, players: newPlayers };
+        }
+        return c;
+      });
+
+      setCourts(updatedCourts);
     }
   };
 
@@ -558,6 +585,7 @@ export default function QueuingClient() {
 
   const activePlayers = applyFilters(players.filter(p => p.isPlaying));
   const inactivePlayers = applyFilters(players.filter(p => !p.isPlaying));
+  const allPlayers = applyFilters(players);
 
   const getSortedPlayers = (list: Player[]) => {
     return [...list].sort((a, b) => {
@@ -615,76 +643,216 @@ export default function QueuingClient() {
     });
   };
 
-  const getBestPartner = (player: Player) => {
-    let bestId = '';
-    let maxCount = -1;
-    Object.entries(player.partners).forEach(([id, count]) => {
-      if (count > maxCount) {
-        maxCount = count;
-        bestId = id;
-      }
-    });
-    if (!bestId) return '-';
-    return players.find(p => p.id === bestId)?.name || 'Unknown';
-  };
+  const renderPlayerList = (list: Player[]) => {
+    const sortedPlayers = getSortedPlayers(list);
 
-  const renderPlayerList = (list: Player[]) => (
-    <List
-      rowKey="id"
-      grid={playerViewMode === 'grid' ? { gutter: 12, xs: 1, sm: 2, md: 2, lg: 2, xl: 3, xxl: 4 } : undefined}
-      dataSource={getSortedPlayers(list)}
-      renderItem={(player) => {
-        const idleCourts = courts.filter(c => c.status === 'idle');
-        const showCourtButtons = !player.isPlaying && idleCourts.length > 0;
-        
-        if (playerViewMode === 'grid') {
-          return (
-            <List.Item style={{ padding: 0 }}>
-              <div style={{ 
-                background: player.isPlaying ? '#f6ffed' : '#fff', 
-                border: '1px solid #f0f0f0', 
-                borderRadius: '6px',
-                padding: '8px',
-                position: 'relative',
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <Text strong style={{ fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '65%', cursor: 'pointer' }} onClick={() => setViewPlayerId(player.id)}>
-                    {player.name}
-                  </Text>
-                  <Tag color={player.isPlaying ? 'green' : 'default'} style={{ margin: 0, fontSize: '10px', lineHeight: '16px', padding: '0 4px' }}>
-                    {getWaitTime(player)}
-                  </Tag>
+    if (sortedPlayers.length === 0) {
+      return (
+        <div style={{ textAlign: 'center', padding: '32px', color: '#999' }}>
+           <TeamOutlined style={{ fontSize: 24, marginBottom: 8 }} /><br />
+           No players found
+        </div>
+      );
+    }
+
+    if (playerViewMode === 'grid') {
+      return (
+        <Row gutter={[12, 12]}>
+          {sortedPlayers.map(player => {
+            const idleCourts = courts.filter(c => c.status === 'idle');
+            const showCourtButtons = !player.isPlaying && idleCourts.length > 0;
+            
+            return (
+              <Col xs={24} sm={12} md={12} lg={12} xl={8} xxl={6} key={player.id}>
+                <div style={{ 
+                  background: player.isPlaying ? '#f6ffed' : '#fff', 
+                  border: '1px solid #f0f0f0', 
+                  borderRadius: '6px',
+                  padding: '8px',
+                  position: 'relative',
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <Text strong style={{ fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '65%', cursor: 'pointer' }} onClick={() => setViewPlayerId(player.id)}>
+                      {player.name}
+                    </Text>
+                    <Tag color={player.isPlaying ? 'green' : 'default'} style={{ margin: 0, fontSize: '10px', lineHeight: '16px', padding: '0 4px' }}>
+                      {getWaitTime(player)}
+                    </Tag>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flex: 1 }}>
+                    <Badge dot={player.isPlaying} color="green" offset={[-2, 2]}>
+                      <Avatar size={32} style={{ backgroundColor: LEVEL_COLORS[player.level] || '#ccc', fontSize: '14px' }}>
+                        {player.name[0]?.toUpperCase()}
+                      </Avatar>
+                    </Badge>
+                    <div style={{ fontSize: '11px', color: '#666', lineHeight: '1.4', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                       <span>G: {player.gamesPlayed}</span>
+                       <span>
+                          <span style={{ color: '#389e0d', fontWeight: 600 }}>W{player.wins}</span>
+                          <span style={{ margin: '0 2px' }}>-</span>
+                          <span style={{ color: '#cf1322', fontWeight: 600 }}>L{player.losses}</span>
+                       </span>
+                       <LevelTag level={player.level} />
+                       <span>Idle: {formatDuration(player.totalIdleTime + ((player.isPlaying || player.gamesPlayed === 0 || sessionStartTime === null) ? 0 : Math.floor((currentTime - Math.max(player.lastMatchEndTime, sessionStartTime))/1000)))}</span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: 6, borderTop: '1px solid #f5f5f5' }}>
+                    <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap', maxWidth: '70%' }}>
+                      {showCourtButtons ? idleCourts.map(court => {
+                        const isSelected = court.players.includes(player.id);
+                        return (
+                          <Button 
+                            key={court.id} 
+                            size="small" 
+                            type={isSelected ? 'primary' : 'default'}
+                            onClick={() => togglePlayerSelection(court.id, player.id)}
+                            style={{ fontSize: '10px', height: '20px', padding: '0 6px', minWidth: '20px' }}
+                          >
+                            {court.name.replace('Court ', 'C')}
+                          </Button>
+                        );
+                      }) : (
+                        <span style={{ fontSize: '10px', color: '#ccc' }}>
+                          {player.isPlaying ? 'Playing' : 'No Courts'}
+                        </span>
+                      )}
+                    </div>
+                    
+                    <Space size={0}>
+                      <Button 
+                        type="text" size="small" icon={<InfoCircleOutlined />} 
+                        onClick={() => setViewPlayerId(player.id)}
+                        style={{ width: 22, height: 22, minWidth: 22, fontSize: '11px', color: '#1890ff' }}
+                      />
+                      <Dropdown 
+                        menu={{ items: [{ 
+                          key: 'remove', 
+                          label: 'Remove', 
+                          danger: true, 
+                          onClick: () => {
+                            Modal.confirm({
+                              title: 'Remove Player',
+                              content: `Are you sure you want to remove ${player.name}?`,
+                              onOk: () => setPlayers(players.filter(p => p.id !== player.id))
+                            });
+                          }
+                        }] }} 
+                        trigger={['click']} placement="bottomRight"
+                      >
+                        <Button type="text" size="small" icon={<MoreOutlined />} style={{ width: 22, height: 22, minWidth: 22, fontSize: '11px' }} />
+                      </Dropdown>
+                    </Space>
+                  </div>
                 </div>
+              </Col>
+            );
+          })}
+        </Row>
+      );
+    }
 
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flex: 1 }}>
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {sortedPlayers.map(player => {
+          const idleCourts = courts.filter(c => c.status === 'idle');
+          const showCourtButtons = !player.isPlaying && idleCourts.length > 0;
+          
+          return (
+            <div 
+              key={player.id}
+              style={{ 
+                background: player.isPlaying ? '#f6ffed' : '#fff', 
+                marginBottom: 0, 
+                padding: '8px 10px', 
+                borderRadius: '6px',
+                border: '1px solid #f0f0f0',
+                display: 'block' 
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                {/* Left Side: Avatar & Info */}
+                <div style={{ display: 'flex', gap: 10, flex: 1, minWidth: 0 }}>
                   <Badge dot={player.isPlaying} color="green" offset={[-2, 2]}>
-                    <Avatar size={32} style={{ backgroundColor: LEVEL_COLORS[player.level] || '#ccc', fontSize: '14px' }}>
+                    <Avatar 
+                      size={36}
+                      style={{ backgroundColor: LEVEL_COLORS[player.level] || '#ccc', fontSize: '16px' }}
+                    >
                       {player.name[0]?.toUpperCase()}
                     </Avatar>
                   </Badge>
-                  <div style={{ flex: 1, fontSize: '11px', lineHeight: '1.3' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>G: {player.gamesPlayed}</span>
-                      <span>
-                        <span style={{ color: '#389e0d' }}>W{player.wins}</span>-<span style={{ color: '#cf1322' }}>L{player.losses}</span>
-                      </span>
+                  
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                      <Space size={4} style={{ overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+                        <Text strong style={{ fontSize: '14px', cursor: 'pointer' }} ellipsis onClick={() => setViewPlayerId(player.id)}>
+                          {player.name}
+                        </Text>
+                        <InfoCircleOutlined 
+                          onClick={() => setViewPlayerId(player.id)}
+                          style={{ color: '#1890ff', fontSize: '12px', cursor: 'pointer' }}
+                        />
+                        {player.gender === 'Female' ? 
+                          <WomanOutlined style={{ color: '#eb2f96', fontSize: '12px' }} /> : 
+                          <ManOutlined style={{ color: '#1890ff', fontSize: '12px' }} />
+                        }
+                      </Space>
+                      
+                      <Tag color={player.isPlaying ? 'green' : 'default'} style={{ margin: 0, fontSize: '10px', lineHeight: '18px', padding: '0 6px' }}>
+                        {getWaitTime(player)}
+                      </Tag>
                     </div>
-                    <div style={{ color: '#888', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>{LEVEL_SHORT_TEXT[player.level]}</span>
-                      {player.gender === 'Female' ? 
-                        <WomanOutlined style={{ color: '#eb2f96' }} /> : 
-                        <ManOutlined style={{ color: '#1890ff' }} />
-                      }
+                    
+                    <div style={{ fontSize: '11px', color: '#666', lineHeight: '1.4', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                       <span>G: {player.gamesPlayed}</span>
+                       <span>
+                          <span style={{ color: '#389e0d', fontWeight: 600 }}>W{player.wins}</span>
+                          <span style={{ margin: '0 2px' }}>-</span>
+                          <span style={{ color: '#cf1322', fontWeight: 600 }}>L{player.losses}</span>
+                       </span>
+                       <LevelTag level={player.level} />
+                       <span>Idle: {formatDuration(player.totalIdleTime + ((player.isPlaying || player.gamesPlayed === 0 || sessionStartTime === null) ? 0 : Math.floor((currentTime - Math.max(player.lastMatchEndTime, sessionStartTime))/1000)))}</span>
                     </div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: 6, borderTop: '1px solid #f5f5f5' }}>
-                  <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap', maxWidth: '70%' }}>
-                    {showCourtButtons ? idleCourts.map(court => {
+                {/* Right Side: Actions (Dropdown) */}
+                 <Dropdown 
+                    menu={{ 
+                      items: [
+                        { 
+                          key: 'remove', 
+                          label: 'Remove Player', 
+                          danger: true,
+                          onClick: () => {
+                            Modal.confirm({
+                              title: 'Remove Player',
+                              content: `Are you sure you want to remove ${player.name}?`,
+                              onOk: () => {
+                                setPlayers(players.filter(p => p.id !== player.id));
+                              }
+                            });
+                          }
+                        }
+                      ] 
+                    }} 
+                    trigger={['click']}
+                    placement="bottomRight"
+                  >
+                    <Button type="text" size="small" icon={<MoreOutlined />} style={{ minWidth: '24px' }} />
+                  </Dropdown>
+              </div>
+
+              {/* Court Buttons Row (if applicable) */}
+              {showCourtButtons && (
+                <div style={{ marginTop: 8, paddingTop: 6, borderTop: '1px solid #f9f9f9', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Text type="secondary" style={{ fontSize: '11px' }}>Assign to:</Text>
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {idleCourts.map(court => {
                       const isSelected = court.players.includes(player.id);
                       return (
                         <Button 
@@ -692,159 +860,21 @@ export default function QueuingClient() {
                           size="small" 
                           type={isSelected ? 'primary' : 'default'}
                           onClick={() => togglePlayerSelection(court.id, player.id)}
-                          style={{ fontSize: '10px', height: '20px', padding: '0 6px', minWidth: '20px' }}
+                          style={{ fontSize: '11px', height: '24px', padding: '0 8px' }}
                         >
                           {court.name.replace('Court ', 'C')}
                         </Button>
                       );
-                    }) : (
-                      <span style={{ fontSize: '10px', color: '#ccc' }}>
-                        {player.isPlaying ? 'Playing' : 'No Courts'}
-                      </span>
-                    )}
-                  </div>
-                  
-                  <Space size={0}>
-                    <Button 
-                      type="text" size="small" icon={<InfoCircleOutlined />} 
-                      onClick={() => setViewPlayerId(player.id)}
-                      style={{ width: 22, height: 22, minWidth: 22, fontSize: '11px', color: '#1890ff' }}
-                    />
-                    <Dropdown 
-                      menu={{ items: [{ 
-                        key: 'remove', 
-                        label: 'Remove', 
-                        danger: true, 
-                        onClick: () => {
-                          Modal.confirm({
-                            title: 'Remove Player',
-                            content: `Are you sure you want to remove ${player.name}?`,
-                            onOk: () => setPlayers(players.filter(p => p.id !== player.id))
-                          });
-                        }
-                      }] }} 
-                      trigger={['click']} placement="bottomRight"
-                    >
-                      <Button type="text" size="small" icon={<MoreOutlined />} style={{ width: 22, height: 22, minWidth: 22, fontSize: '11px' }} />
-                    </Dropdown>
-                  </Space>
-                </div>
-              </div>
-            </List.Item>
-          );
-        }
-
-        return (
-          <List.Item 
-            style={{ 
-              background: player.isPlaying ? '#f6ffed' : '#fff', 
-              marginBottom: 4, 
-              padding: '8px 10px', 
-              borderRadius: '6px',
-              border: '1px solid #f0f0f0',
-              display: 'block' // Custom block layout instead of flex to handle wrapping better
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-              {/* Left Side: Avatar & Info */}
-              <div style={{ display: 'flex', gap: 10, flex: 1, minWidth: 0 }}>
-                <Badge dot={player.isPlaying} color="green" offset={[-2, 2]}>
-                  <Avatar 
-                    size={36}
-                    style={{ backgroundColor: LEVEL_COLORS[player.level] || '#ccc', fontSize: '16px' }}
-                  >
-                    {player.name[0]?.toUpperCase()}
-                  </Avatar>
-                </Badge>
-                
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                    <Space size={4} style={{ overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', maxWidth: '100%' }}>
-                      <Text strong style={{ fontSize: '14px', cursor: 'pointer' }} ellipsis onClick={() => setViewPlayerId(player.id)}>
-                        {player.name}
-                      </Text>
-                      <InfoCircleOutlined 
-                        onClick={() => setViewPlayerId(player.id)}
-                        style={{ color: '#1890ff', fontSize: '12px', cursor: 'pointer' }}
-                      />
-                      {player.gender === 'Female' ? 
-                        <WomanOutlined style={{ color: '#eb2f96', fontSize: '12px' }} /> : 
-                        <ManOutlined style={{ color: '#1890ff', fontSize: '12px' }} />
-                      }
-                    </Space>
-                    
-                    <Tag color={player.isPlaying ? 'green' : 'default'} style={{ margin: 0, fontSize: '10px', lineHeight: '18px', padding: '0 6px' }}>
-                      {getWaitTime(player)}
-                    </Tag>
-                  </div>
-                  
-                  <div style={{ fontSize: '11px', color: '#666', lineHeight: '1.4', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                     <span>G: {player.gamesPlayed}</span>
-                     <span>
-                        <span style={{ color: '#389e0d', fontWeight: 600 }}>W{player.wins}</span>
-                        <span style={{ margin: '0 2px' }}>-</span>
-                        <span style={{ color: '#cf1322', fontWeight: 600 }}>L{player.losses}</span>
-                     </span>
-                     <LevelTag level={player.level} />
-                     <span>Idle: {formatDuration(player.totalIdleTime + ((player.isPlaying || player.gamesPlayed === 0 || sessionStartTime === null) ? 0 : Math.floor((currentTime - Math.max(player.lastMatchEndTime, sessionStartTime))/1000)))}</span>
+                    })}
                   </div>
                 </div>
-              </div>
-
-              {/* Right Side: Actions (Dropdown) */}
-               <Dropdown 
-                  menu={{ 
-                    items: [
-                      { 
-                        key: 'remove', 
-                        label: 'Remove Player', 
-                        danger: true,
-                        onClick: () => {
-                          Modal.confirm({
-                            title: 'Remove Player',
-                            content: `Are you sure you want to remove ${player.name}?`,
-                            onOk: () => {
-                              setPlayers(players.filter(p => p.id !== player.id));
-                            }
-                          });
-                        }
-                      }
-                    ] 
-                  }} 
-                  trigger={['click']}
-                  placement="bottomRight"
-                >
-                  <Button type="text" size="small" icon={<MoreOutlined />} style={{ minWidth: '24px' }} />
-                </Dropdown>
+              )}
             </div>
-
-            {/* Court Buttons Row (if applicable) */}
-            {showCourtButtons && (
-              <div style={{ marginTop: 8, paddingTop: 6, borderTop: '1px solid #f9f9f9', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Text type="secondary" style={{ fontSize: '11px' }}>Assign to:</Text>
-                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                  {idleCourts.map(court => {
-                    const isSelected = court.players.includes(player.id);
-                    return (
-                      <Button 
-                        key={court.id} 
-                        size="small" 
-                        type={isSelected ? 'primary' : 'default'}
-                        onClick={() => togglePlayerSelection(court.id, player.id)}
-                        style={{ fontSize: '11px', height: '24px', padding: '0 8px' }}
-                      >
-                        {court.name.replace('Court ', 'C')}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </List.Item>
-        );
-      }}
-    />
-  );
+          );
+        })}
+      </div>
+    );
+  };
 
   const startSession = () => {
     const now = Date.now();
@@ -923,7 +953,7 @@ export default function QueuingClient() {
                           {court.players.length >= 2 && (() => {
                             const odds = getMatchOdds(court.players);
                             return odds && (
-                              <Tag color={odds.color === 'success' ? 'green' : odds.color === 'error' ? 'red' : 'orange'} bordered={false} style={{ margin: 0, fontSize: '10px', lineHeight: '16px', padding: '0 6px' }}>
+                              <Tag color={odds.color === 'success' ? 'green' : odds.color === 'error' ? 'red' : 'orange'} style={{ margin: 0, fontSize: '10px', lineHeight: '16px', padding: '0 6px', border: 'none' }}>
                                 {odds.text}
                               </Tag>
                             );
@@ -1152,12 +1182,12 @@ export default function QueuingClient() {
                     <Statistic 
                       title={<span style={{ fontSize: '10px' }}>Playing</span>}
                       value={players.filter(p => p.isPlaying).length} 
-                      valueStyle={{ fontSize: '14px', color: '#52c41a', fontWeight: 'bold' }} 
+                      styles={{ content: { fontSize: '14px', color: '#52c41a', fontWeight: 'bold' } }}
                     />
                     <Statistic 
                       title={<span style={{ fontSize: '10px' }}>Waiting</span>}
                       value={players.filter(p => !p.isPlaying && p.isActive !== false).length} 
-                      valueStyle={{ fontSize: '14px', color: '#1890ff', fontWeight: 'bold' }} 
+                      styles={{ content: { fontSize: '14px', color: '#1890ff', fontWeight: 'bold' } }}
                     />
                   </Space>
                 </div>
@@ -1224,25 +1254,32 @@ export default function QueuingClient() {
               </div>
 
               <Tabs 
-                defaultActiveKey="active"
+                defaultActiveKey="all"
                 activeKey={playerTab}
-                onChange={(key) => setPlayerTab(key as 'active' | 'inactive')}
+                onChange={(key) => setPlayerTab(key as 'all' | 'active' | 'inactive')}
                 type="card"
                 size="small"
                 tabBarStyle={{ margin: '0 12px' }}
                 items={[
         {
           key: 'active',
-          label: `Active (Playing) (${activePlayers.length})`,
+          label: `Active (${activePlayers.length})`,
           children: <div style={{ height: 'calc(100vh - 250px)', overflowY: 'auto', padding: '0 12px 12px 12px' }}>
             {renderPlayerList(activePlayers)}
           </div>
         },
         {
           key: 'inactive',
-          label: `Inactive (Idle) (${inactivePlayers.length})`,
+          label: `Inactive (${inactivePlayers.length})`,
           children: <div style={{ height: 'calc(100vh - 250px)', overflowY: 'auto', padding: '0 12px 12px 12px' }}>
             {renderPlayerList(inactivePlayers)}
+          </div>
+        },
+        {
+          key: 'all',
+          label: `All (${allPlayers.length})`,
+          children: <div style={{ height: 'calc(100vh - 250px)', overflowY: 'auto', padding: '0 12px 12px 12px' }}>
+            {renderPlayerList(allPlayers)}
           </div>
         }
       ]}
@@ -1399,17 +1436,17 @@ export default function QueuingClient() {
             { 
               title: 'Team 1', 
               render: (_, record) => (
-                <Space direction="vertical" size={0}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
                   {record.players.filter(p => p.team === 1).map(p => <span key={p.id}>{p.name}</span>)}
-                </Space>
+                </div>
               )
             },
             { 
               title: 'Team 2', 
               render: (_, record) => (
-                <Space direction="vertical" size={0}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
                   {record.players.filter(p => p.team === 2).map(p => <span key={p.id}>{p.name}</span>)}
-                </Space>
+                </div>
               )
             },
             { 
@@ -1417,10 +1454,10 @@ export default function QueuingClient() {
               render: (_, record) => {
                  if (record.isStopped) {
                    return (
-                     <Space direction="vertical" size={0}>
+                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                        <Tag color="red">STOPPED</Tag>
                        <span style={{ fontSize: '11px', color: '#888' }}>{record.reason}</span>
-                     </Space>
+                     </div>
                    );
                  }
                  if (!record.winners) return <Tag>DRAW</Tag>;
@@ -1477,7 +1514,7 @@ export default function QueuingClient() {
                   onChange={(newLevel) => updatePlayerLevel(viewPlayer.id, newLevel)}
                   size="small"
                   style={{ width: '100%' }}
-                  dropdownStyle={{ minWidth: 150 }}
+                  styles={{ popup: { minWidth: 150 } as any }}
                 >
                   {(Object.keys(LEVEL_COLORS) as PlayerLevel[]).map(level => (
                     <Select.Option key={level} value={level}>
@@ -1531,12 +1568,11 @@ export default function QueuingClient() {
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, fontSize: '12px', color: '#888' }}>
                         <Space>
-                           <ClockCircleOutlined />
-                           {new Date(match.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                           <Divider type="vertical" />
-                           {formatDuration(match.duration)}
-                           <Divider type="vertical" />
-                           {match.courtName}
+                           <span><ClockCircleOutlined /> {new Date(match.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                           <span style={{ color: '#d9d9d9' }}>|</span>
+                           <span>{formatDuration(match.duration)}</span>
+                           <span style={{ color: '#d9d9d9' }}>|</span>
+                           <span>{match.courtName}</span>
                         </Space>
                         {isStopped ? <Tag color="red">STOPPED</Tag> : (isDraw ? <Tag>DRAW</Tag> : (isWinner ? <Tag color="green">WIN</Tag> : <Tag color="red">LOSS</Tag>))}
                       </div>
