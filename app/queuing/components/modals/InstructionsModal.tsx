@@ -1,11 +1,16 @@
 import React from 'react';
-import { Modal, Steps, Typography, Divider } from 'antd';
+import { Modal, Steps, Typography, Divider, Collapse, Tag } from 'antd';
 import { 
   UserAddOutlined, 
   AppstoreAddOutlined, 
   PlayCircleOutlined, 
   DragOutlined, 
-  CheckCircleOutlined 
+  CheckCircleOutlined,
+  TrophyOutlined,
+  StopOutlined,
+  BarChartOutlined,
+  SettingOutlined,
+  MobileOutlined
 } from '@ant-design/icons';
 
 const { Title, Paragraph, Text } = Typography;
@@ -18,105 +23,183 @@ interface InstructionsModalProps {
 const InstructionsModal: React.FC<InstructionsModalProps> = ({ visible, onClose }) => {
   return (
     <Modal
-      title="How to Use Badminton Queuing"
+      title={
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <SettingOutlined />
+          <span>Badminton Queuing Guide</span>
+        </div>
+      }
       open={visible}
       onCancel={onClose}
       footer={null}
-      width={700}
+      width={800}
+      styles={{ body: { padding: '24px' } }}
     >
-      <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '8px' }}>
-        <Paragraph>
-          Welcome to the Badminton Queuing System! Here&apos;s a quick guide to help you manage your session efficiently.
+      <div style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: '8px' }}>
+        <Paragraph style={{ fontSize: '16px' }}>
+          Welcome to the <Text strong>Badminton Queuing System</Text>! This tool helps you manage social badminton sessions fairly and efficiently by tracking idle times, organizing matches, and recording statistics.
         </Paragraph>
+
+        <Divider>Quick Start Guide</Divider>
 
         <Steps
           orientation="vertical"
+          size="small"
           items={[
             {
-              title: 'Start the Session',
+              title: <Text strong style={{ fontSize: '15px' }}>Step 1: Pre-Session Setup</Text>,
               status: 'process',
-              icon: <PlayCircleOutlined />,
+              icon: <AppstoreAddOutlined style={{ color: '#faad14' }} />,
               content: (
-                <div>
-                  <Text>Click the <Text strong>Start Session</Text> button in the header to begin tracking time.</Text>
-                  <div style={{ fontSize: '12px', color: '#faad14', marginTop: 4 }}>
+                <div style={{ marginBottom: 16 }}>
+                  <Paragraph style={{ margin: 0 }}>
                     <Text strong>Recommendation:</Text> It is recommended to add players and courts first before starting the session.
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#666', marginTop: 2 }}>
+                  </Paragraph>
+                  <Paragraph style={{ marginTop: 4, color: '#666' }}>
                     This initializes the session timer which is used to calculate idle times.
-                  </div>
-                </div>
-              ),
-            },
-            {
-              title: 'Add Courts & Players',
-              status: 'process',
-              icon: <AppstoreAddOutlined />,
-              content: (
-                <div>
-                  <Text>Use the <Text strong>+ Court</Text> and <Text strong>+ Player</Text> buttons to set up your session.</Text>
-                  <ul style={{ paddingLeft: 20, margin: '4px 0' }}>
-                    <li>Add courts based on availability.</li>
-                    <li>Add players with their skill levels (Beginner, Intermediate, Advanced).</li>
+                  </Paragraph>
+                  <ul style={{ paddingLeft: 20, marginTop: 8 }}>
+                    <li>Use <Text strong>+ Court</Text> to add available courts.</li>
+                    <li>Use <Text strong>+ Player</Text> to register players.</li>
+                    <li><Text type="secondary">Tip: Use "Populate Dummy Players" in the menu to test the system.</Text></li>
                   </ul>
                 </div>
               ),
             },
             {
-              title: 'Assign Players to Courts',
+              title: <Text strong style={{ fontSize: '15px' }}>Step 2: Start Session</Text>,
               status: 'process',
-              icon: <UserAddOutlined />,
+              icon: <PlayCircleOutlined style={{ color: '#1890ff' }} />,
               content: (
-                <div>
-                  <Text>Assign players to available courts:</Text>
-                  <ul style={{ paddingLeft: 20, margin: '4px 0' }}>
-                    <li><Text strong>List View:</Text> Click the court number button (e.g., &quot;C1&quot;) next to a player.</li>
-                    <li><Text strong>Grid View:</Text> Click the court number button on the player card.</li>
+                <div style={{ marginBottom: 16 }}>
+                  <Paragraph style={{ margin: 0 }}>
+                    Once resources are ready, click <Text strong style={{ color: '#1890ff' }}>Start Session</Text>.
+                  </Paragraph>
+                  <ul style={{ paddingLeft: 20, marginTop: 8 }}>
+                    <li>The global timer will begin.</li>
+                    <li>Idle timers for all added players will start counting.</li>
                   </ul>
-                  <Text type="secondary">Players are automatically sorted by idle time to help you pick who plays next.</Text>
                 </div>
               ),
             },
             {
-              title: 'Manage Matches',
+              title: <Text strong style={{ fontSize: '15px' }}>Step 3: Queue & Assign</Text>,
               status: 'process',
-              icon: <DragOutlined />,
+              icon: <UserAddOutlined style={{ color: '#52c41a' }} />,
               content: (
-                <div>
-                  <Text>Once 2 or 4 players are assigned to a court:</Text>
-                  <ol style={{ paddingLeft: 20, margin: '4px 0' }}>
-                    <li>Click <Text strong>Start Match</Text> on the court card.</li>
-                    <li>When the game ends, click <Text strong>&quot;Finish&quot;</Text>.</li>
-                    <li>Enter the score (optional) and save.</li>
-                  </ol>
-                  <Text type="secondary">Finishing a match updates player stats (Games, W/L) and resets their idle timer.</Text>
+                <div style={{ marginBottom: 16 }}>
+                  <Paragraph style={{ margin: 0 }}>
+                    The system automatically sorts players by <Text strong>Idle Time</Text> (longest wait first).
+                  </Paragraph>
+                  <ul style={{ paddingLeft: 20, marginTop: 8 }}>
+                    <li>Select players from the list to add them to a court.</li>
+                    <li>You can assign 2 (Singles) or 4 (Doubles) players per court.</li>
+                    <li>Players currently in a match are marked as <Tag color="blue">Playing</Tag>.</li>
+                    <li>Players waiting are marked as <Tag color="orange">Queueing</Tag>.</li>
+                  </ul>
                 </div>
               ),
             },
             {
-              title: 'Track History & Stats',
+              title: <Text strong style={{ fontSize: '15px' }}>Step 4: Run Matches</Text>,
               status: 'process',
-              icon: <CheckCircleOutlined />,
+              icon: <DragOutlined style={{ color: '#faad14' }} />,
               content: (
-                <div>
-                  <Text>View past matches by clicking the <Text strong>History</Text> button.</Text>
-                  <div style={{ marginTop: 4 }}>
-                    Player statistics (Wins, Losses, Games Played) are updated automatically after each match.
-                  </div>
+                <div style={{ marginBottom: 16 }}>
+                  <Paragraph style={{ margin: 0 }}>
+                    Control the flow of games on each court card.
+                  </Paragraph>
+                  <ul style={{ paddingLeft: 20, marginTop: 8 }}>
+                    <li>Click <Tag color="green">Start Match</Tag> to begin a game. This starts the match timer.</li>
+                    <li>When the game ends, click <Tag color="red">Finish</Tag>.</li>
+                    <li>(Optional) Enter scores to track wins/losses.</li>
+                    <li>Finishing a match resets the players' idle timers to 0.</li>
+                  </ul>
+                </div>
+              ),
+            },
+            {
+              title: <Text strong style={{ fontSize: '15px' }}>Step 5: Analyze & Conclude</Text>,
+              status: 'process',
+              icon: <BarChartOutlined style={{ color: '#722ed1' }} />,
+              content: (
+                <div style={{ marginBottom: 16 }}>
+                  <Paragraph style={{ margin: 0 }}>
+                    Track progress and wrap up the session.
+                  </Paragraph>
+                  <ul style={{ paddingLeft: 20, marginTop: 8 }}>
+                    <li>Click <Text strong>History</Text> to see a log of all played matches.</li>
+                    <li>Click <Text strong>Session Summary</Text> to view the Leaderboard and detailed player stats.</li>
+                    <li>Use <Text strong>Stop Session</Text> to end operations but keep the data viewable.</li>
+                  </ul>
                 </div>
               ),
             },
           ]}
         />
         
-        <Divider />
+        <Divider>Detailed Features</Divider>
         
-        <Title level={5}>Tips</Title>
-        <ul style={{ paddingLeft: 20 }}>
-          <li>Use the <Text strong>Reset Session</Text> option in the menu to clear all data and start over.</li>
-          <li>You can remove players or courts at any time using the delete/trash icons.</li>
-          <li>Use the <Text strong>Populate Dummy</Text> option to quickly test the system with sample data.</li>
-        </ul>
+        <Collapse
+          ghost
+          items={[
+            {
+              key: '1',
+              label: <Text strong><TrophyOutlined /> Scoring & Statistics</Text>,
+              children: (
+                <div>
+                  <Paragraph>
+                    The system tracks individual performance throughout the session:
+                  </Paragraph>
+                  <ul style={{ paddingLeft: 20 }}>
+                    <li><Text strong>Games Played:</Text> Total matches participated in.</li>
+                    <li><Text strong>Win/Loss Record:</Text> Based on entered scores.</li>
+                    <li><Text strong>Win Rate:</Text> Percentage of games won.</li>
+                    <li><Text strong>Point Difference:</Text> Total points scored vs. conceded.</li>
+                  </ul>
+                  <Text type="secondary">Note: Statistics are reset if you use "Reset Session".</Text>
+                </div>
+              ),
+            },
+            {
+              key: '2',
+              label: <Text strong><StopOutlined /> Stopping vs. Resetting</Text>,
+              children: (
+                <div>
+                  <Paragraph>
+                    Understand the difference between Stop and Reset:
+                  </Paragraph>
+                  <ul>
+                    <li>
+                      <Text strong type="danger">Stop Session:</Text> Ends the session timer and disables new matches. 
+                      Use this when the session is over but you want to share results/stats with players.
+                    </li>
+                    <li>
+                      <Text strong type="danger">Reset Session:</Text> Completely clears all data (players, courts, history) 
+                      and resets the system to a blank state. Use this to start a brand new event.
+                    </li>
+                  </ul>
+                </div>
+              ),
+            },
+            {
+              key: '3',
+              label: <Text strong><MobileOutlined /> Mobile Experience</Text>,
+              children: (
+                <div>
+                  <Paragraph>
+                    The app is fully optimized for mobile devices:
+                  </Paragraph>
+                  <ul style={{ paddingLeft: 20 }}>
+                    <li><Text strong>Compact Header:</Text> Essential controls are prioritized. Use the "More" (...) menu for extra options.</li>
+                    <li><Text strong>Stacked Layout:</Text> Courts and Player List are stacked for easier scrolling.</li>
+                    <li><Text strong>Quick Actions:</Text> Use the floating action button (+) at the bottom right to quickly add players or courts.</li>
+                  </ul>
+                </div>
+              ),
+            }
+          ]}
+        />
       </div>
     </Modal>
   );

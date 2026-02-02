@@ -24,6 +24,9 @@ export default function QueuingClient() {
   const { state, actions } = useQueuingState();
   const { sessionStartTime, sessionEndTime, sessionStatus, currentTime, courts, players, history, isLoaded } = state;
 
+  // Freeze time if session is ended to stop idle timers
+  const effectiveTime = (sessionStatus === 'ended' && sessionEndTime) ? sessionEndTime : currentTime;
+
   const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);
   const [isAddCourtOpen, setIsAddCourtOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -91,7 +94,7 @@ export default function QueuingClient() {
         sessionStartTime={sessionStartTime}
         sessionEndTime={sessionEndTime}
         sessionStatus={sessionStatus}
-        currentTime={currentTime}
+        currentTime={effectiveTime}
         onStartSession={actions.startSession}
         onStopSession={handleStopSession}
         onResetSession={actions.resetState}
@@ -111,7 +114,7 @@ export default function QueuingClient() {
                   <CourtCard 
                     court={court}
                     players={players}
-                    currentTime={currentTime}
+                    currentTime={effectiveTime}
                     sessionStartTime={sessionStatus === 'active' ? sessionStartTime : null}
                     onUpdateName={actions.updateCourtName}
                     onRemove={actions.removeCourt}
@@ -127,7 +130,7 @@ export default function QueuingClient() {
               players={players}
               courts={courts}
               sessionStartTime={sessionStartTime}
-              currentTime={currentTime}
+              currentTime={effectiveTime}
               onToggleSelection={actions.togglePlayerSelection}
               onViewPlayer={setViewingPlayerId}
               onRemovePlayer={actions.removePlayer}
@@ -145,7 +148,7 @@ export default function QueuingClient() {
                       key={court.id}
                       court={court}
                       players={players}
-                      currentTime={currentTime}
+                      currentTime={effectiveTime}
                       sessionStartTime={sessionStatus === 'active' ? sessionStartTime : null}
                       onUpdateName={actions.updateCourtName}
                       onRemove={actions.removeCourt}
@@ -163,7 +166,7 @@ export default function QueuingClient() {
                 players={players}
                 courts={courts}
                 sessionStartTime={sessionStartTime}
-                currentTime={currentTime}
+                currentTime={effectiveTime}
                 onToggleSelection={actions.togglePlayerSelection}
                 onViewPlayer={setViewingPlayerId}
                 onRemovePlayer={actions.removePlayer}
