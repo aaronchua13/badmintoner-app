@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Typography, Tag, Button, Grid } from 'antd';
+import { Card, Typography, Tag, Button, Grid, Tooltip } from 'antd';
 import { EditOutlined, ClockCircleOutlined, DeleteOutlined, StopOutlined, CloseOutlined } from '@ant-design/icons';
 import { Court, Player } from '../types';
 import LevelTag from './LevelTag';
@@ -247,15 +247,23 @@ const CourtCard: React.FC<CourtCardProps> = ({
                </div>
             </div>
           </div>
-          <Button 
-            type="primary" 
-            block 
-            size="small"
-            disabled={court.players.filter(Boolean).length !== 4 || !sessionStartTime}
-            onClick={() => onStartMatch(court.id)}
-          >
-            {sessionStartTime ? 'Start Match' : 'Start Session First'}
-          </Button>
+          <Tooltip title={
+            !sessionStartTime ? 'Start Session First' :
+            court.players.filter(Boolean).length !== 4 ? 'Strictly 2 vs 2 (Need 4 players)' :
+            undefined
+          }>
+            <div style={{ width: '100%' }}>
+              <Button 
+                type="primary" 
+                block 
+                size="small"
+                disabled={court.players.filter(Boolean).length !== 4 || !sessionStartTime}
+                onClick={() => onStartMatch(court.id)}
+              >
+                {sessionStartTime ? 'Start Match' : 'Start Session First'}
+              </Button>
+            </div>
+          </Tooltip>
         </div>
       )}
     </Card>

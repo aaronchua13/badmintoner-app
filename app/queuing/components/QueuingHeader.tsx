@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layout, Typography, Button, Modal, Dropdown, MenuProps, Tag, Tooltip } from 'antd';
+import { Layout, Typography, Button, Modal, Dropdown, MenuProps, Tag } from 'antd';
 import { HomeOutlined, PlayCircleOutlined, HistoryOutlined, TeamOutlined, MoreOutlined, DeleteOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import { formatSessionDuration } from '../utils';
@@ -82,9 +82,7 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '16px', overflow: 'hidden' }}>
         <Link href="/" passHref>
-          <Tooltip title="Back to Home">
-            <Button icon={<HomeOutlined />} type="text" size="middle" aria-label="Back to Home" />
-          </Tooltip>
+          <Button icon={<HomeOutlined />} type="text" size="middle" aria-label="Back to Home" />
         </Link>
         
         {isMobile ? (
@@ -119,30 +117,24 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <Tooltip title="Instructions">
-          <Button 
-            icon={<QuestionCircleOutlined />} 
-            onClick={onOpenInstructions} 
-            type="text"
-            size="middle"
-            aria-label="Instructions"
-          />
-        </Tooltip>
+        <Button 
+          icon={<QuestionCircleOutlined />} 
+          onClick={onOpenInstructions} 
+          type="text"
+          size="middle"
+          aria-label="Instructions"
+        />
         
-        <Tooltip title="History">
-          <Button 
-            icon={<HistoryOutlined />} 
-            onClick={onOpenHistory} 
-            type="text"
-            size="middle"
-            aria-label="History"
-          />
-        </Tooltip>
+        <Button 
+          icon={<HistoryOutlined />} 
+          onClick={onOpenHistory} 
+          type="text"
+          size="middle"
+          aria-label="History"
+        />
 
         <Dropdown menu={{ items: menuItems }} trigger={['click']} placement="bottomRight">
-          <Tooltip title="More Actions">
-            <Button icon={<MoreOutlined />} type="text" size="middle" aria-label="More Actions" />
-          </Tooltip>
+          <Button icon={<MoreOutlined />} type="text" size="middle" aria-label="More Actions" />
         </Dropdown>
       </div>
     </Header>

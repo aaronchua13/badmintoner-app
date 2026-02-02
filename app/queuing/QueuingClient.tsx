@@ -184,12 +184,10 @@ export default function QueuingClient() {
       >
         <FloatButton 
           icon={<UserAddOutlined />} 
-          tooltip="Add Player" 
           onClick={() => setIsAddPlayerOpen(true)} 
         />
         <FloatButton 
           icon={<AppstoreAddOutlined />} 
-          tooltip="Add Court" 
           onClick={() => setIsAddCourtOpen(true)} 
         />
       </FloatButton.Group>
