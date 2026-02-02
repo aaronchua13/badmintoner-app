@@ -21,20 +21,11 @@ export const metadata: Metadata = {
     siteName: 'Badmintoner',
     locale: 'en_US',
     type: 'website',
-    images: [
-      {
-        url: '/og-image.jpg?v=2',
-        width: 1200,
-        height: 630,
-        alt: 'Badmintoner Preview',
-      },
-    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Badmintoner | Manage Badminton Clubs, Games & Events',
     description: 'Badmintoner helps badminton clubs manage player queues, games, courts, and club schedules in one simple platform.',
-    images: ['/og-image.jpg?v=2'],
   },
   robots: {
     index: true,
