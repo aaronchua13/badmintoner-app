@@ -16,17 +16,22 @@ import StopMatchModal from './components/modals/StopMatchModal';
 import HistoryModal from './components/modals/HistoryModal';
 import PlayerDetailsModal from './components/modals/PlayerDetailsModal';
 import InstructionsModal from './components/modals/InstructionsModal';
+import SessionSummaryModal from './components/modals/SessionSummaryModal';
 
 const { Content } = Layout;
 
 export default function QueuingClient() {
   const { state, actions } = useQueuingState();
-  const { sessionStartTime, currentTime, courts, players, history, isLoaded } = state;
+  const { sessionStartTime, sessionEndTime, sessionStatus, currentTime, courts, players, history, isLoaded } = state;
+
+  // Freeze time if session is ended to stop idle timers
+  const effectiveTime = (sessionStatus === 'ended' && sessionEndTime) ? sessionEndTime : currentTime;
 
   const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);
   const [isAddCourtOpen, setIsAddCourtOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
+  const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [finishingCourtId, setFinishingCourtId] = useState<string | null>(null);
   const [stoppingCourtId, setStoppingCourtId] = useState<string | null>(null);
   const [viewingPlayerId, setViewingPlayerId] = useState<string | null>(null);
@@ -39,22 +44,8 @@ export default function QueuingClient() {
 
   const screens = Grid.useBreakpoint();
   const { isCourtsSingleColumn } = useCustomBreakpoints();
-  // Use isHeaderCompact for mobile layout switching as it aligns with the "mobile view" request
-  // But strictly speaking, mobile layout stacking might be better tied to a smaller breakpoint like 768px (md) or just reuse isHeaderCompact if user wants full mobile experience below 1000px
-  // User said "header look like mobile header" below 1000px.
-  // User said "court if screen size is below 1366px make column only 1".
   
-  // Let's keep the main layout stacking (sidebar vs content) at standard mobile breakpoint (md), 
-  // or should we follow the header?
-  // "if screen size is below 1000px, make the header look like mobile header" -> specific to header.
-  // "if screen size is below 1366px make column only 1" -> specific to courts.
-  
-  // The existing isMobile logic affects:
-  // 1. Padding (12px vs 24px)
-  // 2. Main layout structure (Column vs Row split)
-  // 3. CourtCard props (which we reverted)
-  
-  // If I use standard breakpoint for main layout, but custom for courts:
+  // Mobile layout logic matches the original file
   const isMobileLayout = (screens.xs || screens.sm) && !screens.md; 
 
   if (!isLoaded) return null;
@@ -89,6 +80,11 @@ export default function QueuingClient() {
     }
   };
 
+  const handleStopSession = () => {
+    actions.stopSession();
+    setIsSummaryOpen(true);
+  };
+
   const viewingPlayer = players.find(p => p.id === viewingPlayerId);
   const finishingCourt = courts.find(c => c.id === finishingCourtId);
 
@@ -96,15 +92,19 @@ export default function QueuingClient() {
     <Layout style={{ minHeight: '100vh' }}>
       <QueuingHeader 
         sessionStartTime={sessionStartTime}
-        currentTime={currentTime}
+        sessionEndTime={sessionEndTime}
+        sessionStatus={sessionStatus}
+        currentTime={effectiveTime}
         onStartSession={actions.startSession}
+        onStopSession={handleStopSession}
         onResetSession={actions.resetState}
         onRestartSession={actions.restartSession}
         onOpenHistory={() => setIsHistoryOpen(true)}
+        onOpenSummary={() => setIsSummaryOpen(true)}
         onOpenInstructions={() => setIsInstructionsOpen(true)}
         onPopulateDummy={() => actions.populateDummyPlayers(['Beginner', 'Intermediate', 'Advanced', 'Intermediate +', 'Advanced +'])}
       />
-
+      
       <Content style={{ padding: isMobileLayout ? '12px' : '24px' }}>
         {isMobileLayout ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -114,8 +114,8 @@ export default function QueuingClient() {
                   <CourtCard 
                     court={court}
                     players={players}
-                    currentTime={currentTime}
-                    sessionStartTime={sessionStartTime}
+                    currentTime={effectiveTime}
+                    sessionStartTime={sessionStatus === 'active' ? sessionStartTime : null}
                     onUpdateName={actions.updateCourtName}
                     onRemove={actions.removeCourt}
                     onStartMatch={actions.startMatch}
@@ -130,7 +130,7 @@ export default function QueuingClient() {
               players={players}
               courts={courts}
               sessionStartTime={sessionStartTime}
-              currentTime={currentTime}
+              currentTime={effectiveTime}
               onToggleSelection={actions.togglePlayerSelection}
               onViewPlayer={setViewingPlayerId}
               onRemovePlayer={actions.removePlayer}
@@ -145,18 +145,18 @@ export default function QueuingClient() {
                 {courts.map(court => (
                   <Col span={isCourtsSingleColumn ? 24 : 12} key={court.id}>
                     <CourtCard 
-                    key={court.id}
-                    court={court}
-                    players={players}
-                    currentTime={currentTime}
-                    sessionStartTime={sessionStartTime}
-                    onUpdateName={actions.updateCourtName}
-                    onRemove={actions.removeCourt}
-                    onStartMatch={actions.startMatch}
-                    onFinishMatch={(id) => setFinishingCourtId(id)}
-                    onStopMatch={(id) => setStoppingCourtId(id)}
-                    onTogglePlayer={actions.togglePlayerSelection}
-                  />
+                      key={court.id}
+                      court={court}
+                      players={players}
+                      currentTime={effectiveTime}
+                      sessionStartTime={sessionStatus === 'active' ? sessionStartTime : null}
+                      onUpdateName={actions.updateCourtName}
+                      onRemove={actions.removeCourt}
+                      onStartMatch={actions.startMatch}
+                      onFinishMatch={(id) => setFinishingCourtId(id)}
+                      onStopMatch={(id) => setStoppingCourtId(id)}
+                      onTogglePlayer={actions.togglePlayerSelection}
+                    />
                   </Col>
                 ))}
               </Row>
@@ -166,7 +166,7 @@ export default function QueuingClient() {
                 players={players}
                 courts={courts}
                 sessionStartTime={sessionStartTime}
-                currentTime={currentTime}
+                currentTime={effectiveTime}
                 onToggleSelection={actions.togglePlayerSelection}
                 onViewPlayer={setViewingPlayerId}
                 onRemovePlayer={actions.removePlayer}
@@ -177,21 +177,23 @@ export default function QueuingClient() {
         )}
       </Content>
 
-      <FloatButton.Group
-        trigger="click"
-        type="primary"
-        style={{ right: 24, bottom: 24 }}
-        icon={<PlusOutlined />}
-      >
-        <FloatButton 
-          icon={<UserAddOutlined />} 
-          onClick={() => setIsAddPlayerOpen(true)} 
-        />
-        <FloatButton 
-          icon={<AppstoreAddOutlined />} 
-          onClick={() => setIsAddCourtOpen(true)} 
-        />
-      </FloatButton.Group>
+      {sessionStatus === 'active' && (
+        <FloatButton.Group
+          trigger="click"
+          type="primary"
+          style={{ right: 24, bottom: 24 }}
+          icon={<PlusOutlined />}
+        >
+          <FloatButton 
+            icon={<UserAddOutlined />} 
+            onClick={() => setIsAddPlayerOpen(true)} 
+          />
+          <FloatButton 
+            icon={<AppstoreAddOutlined />} 
+            onClick={() => setIsAddCourtOpen(true)} 
+          />
+        </FloatButton.Group>
+      )}
 
       <AddPlayerModal
         visible={isAddPlayerOpen}
@@ -228,6 +230,15 @@ export default function QueuingClient() {
       <HistoryModal
         visible={isHistoryOpen}
         onCancel={() => setIsHistoryOpen(false)}
+        history={history}
+      />
+      
+      <SessionSummaryModal
+        visible={isSummaryOpen}
+        onClose={() => setIsSummaryOpen(false)}
+        sessionStartTime={sessionStartTime}
+        sessionEndTime={sessionEndTime || (sessionStatus === 'active' ? currentTime : null)}
+        players={players}
         history={history}
       />
       
