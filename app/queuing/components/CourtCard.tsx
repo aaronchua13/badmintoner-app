@@ -251,7 +251,7 @@ const CourtCard: React.FC<CourtCardProps> = ({
             type="primary" 
             block 
             size="small"
-            disabled={court.players.filter(Boolean).length < 2 || !sessionStartTime}
+            disabled={court.players.filter(Boolean).length !== 4 || !sessionStartTime}
             onClick={() => onStartMatch(court.id)}
           >
             {sessionStartTime ? 'Start Match' : 'Start Session First'}
