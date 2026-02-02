@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   Form,
   Input,
@@ -105,31 +105,51 @@ export default function CreateClubClient({
 
   // Removed useEffect for fetching courts as it is passed as initial props
 
-  const handleLocationSearch = async (value: string) => {
+  const searchTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  const handleLocationSearch = (value: string) => {
+    if (searchTimeout.current) {
+      clearTimeout(searchTimeout.current);
+    }
+
     if (!value || value.length < 3) return;
 
-    const apiKey = process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY;
-    // Limit to Philippines (to include Mandaue, Lapu-Lapu, etc.)
-    const filter = '&filter=countrycode:ph';
+    searchTimeout.current = setTimeout(async () => {
+      const apiKey = process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY;
 
-    try {
-      const response = await fetch(
-        `https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(value)}&apiKey=${apiKey}${filter}`,
-      );
-      const data = await response.json();
-
-      if (data.features) {
-        const options = data.features.map((feature: GeoapifyFeature) => ({
-          value: feature.properties.formatted,
-          label: feature.properties.formatted,
-          lat: feature.properties.lat,
-          lon: feature.properties.lon,
-        }));
-        setLocationOptions(options);
+      if (!apiKey) {
+        console.error('Geoapify API key is missing. Please check your environment variables.');
+        return;
       }
-    } catch (error) {
-      console.error('Error fetching address:', error);
-    }
+
+      // Limit to Philippines (to include Mandaue, Lapu-Lapu, etc.)
+      const filter = '&filter=countrycode:ph';
+
+      try {
+        const response = await fetch(
+          `https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(value)}&apiKey=${apiKey}${filter}`,
+        );
+
+        if (!response.ok) {
+          console.error('Geoapify API error:', response.status, response.statusText);
+          return;
+        }
+
+        const data = await response.json();
+
+        if (data.features) {
+          const options = data.features.map((feature: GeoapifyFeature) => ({
+            value: feature.properties.formatted,
+            label: feature.properties.formatted,
+            lat: feature.properties.lat,
+            lon: feature.properties.lon,
+          }));
+          setLocationOptions(options);
+        }
+      } catch (error) {
+        console.error('Error fetching address:', error);
+      }
+    }, 500);
   };
 
   const handleLocationSelect = (value: string, option: LocationOption) => {
