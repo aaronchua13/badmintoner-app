@@ -13,6 +13,7 @@ export function proxy(request: NextRequest) {
     '/clubs',
     '/create-club',
     '/events',
+    '/queuing',
     '/not-found',
     '/admin/login',
     '/admin/signup',
