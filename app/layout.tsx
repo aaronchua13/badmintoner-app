@@ -4,7 +4,7 @@ import Providers from './providers';
 import Footer from './components/Footer';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://badmintoner.vercel.app'),
+  metadataBase: new URL('https://badmintoner-app.vercel.app'),
   title: {
     template: '%s | Badmintoner',
     default: 'Badmintoner - Badminton Club Management & Queuing System',
@@ -17,13 +17,13 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Badmintoner - Badminton Club Management',
     description: 'Efficiently manage badminton courts, player queues, and match history. The ultimate tool for badminton organizers.',
-    url: 'https://badmintoner.vercel.app', 
+    url: 'https://badmintoner-app.vercel.app', 
     siteName: 'Badmintoner',
     locale: 'en_US',
     type: 'website',
     images: [
       {
-        url: '/og-image.jpg', // Placeholder for actual OG image
+        url: '/og-image.jpg',
         width: 1200,
         height: 630,
         alt: 'Badmintoner Preview',
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Badmintoner - Badminton Club Management',
     description: 'Efficiently manage badminton courts, player queues, and match history.',
-    images: ['/og-image.jpg'], // Placeholder
+    images: ['/og-image.jpg'],
   },
   robots: {
     index: true,
