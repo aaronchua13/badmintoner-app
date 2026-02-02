@@ -1,7 +1,7 @@
 'use client';
 
 import { Layout, Menu, MenuProps, Button, Dropdown, Avatar, Space, Typography, Grid, Drawer, App } from 'antd';
-import { HomeOutlined, TeamOutlined, CalendarOutlined, LoginOutlined, UserOutlined, LogoutOutlined, DownOutlined, MenuOutlined, PlusOutlined } from '@ant-design/icons';
+import { HomeOutlined, TeamOutlined, CalendarOutlined, LoginOutlined, UserOutlined, LogoutOutlined, DownOutlined, MenuOutlined, PlusOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { logoutAction } from '@/app/actions/auth';
@@ -88,6 +88,11 @@ export default function MainLayoutClient({ children, user }: MainLayoutClientPro
       key: '/events',
       icon: <CalendarOutlined />,
       label: <Link href="/events">Events</Link>,
+    },
+    {
+      key: '/queuing',
+      icon: <UnorderedListOutlined />,
+      label: <Link href="/queuing">Queuing</Link>,
     },
   ];
 

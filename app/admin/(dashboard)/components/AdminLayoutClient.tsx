@@ -12,6 +12,7 @@ import {
   HomeOutlined,
   MenuUnfoldOutlined,
   MenuFoldOutlined,
+  UnorderedListOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
@@ -100,6 +101,11 @@ export default function AdminLayoutClient({ children, user }: AdminLayoutClientP
       key: '/admin/players',
       icon: <TrophyOutlined />,
       label: <Link href="/admin/players">Players</Link>,
+    },
+    {
+      key: '/queuing',
+      icon: <UnorderedListOutlined />,
+      label: <Link href="/queuing">Queuing</Link>,
     },
   ];
 
