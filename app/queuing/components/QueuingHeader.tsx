@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Layout, Typography, Button, Dropdown, MenuProps, Tag } from 'antd';
-import { HomeOutlined, PlayCircleOutlined, HistoryOutlined, TeamOutlined, MoreOutlined, DeleteOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { HomeOutlined, PlayCircleOutlined, HistoryOutlined, TeamOutlined, MoreOutlined, DeleteOutlined, QuestionCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import { formatSessionDuration } from '../utils';
 import { useCustomBreakpoints } from '../hooks/useCustomBreakpoints';
 import ResetSessionModal from './modals/ResetSessionModal';
+import RestartSessionModal from './modals/RestartSessionModal';
 
 const { Header } = Layout;
 const { Title, Text } = Typography;
@@ -14,6 +15,7 @@ interface QueuingHeaderProps {
   currentTime: number;
   onStartSession: () => void;
   onResetSession: () => void;
+  onRestartSession: () => void;
   onOpenHistory: () => void;
   onPopulateDummy: () => void;
   onOpenInstructions: () => void;
@@ -24,6 +26,7 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
   currentTime,
   onStartSession,
   onResetSession,
+  onRestartSession,
   onOpenHistory,
   onPopulateDummy,
   onOpenInstructions
@@ -31,6 +34,7 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
   const { isHeaderCompact } = useCustomBreakpoints();
   const isMobile = isHeaderCompact;
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isRestartModalOpen, setIsRestartModalOpen] = useState(false);
 
   const getSessionDuration = () => {
     if (sessionStartTime === null) return 'Not Started';
@@ -42,12 +46,23 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
     setIsResetModalOpen(true);
   };
 
+  const handleRestart = () => {
+    setIsRestartModalOpen(true);
+  };
+
   const menuItems: MenuProps['items'] = [
     {
       key: 'populate',
       icon: <TeamOutlined />,
       label: 'Populate Dummy Players',
       onClick: onPopulateDummy
+    },
+    {
+      key: 'restart',
+      icon: <ReloadOutlined />,
+      label: 'Restart Session',
+      onClick: handleRestart,
+      disabled: !sessionStartTime
     }
   ];
 
@@ -139,6 +154,15 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
         onConfirm={() => {
           onResetSession();
           setIsResetModalOpen(false);
+        }}
+      />
+      
+      <RestartSessionModal
+        visible={isRestartModalOpen}
+        onCancel={() => setIsRestartModalOpen(false)}
+        onConfirm={() => {
+          onRestartSession();
+          setIsRestartModalOpen(false);
         }}
       />
     </>

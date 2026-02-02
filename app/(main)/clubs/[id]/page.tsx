@@ -35,15 +35,6 @@ export async function generateMetadata(
       description: description,
       url: `https://badmintoner-app.vercel.app/clubs/${id}`,
       siteName: 'Badmintoner',
-      images: [
-        {
-          url: '/opengraph-image.jpg',
-          width: 1200,
-          height: 630,
-          alt: clubName,
-        },
-        ...previousImages,
-      ],
       locale: 'en_US',
       type: 'website',
     },
@@ -51,7 +42,6 @@ export async function generateMetadata(
       card: 'summary_large_image',
       title: `${clubName} | Badmintoner`,
       description: description,
-      images: ['/opengraph-image.jpg'],
     },
   };
 }

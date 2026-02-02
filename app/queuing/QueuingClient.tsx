@@ -99,6 +99,7 @@ export default function QueuingClient() {
         currentTime={currentTime}
         onStartSession={actions.startSession}
         onResetSession={actions.resetState}
+        onRestartSession={actions.restartSession}
         onOpenHistory={() => setIsHistoryOpen(true)}
         onOpenInstructions={() => setIsInstructionsOpen(true)}
         onPopulateDummy={() => actions.populateDummyPlayers(['Beginner', 'Intermediate', 'Advanced', 'Intermediate +', 'Advanced +'])}
