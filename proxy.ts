@@ -25,6 +25,7 @@ export function proxy(request: NextRequest) {
     '/player/login',
     '/player/signup',
     '/player/profile',
+    '/opengraph-image.jpg'
   ];
 
   // Check if route is valid (including dynamic routes)
@@ -79,5 +80,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|opengraph-image.jpg|robots.txt|sitemap.xml).*)'],
 };
