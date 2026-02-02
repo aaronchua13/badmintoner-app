@@ -1,7 +1,8 @@
 'use client';
 
 import { Typography, Card, Row, Col } from 'antd';
-import { TrophyOutlined, TeamOutlined, CalendarOutlined } from '@ant-design/icons';
+import { TeamOutlined, CalendarOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import Link from 'next/link';
 
 const { Title, Paragraph } = Typography;
 
@@ -17,37 +18,43 @@ export default function HomeClient() {
 
         <Row gutter={[24, 24]}>
           <Col xs={24} md={8}>
-            <Card hoverable>
-              <div style={{ textAlign: 'center' }}>
-                <TrophyOutlined style={{ fontSize: '48px', color: '#1890ff', marginBottom: '16px' }} />
-                <Title level={3}>Players</Title>
-                <Paragraph>
-                  Manage player profiles, rankings, and statistics
-                </Paragraph>
-              </div>
-            </Card>
+            <Link href="/queuing" style={{ textDecoration: 'none' }}>
+              <Card hoverable style={{ height: '100%' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <UnorderedListOutlined style={{ fontSize: '48px', color: '#722ed1', marginBottom: '16px' }} />
+                  <Title level={3}>Queuing</Title>
+                  <Paragraph>
+                    Manage sessions, courts, and player queues efficiently
+                  </Paragraph>
+                </div>
+              </Card>
+            </Link>
           </Col>
           <Col xs={24} md={8}>
-            <Card hoverable>
-              <div style={{ textAlign: 'center' }}>
-                <TeamOutlined style={{ fontSize: '48px', color: '#52c41a', marginBottom: '16px' }} />
-                <Title level={3}>Clubs</Title>
-                <Paragraph>
-                  Connect with badminton clubs in your area
-                </Paragraph>
-              </div>
-            </Card>
+            <Link href="/clubs" style={{ textDecoration: 'none' }}>
+              <Card hoverable style={{ height: '100%' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <TeamOutlined style={{ fontSize: '48px', color: '#52c41a', marginBottom: '16px' }} />
+                  <Title level={3}>Clubs</Title>
+                  <Paragraph>
+                    Connect with badminton clubs in your area
+                  </Paragraph>
+                </div>
+              </Card>
+            </Link>
           </Col>
           <Col xs={24} md={8}>
-            <Card hoverable>
-              <div style={{ textAlign: 'center' }}>
-                <CalendarOutlined style={{ fontSize: '48px', color: '#fa8c16', marginBottom: '16px' }} />
-                <Title level={3}>Events</Title>
-                <Paragraph>
-                  Find and join upcoming tournaments and matches
-                </Paragraph>
-              </div>
-            </Card>
+            <Link href="/events" style={{ textDecoration: 'none' }}>
+              <Card hoverable style={{ height: '100%' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <CalendarOutlined style={{ fontSize: '48px', color: '#fa8c16', marginBottom: '16px' }} />
+                  <Title level={3}>Events</Title>
+                  <Paragraph>
+                    Find and join upcoming tournaments and matches
+                  </Paragraph>
+                </div>
+              </Card>
+            </Link>
           </Col>
         </Row>
       </div>

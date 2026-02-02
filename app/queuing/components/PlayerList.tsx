@@ -1,9 +1,9 @@
 import React from 'react';
 import { Row, Col, Typography, Tag, Badge, Avatar, Button, Dropdown, Space, List } from 'antd';
-import { TeamOutlined, InfoCircleOutlined, MoreOutlined, UserOutlined, ManOutlined, WomanOutlined } from '@ant-design/icons';
+import { TeamOutlined, InfoCircleOutlined, MoreOutlined, UserOutlined, ManOutlined, WomanOutlined, PauseCircleOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { Player, Court, LEVEL_COLORS } from '../types';
 import LevelTag from './LevelTag';
-import { formatDuration, getWaitTime } from '../utils';
+import { formatDuration, getWaitTime, getWaitDuration } from '../utils';
 
 const { Text } = Typography;
 
@@ -18,6 +18,13 @@ interface PlayerListProps {
   onRemovePlayer: (id: string) => void;
   onToggleActive: (id: string) => void;
 }
+
+const getWaitColor = (seconds: number) => {
+  const minutes = seconds / 60;
+  if (minutes >= 20) return '#ff4d4f'; // Red (Danger)
+  if (minutes >= 15) return '#faad14'; // Orange (Warning)
+  return undefined; // Default
+};
 
 const PlayerList: React.FC<PlayerListProps> = ({
   sortedPlayers,
@@ -44,25 +51,31 @@ const PlayerList: React.FC<PlayerListProps> = ({
       <Row gutter={[12, 12]}>
         {sortedPlayers.map(player => {
           const idleCourts = courts.filter(c => c.status === 'idle');
-          const showCourtButtons = !player.isPlaying && idleCourts.length > 0;
+          const showCourtButtons = !player.isPlaying && player.isActive && idleCourts.length > 0;
+          const waitSeconds = getWaitDuration(player, sessionStartTime, currentTime);
+          const waitColor = getWaitColor(waitSeconds);
           
           return (
             <Col xs={24} sm={12} md={12} lg={12} xl={8} xxl={6} key={player.id}>
               <div style={{ 
-                background: player.isPlaying ? '#f6ffed' : '#fff', 
+                background: player.isPlaying ? '#f6ffed' : (!player.isActive ? '#fafafa' : '#fff'), 
                 border: '1px solid #f0f0f0', 
                 borderRadius: '6px',
                 padding: '8px',
                 position: 'relative',
                 height: '100%',
                 display: 'flex',
-                flexDirection: 'column'
+                flexDirection: 'column',
+                opacity: !player.isActive ? 0.6 : 1
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                   <Text strong style={{ fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '65%', cursor: 'pointer' }} onClick={() => onViewPlayer(player.id)}>
                     {player.name}
                   </Text>
-                  <Tag color={player.isPlaying ? 'green' : 'default'} style={{ margin: 0, fontSize: '10px', lineHeight: '16px', padding: '0 4px' }}>
+                  <Tag 
+                    color={player.isPlaying ? 'green' : (waitColor || 'default')} 
+                    style={{ margin: 0, fontSize: '10px', lineHeight: '16px', padding: '0 4px', color: waitColor ? '#fff' : undefined, border: 'none' }}
+                  >
                     {getWaitTime(player, sessionStartTime, currentTime)}
                   </Tag>
                 </div>
@@ -102,7 +115,7 @@ const PlayerList: React.FC<PlayerListProps> = ({
                       );
                     }) : (
                       <span style={{ fontSize: '10px', color: '#ccc' }}>
-                        {player.isPlaying ? 'Playing' : 'No Courts'}
+                        {player.isPlaying ? 'Playing' : (!player.isActive ? 'Away' : 'No Courts')}
                       </span>
                     )}
                   </div>
@@ -114,11 +127,20 @@ const PlayerList: React.FC<PlayerListProps> = ({
                       style={{ width: 22, height: 22, minWidth: 22, fontSize: '11px', color: '#1890ff' }}
                     />
                     <Dropdown 
-                      menu={{ items: [{ 
+                      menu={{ items: [
+                        { 
+                          key: 'toggle-active', 
+                          label: player.isActive ? 'Set Away' : 'Set Active', 
+                          icon: player.isActive ? <PauseCircleOutlined /> : <PlayCircleOutlined />,
+                          onClick: () => onToggleActive(player.id),
+                          disabled: player.isPlaying
+                        },
+                        { 
                         key: 'remove', 
                         label: 'Remove', 
                         danger: true, 
-                        onClick: () => onRemovePlayer(player.id)
+                        onClick: () => onRemovePlayer(player.id),
+                        disabled: player.isPlaying
                       }] }} 
                       trigger={['click']}
                     >
@@ -141,16 +163,19 @@ const PlayerList: React.FC<PlayerListProps> = ({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       {sortedPlayers.map(player => {
         const idleCourts = courts.filter(c => c.status === 'idle');
-        const showCourtButtons = !player.isPlaying && idleCourts.length > 0;
+        const showCourtButtons = !player.isPlaying && player.isActive && idleCourts.length > 0;
+        const waitSeconds = getWaitDuration(player, sessionStartTime, currentTime);
+        const waitColor = getWaitColor(waitSeconds);
 
         return (
           <div key={player.id} style={{ 
             display: 'flex', 
             flexDirection: 'column',
             padding: '6px 8px',
-            background: player.isPlaying ? '#f6ffed' : '#fff',
+            background: player.isPlaying ? '#f6ffed' : (!player.isActive ? '#fafafa' : '#fff'),
             border: '1px solid #f0f0f0',
-            borderRadius: '4px'
+            borderRadius: '4px',
+            opacity: !player.isActive ? 0.6 : 1
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
@@ -176,7 +201,10 @@ const PlayerList: React.FC<PlayerListProps> = ({
                </div>
 
                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Tag style={{ margin: 0, fontSize: '10px', padding: '0 4px' }}>
+                  <Tag 
+                    style={{ margin: 0, fontSize: '10px', padding: '0 4px', color: waitColor ? '#fff' : undefined, border: 'none' }}
+                    color={waitColor}
+                  >
                      {getWaitTime(player, sessionStartTime, currentTime)}
                   </Tag>
                   <Button 
@@ -185,11 +213,20 @@ const PlayerList: React.FC<PlayerListProps> = ({
                      style={{ fontSize: '12px', color: '#1890ff', width: 24 }}
                   />
                   <Dropdown 
-                    menu={{ items: [{ 
+                    menu={{ items: [
+                      { 
+                        key: 'toggle-active', 
+                        label: player.isActive ? 'Set Away' : 'Set Active', 
+                        icon: player.isActive ? <PauseCircleOutlined /> : <PlayCircleOutlined />,
+                        onClick: () => onToggleActive(player.id),
+                        disabled: player.isPlaying
+                      },
+                      { 
                       key: 'remove', 
                       label: 'Remove', 
                       danger: true, 
-                      onClick: () => onRemovePlayer(player.id)
+                      onClick: () => onRemovePlayer(player.id),
+                      disabled: player.isPlaying
                     }] }} 
                     trigger={['click']}
                   >
@@ -204,6 +241,8 @@ const PlayerList: React.FC<PlayerListProps> = ({
             <div style={{ marginTop: 6, paddingLeft: 32 }}>
                {player.isPlaying ? (
                   <Tag color="green" style={{ margin: 0, fontSize: '10px', padding: '0 4px' }}>Playing</Tag>
+                ) : !player.isActive ? (
+                  <Tag style={{ margin: 0, fontSize: '10px', padding: '0 4px' }}>Away</Tag>
                 ) : (
                   <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                     {idleCourts.length > 0 ? idleCourts.map(court => {

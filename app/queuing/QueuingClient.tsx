@@ -14,6 +14,7 @@ import FinishMatchModal from './components/modals/FinishMatchModal';
 import StopMatchModal from './components/modals/StopMatchModal';
 import HistoryModal from './components/modals/HistoryModal';
 import PlayerDetailsModal from './components/modals/PlayerDetailsModal';
+import InstructionsModal from './components/modals/InstructionsModal';
 
 const { Content } = Layout;
 
@@ -24,6 +25,7 @@ export default function QueuingClient() {
   const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);
   const [isAddCourtOpen, setIsAddCourtOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
   const [finishingCourtId, setFinishingCourtId] = useState<string | null>(null);
   const [stoppingCourtId, setStoppingCourtId] = useState<string | null>(null);
   const [viewingPlayerId, setViewingPlayerId] = useState<string | null>(null);
@@ -97,6 +99,7 @@ export default function QueuingClient() {
         onStartSession={actions.startSession}
         onResetSession={actions.resetState}
         onOpenHistory={() => setIsHistoryOpen(true)}
+        onOpenInstructions={() => setIsInstructionsOpen(true)}
         onPopulateDummy={() => actions.populateDummyPlayers(['Beginner', 'Intermediate', 'Advanced', 'Intermediate +', 'Advanced +'])}
         onOpenAddPlayer={() => setIsAddPlayerOpen(true)}
         onOpenAddCourt={() => setIsAddCourtOpen(true)}
@@ -217,6 +220,11 @@ export default function QueuingClient() {
         visible={isHistoryOpen}
         onCancel={() => setIsHistoryOpen(false)}
         history={history}
+      />
+      
+      <InstructionsModal
+        visible={isInstructionsOpen}
+        onClose={() => setIsInstructionsOpen(false)}
       />
 
       <PlayerDetailsModal
