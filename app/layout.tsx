@@ -7,23 +7,23 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://badmintoner-app.vercel.app'),
   title: {
     template: '%s | Badmintoner',
-    default: 'Badmintoner - Badminton Club Management & Queuing System',
+    default: 'Badmintoner | Manage Badminton Clubs, Games & Events',
   },
-  description: 'Manage badminton clubs, track player stats, organize queuing sessions, and monitor court usage efficiently with Badmintoner.',
+  description: 'Badmintoner helps badminton clubs manage player queues, games, courts, and club schedules in one simple platform.',
   keywords: ['badminton', 'club management', 'queuing system', 'player stats', 'court management', 'sports organizer', 'tournament', 'badminton queue'],
   authors: [{ name: 'Nooons' }],
   creator: 'Nooons',
   applicationName: 'Badmintoner',
   openGraph: {
-    title: 'Badmintoner - Badminton Club Management',
-    description: 'Efficiently manage badminton courts, player queues, and match history. The ultimate tool for badminton organizers.',
+    title: 'Badmintoner | Manage Badminton Clubs, Games & Events',
+    description: 'Badmintoner helps badminton clubs manage player queues, games, courts, and club schedules in one simple platform.',
     url: 'https://badmintoner-app.vercel.app', 
     siteName: 'Badmintoner',
     locale: 'en_US',
     type: 'website',
     images: [
       {
-        url: '/og-image.jpg',
+        url: '/og-image.jpg?v=2',
         width: 1200,
         height: 630,
         alt: 'Badmintoner Preview',
@@ -32,9 +32,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Badmintoner - Badminton Club Management',
-    description: 'Efficiently manage badminton courts, player queues, and match history.',
-    images: ['/og-image.jpg'],
+    title: 'Badmintoner | Manage Badminton Clubs, Games & Events',
+    description: 'Badmintoner helps badminton clubs manage player queues, games, courts, and club schedules in one simple platform.',
+    images: ['/og-image.jpg?v=2'],
   },
   robots: {
     index: true,
