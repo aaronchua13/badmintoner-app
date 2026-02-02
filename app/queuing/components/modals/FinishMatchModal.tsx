@@ -36,13 +36,14 @@ const FinishMatchModal: React.FC<FinishMatchModalProps> = ({
       onOk={() => form.submit()}
     >
       <Form form={form} layout="vertical" onFinish={onFinish}>
+        <div style={{ marginBottom: 8, color: '#888', fontSize: '12px' }}>Scores are optional</div>
         <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
            <Form.Item name="team1Score" label={`Team 1 (${getTeamNames([0, 1])})`} style={{ flex: 1 }}>
-              <InputNumber min={0} style={{ width: '100%' }} />
+              <InputNumber min={0} style={{ width: '100%' }} placeholder="Optional" />
            </Form.Item>
            <div style={{ marginTop: 32 }}>-</div>
            <Form.Item name="team2Score" label={`Team 2 (${getTeamNames([2, 3])})`} style={{ flex: 1 }}>
-              <InputNumber min={0} style={{ width: '100%' }} />
+              <InputNumber min={0} style={{ width: '100%' }} placeholder="Optional" />
            </Form.Item>
         </div>
         
