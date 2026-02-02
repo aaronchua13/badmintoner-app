@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Form,
   Input,
@@ -150,30 +150,50 @@ export default function EditClubClient({
     }
   }, [initialClub, form]);
 
-  const handleLocationSearch = async (value: string) => {
+  const searchTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  const handleLocationSearch = (value: string) => {
+    if (searchTimeout.current) {
+      clearTimeout(searchTimeout.current);
+    }
+
     if (!value || value.length < 3) return;
 
-    const apiKey = process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY;
-    const filter = '&filter=countrycode:ph';
+    searchTimeout.current = setTimeout(async () => {
+      const apiKey = process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY;
 
-    try {
-      const response = await fetch(
-        `https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(value)}&apiKey=${apiKey}${filter}`,
-      );
-      const data = await response.json();
-
-      if (data.features) {
-        const options = data.features.map((feature: GeoapifyFeature) => ({
-          value: feature.properties.formatted,
-          label: feature.properties.formatted,
-          lat: feature.properties.lat,
-          lon: feature.properties.lon,
-        }));
-        setLocationOptions(options);
+      if (!apiKey) {
+        console.error('Geoapify API key is missing. Please check your environment variables.');
+        return;
       }
-    } catch (error) {
-      console.error('Error fetching address:', error);
-    }
+
+      const filter = '&filter=countrycode:ph';
+
+      try {
+        const response = await fetch(
+          `https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(value)}&apiKey=${apiKey}${filter}`,
+        );
+
+        if (!response.ok) {
+          console.error('Geoapify API error:', response.status, response.statusText);
+          return;
+        }
+
+        const data = await response.json();
+
+        if (data.features) {
+          const options = data.features.map((feature: GeoapifyFeature) => ({
+            value: feature.properties.formatted,
+            label: feature.properties.formatted,
+            lat: feature.properties.lat,
+            lon: feature.properties.lon,
+          }));
+          setLocationOptions(options);
+        }
+      } catch (error) {
+        console.error('Error fetching address:', error);
+      }
+    }, 500);
   };
 
   const handleLocationSelect = (value: string, option: LocationOption) => {

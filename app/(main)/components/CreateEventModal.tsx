@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Modal, Form, Input, DatePicker, App, AutoComplete } from 'antd';
 import { createEventAction } from '@/app/actions/club-event';
 import { useRouter } from 'next/navigation';
@@ -27,29 +27,48 @@ export default function CreateEventModal({ open, onCancel, userId }: CreateEvent
   // Geoapify Autocomplete State
   const [addressOptions, setAddressOptions] = useState<{ value: string; label: string; placeId: string }[]>([]);
 
-  const handleAddressSearch = async (value: string) => {
+  const searchTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  const handleAddressSearch = (value: string) => {
+    if (searchTimeout.current) {
+      clearTimeout(searchTimeout.current);
+    }
+
     if (!value || value.length < 3) return;
     
-    const apiKey = process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY; 
-    
-    // Limit to Philippines (Cebu province specific filtering requires complex geometry)
-    const filter = '&filter=countrycode:ph';
-
-    try {
-        const response = await fetch(`https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(value)}&apiKey=${apiKey}${filter}`);
-        const data = await response.json();
+    searchTimeout.current = setTimeout(async () => {
+        const apiKey = process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY; 
         
-        if (data.features) {
-            const options = data.features.map((feature: GeoapifyFeature) => ({
-                value: feature.properties.formatted,
-                label: feature.properties.formatted,
-                placeId: feature.properties.place_id,
-            }));
-            setAddressOptions(options);
+        if (!apiKey) {
+            console.error('Geoapify API key is missing. Please check your environment variables.');
+            return;
         }
-    } catch (error) {
-        console.error('Error fetching address:', error);
-    }
+        
+        // Limit to Philippines (Cebu province specific filtering requires complex geometry)
+        const filter = '&filter=countrycode:ph';
+
+        try {
+            const response = await fetch(`https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(value)}&apiKey=${apiKey}${filter}`);
+            
+            if (!response.ok) {
+                console.error('Geoapify API error:', response.status, response.statusText);
+                return;
+            }
+
+            const data = await response.json();
+            
+            if (data.features) {
+                const options = data.features.map((feature: GeoapifyFeature) => ({
+                    value: feature.properties.formatted,
+                    label: feature.properties.formatted,
+                    placeId: feature.properties.place_id,
+                }));
+                setAddressOptions(options);
+            }
+        } catch (error) {
+            console.error('Error fetching address:', error);
+        }
+    }, 500);
   };
 
   const handleSubmit = async () => {
