@@ -7,8 +7,8 @@ export const useCustomBreakpoints = () => {
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
-      setIsHeaderCompact(width < 1000);
-      setIsCourtsSingleColumn(width < 1366);
+      setIsHeaderCompact(width < 720);
+      setIsCourtsSingleColumn(width < 720);
     };
 
     // Initial check

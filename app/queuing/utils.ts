@@ -62,3 +62,10 @@ export const getWaitTime = (player: Player, sessionStartTime: number | null, cur
   const secs = diff % 60;
   return `${mins}m ${secs}s`;
 };
+
+export const getWaitDuration = (player: Player, sessionStartTime: number | null, currentTime: number) => {
+  if (sessionStartTime === null || player.isPlaying || player.gamesPlayed === 0) return 0;
+  const effectiveTime = Math.max(player.lastMatchEndTime, sessionStartTime);
+  const diff = Math.floor((currentTime - effectiveTime) / 1000);
+  return diff; // in seconds
+};

@@ -8,7 +8,7 @@ import { logoutAction } from '@/app/actions/auth';
 import { useState, useEffect } from 'react';
 import CreateEventModal from './CreateEventModal';
 
-const { Header, Content, Footer } = Layout;
+const { Header, Content } = Layout;
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
 
@@ -200,10 +200,6 @@ export default function MainLayoutClient({ children, user }: MainLayoutClientPro
           />
         </>
       )}
-
-      <Footer style={{ textAlign: 'center' }}>
-        Badmintoner ©{new Date().getFullYear()} Created with Ant Design
-      </Footer>
 
       {/* Mobile Drawer */}
       <Drawer

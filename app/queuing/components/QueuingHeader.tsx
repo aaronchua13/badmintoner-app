@@ -1,6 +1,6 @@
 import React from 'react';
 import { Layout, Typography, Tag, Button, Space, Modal, Grid, Dropdown, MenuProps } from 'antd';
-import { HomeOutlined, PlayCircleOutlined, HistoryOutlined, TeamOutlined, PlusOutlined, MoreOutlined, DeleteOutlined } from '@ant-design/icons';
+import { HomeOutlined, PlayCircleOutlined, HistoryOutlined, TeamOutlined, PlusOutlined, MoreOutlined, DeleteOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import { formatSessionDuration } from '../utils';
 import { useCustomBreakpoints } from '../hooks/useCustomBreakpoints';
@@ -18,6 +18,7 @@ interface QueuingHeaderProps {
   onPopulateDummy: () => void;
   onOpenAddPlayer: () => void;
   onOpenAddCourt: () => void;
+  onOpenInstructions: () => void;
 }
 
 const QueuingHeader: React.FC<QueuingHeaderProps> = ({
@@ -28,7 +29,8 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
   onOpenHistory,
   onPopulateDummy,
   onOpenAddPlayer,
-  onOpenAddCourt
+  onOpenAddCourt,
+  onOpenInstructions
 }) => {
   const { isHeaderCompact } = useCustomBreakpoints();
   const isMobile = isHeaderCompact;
@@ -64,6 +66,12 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
       icon: <TeamOutlined />,
       label: 'Populate Dummy',
       onClick: onPopulateDummy
+    },
+    {
+      key: 'instructions',
+      icon: <QuestionCircleOutlined />,
+      label: 'Instructions',
+      onClick: onOpenInstructions
     },
     {
       type: 'divider'
@@ -126,6 +134,14 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
 
       <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '8px' }}>
         <Button 
+          icon={<QuestionCircleOutlined />} 
+          onClick={onOpenInstructions} 
+          type={isMobile ? 'text' : 'default'}
+          size={isMobile ? 'small' : 'middle'}
+        >
+          {!isMobile && 'Help'}
+        </Button>
+        <Button 
           icon={<HistoryOutlined />} 
           onClick={onOpenHistory} 
           type={isMobile ? 'text' : 'default'}
@@ -135,7 +151,7 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
         </Button>
 
         {isMobile ? (
-          <Dropdown menu={{ items: mobileMenu }} trigger={['click']} placement="bottomRight">
+          <Dropdown menu={{ items: mobileMenu.filter(item => item && item.key !== 'instructions') }} trigger={['click']} placement="bottomRight">
             <Button icon={<MoreOutlined />} type="text" size="small" />
           </Dropdown>
         ) : (
