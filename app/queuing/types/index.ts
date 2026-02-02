@@ -39,6 +39,8 @@ export const LEVEL_SHORT_TEXT: Record<PlayerLevel, string> = {
   'Advanced -': 'Adv-', 'Advanced': 'Adv', 'Advanced +': 'Adv+',
 };
 
+export type Gender = 'Male' | 'Female';
+
 export interface Player {
   id: string;
   name: string;
@@ -52,7 +54,7 @@ export interface Player {
   firstMatchTime: number | null;
   partners: Record<string, number>; // partnerId -> count
   isPlaying: boolean;
-  gender: 'Male' | 'Female';
+  gender: Gender;
   isActive: boolean;
 }
 

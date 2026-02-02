@@ -1,12 +1,12 @@
 import React from 'react';
-import { Modal, Form, InputNumber, Radio, Typography, Divider } from 'antd';
+import { Modal, Form, InputNumber, Divider, type FormInstance, Radio } from 'antd';
 import { Court, Player } from '../../types';
 
 interface FinishMatchModalProps {
   visible: boolean;
   onCancel: () => void;
   onFinish: (values: { team1Score?: number; team2Score?: number; winningTeam?: number }) => void;
-  form: any;
+  form: FormInstance;
   court: Court | undefined;
   players: Player[];
 }

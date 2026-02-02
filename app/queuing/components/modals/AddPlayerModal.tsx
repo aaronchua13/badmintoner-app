@@ -1,12 +1,12 @@
 import React from 'react';
-import { Modal, Form, Input, Select, Radio, Space } from 'antd';
+import { Modal, Form, Input, Select, Radio, Space, type FormInstance } from 'antd';
 import { PlayerLevel, LEVEL_COLORS } from '../../types';
 
 interface AddPlayerModalProps {
   visible: boolean;
   onCancel: () => void;
   onAdd: (values: { name: string; level: PlayerLevel; gender: 'Male' | 'Female' }) => void;
-  form: any; // Antd form instance
+  form: FormInstance; // Antd form instance
   mode: 'close' | 'keep';
   setMode: (mode: 'close' | 'keep') => void;
 }

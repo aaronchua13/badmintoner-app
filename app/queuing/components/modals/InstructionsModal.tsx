@@ -26,7 +26,7 @@ const InstructionsModal: React.FC<InstructionsModalProps> = ({ visible, onClose 
     >
       <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '8px' }}>
         <Paragraph>
-          Welcome to the Badminton Queuing System! Here's a quick guide to help you manage your session efficiently.
+          Welcome to the Badminton Queuing System! Here&apos;s a quick guide to help you manage your session efficiently.
         </Paragraph>
 
         <Steps
@@ -70,7 +70,7 @@ const InstructionsModal: React.FC<InstructionsModalProps> = ({ visible, onClose 
                 <div>
                   <Text>Assign players to available courts:</Text>
                   <ul style={{ paddingLeft: 20, margin: '4px 0' }}>
-                    <li><Text strong>List View:</Text> Click the court number button (e.g., "C1") next to a player.</li>
+                    <li><Text strong>List View:</Text> Click the court number button (e.g., &quot;C1&quot;) next to a player.</li>
                     <li><Text strong>Grid View:</Text> Click the court number button on the player card.</li>
                   </ul>
                   <Text type="secondary">Players are automatically sorted by idle time to help you pick who plays next.</Text>
@@ -86,7 +86,7 @@ const InstructionsModal: React.FC<InstructionsModalProps> = ({ visible, onClose 
                   <Text>Once 2 or 4 players are assigned to a court:</Text>
                   <ol style={{ paddingLeft: 20, margin: '4px 0' }}>
                     <li>Click <Text strong>Start Match</Text> on the court card.</li>
-                    <li>When the game ends, click <Text strong>Finish</Text>.</li>
+                    <li>When the game ends, click <Text strong>&quot;Finish&quot;</Text>.</li>
                     <li>Enter the score (optional) and save.</li>
                   </ol>
                   <Text type="secondary">Finishing a match updates player stats (Games, W/L) and resets their idle timer.</Text>

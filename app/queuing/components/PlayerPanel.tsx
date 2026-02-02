@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Typography, Radio, Statistic, Space, Select, Button, Tabs } from 'antd';
+import { Card, Typography, Radio, Space, Select, Button, Tabs } from 'antd';
 import { BarsOutlined, AppstoreOutlined, ManOutlined, WomanOutlined, SortAscendingOutlined, SortDescendingOutlined } from '@ant-design/icons';
 import { Player, Court, PlayerLevel, LEVEL_COLORS } from '../types';
 import { usePlayerFilters } from '../hooks/usePlayerFilters';

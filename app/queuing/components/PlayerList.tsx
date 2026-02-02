@@ -1,6 +1,6 @@
 import React from 'react';
-import { Row, Col, Typography, Tag, Badge, Avatar, Button, Dropdown, Space, List } from 'antd';
-import { TeamOutlined, InfoCircleOutlined, MoreOutlined, UserOutlined, ManOutlined, WomanOutlined, PauseCircleOutlined, PlayCircleOutlined } from '@ant-design/icons';
+import { Row, Col, Typography, Tag, Badge, Avatar, Button, Dropdown, Space } from 'antd';
+import { TeamOutlined, InfoCircleOutlined, MoreOutlined, ManOutlined, WomanOutlined, PauseCircleOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { Player, Court, LEVEL_COLORS } from '../types';
 import LevelTag from './LevelTag';
 import { formatDuration, getWaitTime, getWaitDuration } from '../utils';
@@ -163,7 +163,6 @@ const PlayerList: React.FC<PlayerListProps> = ({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       {sortedPlayers.map(player => {
         const idleCourts = courts.filter(c => c.status === 'idle');
-        const showCourtButtons = !player.isPlaying && player.isActive && idleCourts.length > 0;
         const waitSeconds = getWaitDuration(player, sessionStartTime, currentTime);
         const waitColor = getWaitColor(waitSeconds);
 

@@ -37,6 +37,7 @@ export const useQueuingState = () => {
           isActive: p.isActive !== undefined ? p.isActive : true
         }));
         
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setQueueData({
           sessionStartTime: parsed.sessionStartTime,
           courts: parsed.courts,

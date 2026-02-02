@@ -1,11 +1,11 @@
 import React from 'react';
-import { Modal, Form, Input } from 'antd';
+import { Modal, Form, Input, type FormInstance } from 'antd';
 
 interface StopMatchModalProps {
   visible: boolean;
   onCancel: () => void;
   onStop: (values: { reason: string }) => void;
-  form: any;
+  form: FormInstance;
 }
 
 const StopMatchModal: React.FC<StopMatchModalProps> = ({

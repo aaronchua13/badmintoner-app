@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
     if (schedules && Array.isArray(schedules) && schedules.length > 0) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const schedulePromises = schedules.map((schedule: any) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { temp_id, ...restSchedule } = schedule; // Remove temp_id
         const scheduleData = {
           ...restSchedule,

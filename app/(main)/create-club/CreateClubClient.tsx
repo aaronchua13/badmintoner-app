@@ -19,7 +19,6 @@ import {
   AutoComplete,
 } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
-import { createClubAction } from '@/app/actions/club-event';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import type { Dayjs } from 'dayjs';

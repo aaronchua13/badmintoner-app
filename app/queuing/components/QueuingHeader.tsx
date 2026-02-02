@@ -1,13 +1,12 @@
 import React from 'react';
-import { Layout, Typography, Tag, Button, Space, Modal, Grid, Dropdown, MenuProps } from 'antd';
-import { HomeOutlined, PlayCircleOutlined, HistoryOutlined, TeamOutlined, PlusOutlined, MoreOutlined, DeleteOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { Layout, Typography, Button, Modal, Dropdown, MenuProps, Tag, Tooltip } from 'antd';
+import { HomeOutlined, PlayCircleOutlined, HistoryOutlined, TeamOutlined, MoreOutlined, DeleteOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import { formatSessionDuration } from '../utils';
 import { useCustomBreakpoints } from '../hooks/useCustomBreakpoints';
 
 const { Header } = Layout;
 const { Title, Text } = Typography;
-const { useBreakpoint } = Grid;
 
 interface QueuingHeaderProps {
   sessionStartTime: number | null;
@@ -16,8 +15,6 @@ interface QueuingHeaderProps {
   onResetSession: () => void;
   onOpenHistory: () => void;
   onPopulateDummy: () => void;
-  onOpenAddPlayer: () => void;
-  onOpenAddCourt: () => void;
   onOpenInstructions: () => void;
 }
 
@@ -28,8 +25,6 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
   onResetSession,
   onOpenHistory,
   onPopulateDummy,
-  onOpenAddPlayer,
-  onOpenAddCourt,
   onOpenInstructions
 }) => {
   const { isHeaderCompact } = useCustomBreakpoints();
@@ -54,24 +49,12 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
     });
   };
 
-  const mobileMenu: MenuProps['items'] = [
-    {
-      key: 'add-court',
-      icon: <PlusOutlined />,
-      label: 'Add Court',
-      onClick: onOpenAddCourt
-    },
+  const menuItems: MenuProps['items'] = [
     {
       key: 'populate',
       icon: <TeamOutlined />,
-      label: 'Populate Dummy',
+      label: 'Populate Dummy Players',
       onClick: onPopulateDummy
-    },
-    {
-      key: 'instructions',
-      icon: <QuestionCircleOutlined />,
-      label: 'Instructions',
-      onClick: onOpenInstructions
     },
     {
       type: 'divider'
@@ -98,8 +81,10 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
       lineHeight: '64px'
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '16px', overflow: 'hidden' }}>
-        <Link href="/">
-          <Button icon={<HomeOutlined />} type="text" size={isMobile ? 'small' : 'middle'} />
+        <Link href="/" passHref>
+          <Tooltip title="Back to Home">
+            <Button icon={<HomeOutlined />} type="text" size="middle" aria-label="Back to Home" />
+          </Tooltip>
         </Link>
         
         {isMobile ? (
@@ -113,9 +98,9 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
           </div>
         ) : (
           <>
-            <Title level={4} style={{ margin: 0 }}>🏸 Badminton Queue</Title>
-            <Tag color={sessionStartTime ? "blue" : "default"} style={{ fontSize: '14px', padding: '4px 8px' }}>
-              Session: {getSessionDuration()}
+            <Title level={4} style={{ margin: 0, fontSize: '18px' }}>🏸 Badminton Queue</Title>
+            <Tag color={sessionStartTime ? "blue" : "default"} style={{ marginLeft: 8 }}>
+              {getSessionDuration()}
             </Tag>
           </>
         )}
@@ -125,43 +110,40 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
             type="primary" 
             onClick={onStartSession} 
             icon={<PlayCircleOutlined />}
-            size={isMobile ? 'small' : 'middle'}
+            size="small"
+            aria-label="Start Session"
           >
-            {isMobile ? 'Start' : 'Start Session'}
+            Start
           </Button>
         )}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '8px' }}>
-        <Button 
-          icon={<QuestionCircleOutlined />} 
-          onClick={onOpenInstructions} 
-          type={isMobile ? 'text' : 'default'}
-          size={isMobile ? 'small' : 'middle'}
-        >
-          {!isMobile && 'Help'}
-        </Button>
-        <Button 
-          icon={<HistoryOutlined />} 
-          onClick={onOpenHistory} 
-          type={isMobile ? 'text' : 'default'}
-          size={isMobile ? 'small' : 'middle'}
-        >
-          {!isMobile && 'History'}
-        </Button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <Tooltip title="Instructions">
+          <Button 
+            icon={<QuestionCircleOutlined />} 
+            onClick={onOpenInstructions} 
+            type="text"
+            size="middle"
+            aria-label="Instructions"
+          />
+        </Tooltip>
+        
+        <Tooltip title="History">
+          <Button 
+            icon={<HistoryOutlined />} 
+            onClick={onOpenHistory} 
+            type="text"
+            size="middle"
+            aria-label="History"
+          />
+        </Tooltip>
 
-        {isMobile ? (
-          <Dropdown menu={{ items: mobileMenu.filter(item => item && item.key !== 'instructions') }} trigger={['click']} placement="bottomRight">
-            <Button icon={<MoreOutlined />} type="text" size="small" />
-          </Dropdown>
-        ) : (
-          <Space>
-            <Button size="small" danger onClick={handleReset} type="text">Reset</Button>
-            <Button onClick={onPopulateDummy} size="small">Populate 40</Button>
-            <Button icon={<TeamOutlined />} onClick={onOpenAddPlayer}>Add Player</Button>
-            <Button icon={<PlusOutlined />} type="primary" onClick={onOpenAddCourt}>Add Court</Button>
-          </Space>
-        )}
+        <Dropdown menu={{ items: menuItems }} trigger={['click']} placement="bottomRight">
+          <Tooltip title="More Actions">
+            <Button icon={<MoreOutlined />} type="text" size="middle" aria-label="More Actions" />
+          </Tooltip>
+        </Dropdown>
       </div>
     </Header>
   );

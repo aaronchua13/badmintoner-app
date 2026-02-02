@@ -1,11 +1,11 @@
 import React from 'react';
-import { Modal, Form, Input } from 'antd';
+import { Modal, Form, Input, type FormInstance } from 'antd';
 
 interface AddCourtModalProps {
   visible: boolean;
   onCancel: () => void;
   onCreate: (values: { name: string }) => void;
-  form: any;
+  form: FormInstance;
 }
 
 const AddCourtModal: React.FC<AddCourtModalProps> = ({
