@@ -24,8 +24,12 @@ const HistoryModal: React.FC<HistoryModalProps> = ({
     { title: 'Court', dataIndex: 'courtName' },
     { title: 'Duration', dataIndex: 'duration', render: (d: number) => formatMatchTime(d) },
     { title: 'Score', dataIndex: 'score', render: (s: string, r: MatchHistory) => r.isStopped ? 'Stopped' : s },
+    { title: 'Status', render: (_: unknown, r: MatchHistory) => {
+       if (r.isStopped) return <Tag color="default">Stopped</Tag>;
+       return <Tag color="green">Completed</Tag>;
+    }},
     { title: 'Winner', render: (_: unknown, r: MatchHistory) => {
-       if (r.isStopped) return <Tag color="default">Stopped: {r.reason}</Tag>;
+       if (r.isStopped) return '-';
        if (r.winners === 1) return <Tag color="green">Team 1</Tag>;
        if (r.winners === 2) return <Tag color="green">Team 2</Tag>;
        return '-';
@@ -66,7 +70,9 @@ const HistoryModal: React.FC<HistoryModalProps> = ({
                 </div>
 
                 {item.isStopped ? (
-                     <Tag color="default" style={{ width: '100%', textAlign: 'center', marginBottom: 8 }}>Stopped: {item.reason}</Tag>
+                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+                       <Tag color="default">Stopped: {item.reason}</Tag>
+                     </div>
                 ) : (
                     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 12, background: '#f9f9f9', padding: '8px', borderRadius: '8px' }}>
                          <div style={{ flex: 1, textAlign: 'right', fontWeight: item.winners === 1 ? 'bold' : 'normal', color: item.winners === 1 ? '#52c41a' : 'inherit', fontSize: '16px' }}>

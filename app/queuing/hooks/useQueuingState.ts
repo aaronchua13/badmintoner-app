@@ -329,7 +329,7 @@ export const useQueuingState = () => {
             ...p,
             isPlaying: false,
             lastMatchEndTime: endTime,
-            gamesPlayed: p.gamesPlayed + 1,
+            gamesPlayed: p.gamesPlayed,
           };
         }
         return p;

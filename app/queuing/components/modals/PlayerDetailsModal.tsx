@@ -134,9 +134,13 @@ const PlayerDetailsModal: React.FC<PlayerDetailsModalProps> = ({
                     <List.Item>
                       <List.Item.Meta
                         avatar={
-                          <Tag color={isWinner ? 'green' : 'red'}>
-                            {isWinner ? 'WON' : 'LOST'}
-                          </Tag>
+                          item.isStopped ? (
+                            <Tag color="default">STOPPED</Tag>
+                          ) : (
+                            <Tag color={isWinner ? 'green' : 'red'}>
+                              {isWinner ? 'WON' : 'LOST'}
+                            </Tag>
+                          )
                         }
                         title={
                           <Space>
