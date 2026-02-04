@@ -3,15 +3,21 @@ import { Modal, Tabs, Statistic, Row, Col, Table, Tag, Typography, Button, Grid 
 import type { ColumnsType } from 'antd/es/table';
 import { MatchHistory, Player } from '../../types';
 import { formatSessionDuration, formatMatchTime } from '../../utils';
-import { TrophyOutlined, TeamOutlined, ClockCircleOutlined, FireOutlined, HistoryOutlined } from '@ant-design/icons';
+import {
+  TrophyOutlined,
+  TeamOutlined,
+  ClockCircleOutlined,
+  HistoryOutlined
+} from '@ant-design/icons';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
 interface SessionSummaryModalProps {
   visible: boolean;
   onClose: () => void;
   sessionStartTime: number | null;
   sessionEndTime: number | null;
+  currentTime: number;
   players: Player[];
   history: MatchHistory[];
 }
@@ -25,6 +31,7 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
   onClose,
   sessionStartTime,
   sessionEndTime,
+  currentTime,
   players,
   history
 }) => {
@@ -41,7 +48,7 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
   // Calculate idle time for display
   const playersWithStats: PlayerWithStats[] = players.map(p => {
     const currentIdle = !p.isPlaying 
-      ? Math.floor(((sessionEndTime || Date.now()) - p.lastMatchEndTime) / 1000)
+      ? Math.floor(((sessionEndTime || currentTime) - p.lastMatchEndTime) / 1000)
       : 0;
     const totalIdle = p.totalIdleTime + (currentIdle > 0 ? currentIdle : 0);
     

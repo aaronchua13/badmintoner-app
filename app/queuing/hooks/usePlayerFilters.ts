@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Player, PlayerLevel, LEVEL_VALUE } from '../types';
 
 export const usePlayerFilters = (players: Player[], sessionStartTime: number | null, currentTime: number) => {
-  const [playerTab, setPlayerTab] = useState<'all' | 'active' | 'inactive'>('all');
+  const [playerTab, setPlayerTab] = useState<'all' | 'active' | 'inactive' | 'queue'>('all');
   const [levelFilter, setLevelFilter] = useState<PlayerLevel[]>([]);
   const [genderFilter, setGenderFilter] = useState<'All' | 'Male' | 'Female'>('All');
   const [sortConfig, setSortConfig] = useState<{ field: string; direction: 'asc' | 'desc' }>({ field: 'idle_time', direction: 'desc' });

@@ -22,7 +22,7 @@ const { Content } = Layout;
 
 export default function QueuingClient() {
   const { state, actions } = useQueuingState();
-  const { sessionStartTime, sessionEndTime, sessionStatus, currentTime, courts, players, history, isLoaded } = state;
+  const { sessionStartTime, sessionEndTime, sessionStatus, currentTime, courts, players, history, queue, autoAssignQueue, isLoaded } = state;
 
   // Freeze time if session is ended to stop idle timers
   const effectiveTime = (sessionStatus === 'ended' && sessionEndTime) ? sessionEndTime : currentTime;
@@ -136,6 +136,16 @@ export default function QueuingClient() {
               onRemovePlayer={actions.removePlayer}
               onToggleActive={actions.togglePlayerActive}
               isMobile={true}
+              queue={queue}
+              autoAssignQueue={autoAssignQueue}
+              onSetAutoAssignQueue={actions.setAutoAssignQueue}
+              onAssignQueueToCourt={actions.assignQueueToCourt}
+              onRemoveQueueItem={actions.removeQueueItem}
+              onMoveQueueItem={actions.moveQueueItem}
+              onRemovePlayerFromQueue={actions.removePlayerFromQueue}
+              onRemovePlayersFromQueue={actions.removePlayersFromQueue}
+              onCreateQueue={actions.createQueueItem}
+              onAddPlayerToQueue={actions.addPlayerToQueueItem}
             />
           </div>
         ) : (
@@ -171,6 +181,16 @@ export default function QueuingClient() {
                 onViewPlayer={setViewingPlayerId}
                 onRemovePlayer={actions.removePlayer}
                 onToggleActive={actions.togglePlayerActive}
+                queue={queue}
+                autoAssignQueue={autoAssignQueue}
+                onSetAutoAssignQueue={actions.setAutoAssignQueue}
+                onAssignQueueToCourt={actions.assignQueueToCourt}
+                onRemoveQueueItem={actions.removeQueueItem}
+                onMoveQueueItem={actions.moveQueueItem}
+                onRemovePlayerFromQueue={actions.removePlayerFromQueue}
+                onRemovePlayersFromQueue={actions.removePlayersFromQueue}
+                onCreateQueue={actions.createQueueItem}
+                onAddPlayerToQueue={actions.addPlayerToQueueItem}
               />
             </Col>
           </Row>
@@ -238,6 +258,7 @@ export default function QueuingClient() {
         onClose={() => setIsSummaryOpen(false)}
         sessionStartTime={sessionStartTime}
         sessionEndTime={sessionEndTime || (sessionStatus === 'active' ? currentTime : null)}
+        currentTime={effectiveTime}
         players={players}
         history={history}
       />

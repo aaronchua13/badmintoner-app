@@ -78,3 +78,10 @@ export interface MatchHistory {
   reason?: string;
   isStopped?: boolean;
 }
+
+export interface QueueItem {
+  id: string;
+  team1: string[];
+  team2: string[];
+  createdAt: number;
+}
