@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Player, Court, MatchHistory, PlayerLevel } from '../types';
+import { Player, Court, MatchHistory, PlayerLevel, QueueItem } from '../types';
 
 interface QueueData {
   sessionStartTime: number | null;
@@ -8,6 +8,8 @@ interface QueueData {
   courts: Court[];
   players: Player[];
   history: MatchHistory[];
+  queue: QueueItem[];
+  autoAssignQueue: boolean;
 }
 
 export const useQueuingState = () => {
@@ -21,7 +23,9 @@ export const useQueuingState = () => {
       { id: 'c2', name: 'Court 2', status: 'idle', players: [null, null, null, null], startTime: null },
     ],
     players: [],
-    history: []
+    history: [],
+    queue: [],
+    autoAssignQueue: false
   });
 
   const [currentTime, setCurrentTime] = useState<number>(() => Date.now());
@@ -48,7 +52,9 @@ export const useQueuingState = () => {
           sessionStatus: parsed.sessionStatus || (parsed.sessionStartTime ? 'active' : 'idle'),
           courts: parsed.courts,
           players: patchedPlayers,
-          history: parsed.history
+          history: parsed.history,
+          queue: Array.isArray(parsed.queue) ? parsed.queue : [],
+          autoAssignQueue: typeof parsed.autoAssignQueue === 'boolean' ? parsed.autoAssignQueue : false
         });
       } catch (e) {
         console.error('Failed to parse saved queue data', e);
@@ -74,18 +80,138 @@ export const useQueuingState = () => {
 
   // -- Actions --
 
-  const addCourt = (name: string) => {
-    const newId = `c-${Date.now()}`; 
+  const createQueueItem = (): string => {
+    const newId = `q-${Date.now()}`;
     setQueueData(prev => ({
       ...prev,
-      courts: [...prev.courts, { 
-        id: newId, 
-        name, 
-        status: 'idle', 
-        players: [null, null, null, null], 
-        startTime: null  
-      }]
+      queue: [...prev.queue, { id: newId, team1: [], team2: [], createdAt: Date.now() }]
     }));
+    return newId;
+  };
+
+  const addPlayerToQueueItem = (queueId: string, playerId: string) => {
+    setQueueData(prev => {
+      const player = prev.players.find(p => p.id === playerId);
+      if (!player) return prev;
+      if (player.isPlaying || !player.isActive) return prev;
+      if (prev.courts.some(c => c.players.includes(playerId))) return prev;
+      if (prev.queue.some(q => q.team1.includes(playerId) || q.team2.includes(playerId))) return prev;
+      const idx = prev.queue.findIndex(q => q.id === queueId);
+      if (idx === -1) return prev;
+      const item = prev.queue[idx];
+      const total = item.team1.length + item.team2.length;
+      if (total >= 4) return prev;
+      const nextItem: QueueItem = { ...item };
+      if (nextItem.team1.length < 2) {
+        nextItem.team1 = [...nextItem.team1, playerId];
+      } else {
+        nextItem.team2 = [...nextItem.team2, playerId];
+      }
+      const nextQueue = [...prev.queue];
+      nextQueue[idx] = nextItem;
+      return { ...prev, queue: nextQueue };
+    });
+  };
+
+  const removeQueueItem = (id: string) => {
+    setQueueData(prev => ({ ...prev, queue: prev.queue.filter(q => q.id !== id) }));
+  };
+
+  const removePlayersFromQueue = (queueId: string) => {
+    setQueueData(prev => {
+      const item = prev.queue.find(q => q.id === queueId);
+      if (!item) return prev;
+      const nextQueue = prev.queue.map(q => q.id === queueId ? { ...q, team1: [], team2: [] } : q);
+      return { ...prev, queue: nextQueue };
+    });
+  };
+
+  const removePlayerFromQueue = (queueId: string, playerId: string) => {
+    setQueueData(prev => {
+      const item = prev.queue.find(q => q.id === queueId);
+      if (!item) return prev;
+      const nextQueue = prev.queue.map(q => {
+        if (q.id !== queueId) return q;
+        return {
+          ...q,
+          team1: q.team1.filter(id => id !== playerId),
+          team2: q.team2.filter(id => id !== playerId)
+        };
+      });
+      return { ...prev, queue: nextQueue };
+    });
+  };
+
+  const moveQueueItem = (fromIndex: number, toIndex: number) => {
+    setQueueData(prev => {
+      const arr = [...prev.queue];
+      const [moved] = arr.splice(fromIndex, 1);
+      arr.splice(toIndex, 0, moved);
+      return { ...prev, queue: arr };
+    });
+  };
+
+  const assignQueueToCourt = (queueId: string, courtId: string) => {
+    setQueueData(prev => {
+      const court = prev.courts.find(c => c.id === courtId);
+      if (!court) return prev;
+      if (court.status !== 'idle') return prev;
+      const item = prev.queue.find(q => q.id === queueId);
+      if (!item) return prev;
+      const playerIds = [...item.team1, ...item.team2];
+      if (playerIds.length === 0) return prev;
+      let updatedCourts = prev.courts.map(c => {
+        const newPlayers = c.players.map(pid => (playerIds.includes(pid as string) ? null : pid));
+        return { ...c, players: newPlayers };
+      });
+      updatedCourts = updatedCourts.map(c => {
+        if (c.id !== courtId) return c;
+        // Fix: Clear court and assign queue players (overwrite existing idle players)
+        const newPlayers: (string | null)[] = [null, null, null, null];
+        for (let i = 0; i < playerIds.length && i < 4; i++) {
+          newPlayers[i] = playerIds[i];
+        }
+        return { ...c, players: newPlayers };
+      });
+      const newQueue = prev.queue.filter(q => q.id !== queueId);
+      return { ...prev, courts: updatedCourts, queue: newQueue };
+    });
+  };
+
+  const setAutoAssignQueue = (enabled: boolean) => {
+    setQueueData(prev => ({ ...prev, autoAssignQueue: enabled }));
+  };
+
+ 
+  const addCourt = (name: string) => {
+    const newId = `c-${Date.now()}`; 
+    setQueueData(prev => {
+      const newCourt: Court = { id: newId, name, status: 'idle', players: [null, null, null, null], startTime: null };
+      let courts: Court[] = [...prev.courts, newCourt];
+      let queue = [...prev.queue];
+      if (prev.autoAssignQueue && queue.length > 0 && prev.sessionStatus === 'active') {
+        const item = queue[0];
+        const playerIds = [...item.team1, ...item.team2];
+        if (playerIds.length > 0) {
+          courts = courts.map(c => {
+            const newPlayers = c.players.map(pid => (playerIds.includes(pid as string) ? null : pid));
+            return { ...c, players: newPlayers };
+          });
+          courts = courts.map(c => {
+            if (c.id !== newId) return c;
+            const newPlayers = [...c.players];
+            for (const pid of playerIds) {
+              const idx = newPlayers.indexOf(null);
+              if (idx === -1) break;
+              newPlayers[idx] = pid;
+            }
+            return { ...c, players: newPlayers };
+          });
+          queue = queue.slice(1);
+        }
+      }
+      return { ...prev, courts, queue };
+    });
   };
 
   const removeCourt = (id: string) => {
@@ -309,12 +435,35 @@ export const useQueuingState = () => {
         winners: winningTeam as 1 | 2 | undefined,
         score: values.team1Score && values.team2Score ? `${values.team1Score} - ${values.team2Score}` : undefined
       };
-      
+      let newCourts: Court[] = courts.map(c => c.id === courtId ? { ...c, status: 'idle' as const, players: [null, null, null, null], startTime: null } : c);
+      let newQueue = [...prev.queue];
+      if (prev.autoAssignQueue && newQueue.length > 0 && prev.sessionStatus === 'active') {
+        const item = newQueue[0];
+        const playerIds = [...item.team1, ...item.team2];
+        if (playerIds.length > 0) {
+        newCourts = newCourts.map(c => {
+          const newPlayers = c.players.map(pid => (playerIds.includes(pid as string) ? null : pid));
+          return { ...c, players: newPlayers };
+        });
+        newCourts = newCourts.map(c => {
+          if (c.id !== courtId) return c;
+          const newPlayers = [...c.players];
+          for (const pid of playerIds) {
+            const idx = newPlayers.indexOf(null);
+            if (idx === -1) break;
+            newPlayers[idx] = pid;
+          }
+          return { ...c, players: newPlayers };
+        });
+        newQueue = newQueue.slice(1);
+        }
+      }
       return {
         ...prev,
         players: updatedPlayers,
         history: [matchRecord, ...history],
-        courts: courts.map(c => c.id === courtId ? { ...c, status: 'idle', players: [null, null, null, null], startTime: null } : c)
+        courts: newCourts,
+        queue: newQueue
       };
     });
   };
@@ -358,11 +507,35 @@ export const useQueuingState = () => {
         reason
       };
 
+      let newCourts: Court[] = courts.map(c => c.id === courtId ? { ...c, status: 'idle' as const, players: [null, null, null, null], startTime: null } : c);
+      let newQueue = [...prev.queue];
+      if (prev.autoAssignQueue && newQueue.length > 0 && prev.sessionStatus === 'active') {
+        const item = newQueue[0];
+        const playerIds = [...item.team1, ...item.team2];
+        if (playerIds.length > 0) {
+        newCourts = newCourts.map(c => {
+          const newPlayers = c.players.map(pid => (playerIds.includes(pid as string) ? null : pid));
+          return { ...c, players: newPlayers };
+        });
+        newCourts = newCourts.map(c => {
+          if (c.id !== courtId) return c;
+          const newPlayers = [...c.players];
+          for (const pid of playerIds) {
+            const idx = newPlayers.indexOf(null);
+            if (idx === -1) break;
+            newPlayers[idx] = pid;
+          }
+          return { ...c, players: newPlayers };
+        });
+        newQueue = newQueue.slice(1);
+        }
+      }
       return {
         ...prev,
         players: updatedPlayers,
         history: [matchRecord, ...history],
-        courts: courts.map(c => c.id === courtId ? { ...c, status: 'idle', players: [null, null, null, null], startTime: null } : c)
+        courts: newCourts,
+        queue: newQueue
       };
     });
   };
@@ -438,7 +611,9 @@ export const useQueuingState = () => {
       sessionStatus: 'idle',
       courts: [],
       players: [],
-      history: []
+      history: [],
+      queue: [],
+      autoAssignQueue: false
     });
   };
 
@@ -473,7 +648,9 @@ export const useQueuingState = () => {
         sessionStatus: 'idle',
         courts: resetCourts,
         players: resetPlayers,
-        history: []
+        history: [],
+        queue: [],
+        autoAssignQueue: false
       };
     });
   };
@@ -487,6 +664,8 @@ export const useQueuingState = () => {
       courts: queueData.courts,
       players: queueData.players,
       history: queueData.history,
+      queue: queueData.queue,
+      autoAssignQueue: queueData.autoAssignQueue,
       isLoaded
     },
     actions: {
@@ -507,7 +686,15 @@ export const useQueuingState = () => {
       startSession,
       stopSession,
       resetState,
-      restartSession
+      restartSession,
+      createQueueItem,
+      addPlayerToQueueItem,
+      removeQueueItem,
+      removePlayersFromQueue,
+      removePlayerFromQueue,
+      moveQueueItem,
+      assignQueueToCourt,
+      setAutoAssignQueue
     }
   };
 };

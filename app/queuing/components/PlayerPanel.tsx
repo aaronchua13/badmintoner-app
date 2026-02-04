@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, Typography, Radio, Space, Select, Button, Tabs } from 'antd';
 import { BarsOutlined, AppstoreOutlined, ManOutlined, WomanOutlined, SortAscendingOutlined, SortDescendingOutlined } from '@ant-design/icons';
-import { Player, Court, PlayerLevel, LEVEL_COLORS } from '../types';
+import { Player, Court, PlayerLevel, LEVEL_COLORS, QueueItem } from '../types';
 import { usePlayerFilters } from '../hooks/usePlayerFilters';
 import PlayerList from './PlayerList';
+import QueueTab from './QueueTab';
+import AssignToQueueModal from './modals/AssignToQueueModal';
 
 const { Title } = Typography;
 
@@ -17,6 +19,17 @@ interface PlayerPanelProps {
   onRemovePlayer: (id: string) => void;
   onToggleActive: (id: string) => void;
   isMobile?: boolean;
+  queue: QueueItem[];
+  // unified queue model: no draft
+  autoAssignQueue: boolean;
+  onSetAutoAssignQueue: (enabled: boolean) => void;
+  onAssignQueueToCourt: (queueId: string, courtId: string) => void;
+  onRemoveQueueItem: (id: string) => void;
+  onMoveQueueItem: (fromIndex: number, toIndex: number) => void;
+  onRemovePlayerFromQueue?: (queueId: string, playerId: string) => void;
+  onRemovePlayersFromQueue?: (queueId: string) => void;
+  onCreateQueue: () => string;
+  onAddPlayerToQueue: (queueId: string, playerId: string) => void;
 }
 
 const PlayerPanel: React.FC<PlayerPanelProps> = ({
@@ -28,7 +41,17 @@ const PlayerPanel: React.FC<PlayerPanelProps> = ({
   onViewPlayer,
   onRemovePlayer,
   onToggleActive,
-  isMobile = false
+  isMobile = false,
+  queue,
+  autoAssignQueue,
+  onSetAutoAssignQueue,
+  onAssignQueueToCourt,
+  onRemoveQueueItem,
+  onMoveQueueItem,
+  onRemovePlayerFromQueue,
+  onRemovePlayersFromQueue,
+  onCreateQueue,
+  onAddPlayerToQueue
 }) => {
   const {
     levelFilter,
@@ -46,6 +69,14 @@ const PlayerPanel: React.FC<PlayerPanelProps> = ({
     allPlayers
   } = usePlayerFilters(players, sessionStartTime, currentTime);
 
+  const [assignPlayerId, setAssignPlayerId] = useState<string | null>(null);
+  const [isAssignOpen, setIsAssignOpen] = useState(false);
+
+  const openAssignModal = (playerId: string) => {
+    setAssignPlayerId(playerId);
+    setIsAssignOpen(true);
+  };
+
   const renderPlayerList = (list: Player[]) => (
     <PlayerList
       sortedPlayers={list}
@@ -57,6 +88,9 @@ const PlayerPanel: React.FC<PlayerPanelProps> = ({
       onViewPlayer={onViewPlayer}
       onRemovePlayer={onRemovePlayer}
       onToggleActive={onToggleActive}
+      onAddToQueue={openAssignModal}
+      queue={queue}
+  
     />
   );
 
@@ -172,7 +206,7 @@ const PlayerPanel: React.FC<PlayerPanelProps> = ({
       <Tabs 
         defaultActiveKey="all"
         activeKey={playerTab}
-        onChange={(key) => setPlayerTab(key as 'all' | 'active' | 'inactive')}
+        onChange={(key) => setPlayerTab(key as 'all' | 'active' | 'inactive' | 'queue')}
         type="card"
         size="small"
         tabBarStyle={{ margin: isMobile ? '0 8px' : '0 12px' }}
@@ -209,8 +243,41 @@ const PlayerPanel: React.FC<PlayerPanelProps> = ({
           }}>
             {renderPlayerList(allPlayers)}
           </div>
+        },
+        {
+          key: 'queue',
+          label: `Queue (${queue.length})`,
+          children: <div style={{ 
+            height: isMobile ? 'auto' : 'calc(100vh - 250px)', 
+            overflowY: isMobile ? 'visible' : 'auto', 
+            padding: isMobile ? '0 8px 8px 8px' : '0 12px 12px 12px' 
+          }}>
+            <QueueTab
+              queue={queue}
+              players={players}
+              courts={courts}
+              autoAssignQueue={autoAssignQueue}
+              onSetAutoAssign={onSetAutoAssignQueue}
+              onAssignToCourt={onAssignQueueToCourt}
+              onRemoveQueueItem={onRemoveQueueItem}
+              onMoveQueueItem={onMoveQueueItem}
+              onRemovePlayerFromQueue={onRemovePlayerFromQueue}
+              onRemovePlayersFromQueue={onRemovePlayersFromQueue}
+            />
+          </div>
         }
       ]}
+      />
+      <AssignToQueueModal
+        key={isAssignOpen ? 'open' : 'closed'}
+        visible={isAssignOpen}
+        onCancel={() => setIsAssignOpen(false)}
+        playerId={assignPlayerId}
+        players={players}
+        courts={courts}
+        queue={queue}
+        onCreateQueue={onCreateQueue}
+        onAddPlayerToQueue={onAddPlayerToQueue}
       />
     </Card>
   );

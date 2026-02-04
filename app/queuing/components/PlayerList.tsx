@@ -1,7 +1,7 @@
 import React from 'react';
 import { Row, Col, Typography, Tag, Badge, Avatar, Button, Dropdown, Space } from 'antd';
 import { TeamOutlined, InfoCircleOutlined, MoreOutlined, ManOutlined, WomanOutlined, PauseCircleOutlined, PlayCircleOutlined } from '@ant-design/icons';
-import { Player, Court, LEVEL_COLORS } from '../types';
+import { Player, Court, LEVEL_COLORS, QueueItem } from '../types';
 import LevelTag from './LevelTag';
 import { formatDuration, getWaitTime, getWaitDuration } from '../utils';
 
@@ -17,6 +17,8 @@ interface PlayerListProps {
   onViewPlayer: (id: string) => void;
   onRemovePlayer: (id: string) => void;
   onToggleActive: (id: string) => void;
+  onAddToQueue: (id: string) => void;
+  queue: QueueItem[];
 }
 
 const getWaitColor = (seconds: number) => {
@@ -35,7 +37,9 @@ const PlayerList: React.FC<PlayerListProps> = ({
   onToggleSelection,
   onViewPlayer,
   onRemovePlayer,
-  onToggleActive
+  onToggleActive,
+  onAddToQueue,
+  queue
 }) => {
   if (sortedPlayers.length === 0) {
     return (
@@ -46,19 +50,28 @@ const PlayerList: React.FC<PlayerListProps> = ({
     );
   }
 
+  const isPlayerInQueue = (playerId: string) => {
+    return queue.some(q => q.team1.includes(playerId) || q.team2.includes(playerId));
+  };
+
+  const isPlayerOnCourt = (playerId: string) => {
+    return courts.some(c => c.players.includes(playerId));
+  };
+
   if (playerViewMode === 'grid') {
     return (
       <Row gutter={[12, 12]}>
         {sortedPlayers.map(player => {
+          const isQueued = isPlayerInQueue(player.id);
           const idleCourts = courts.filter(c => c.status === 'idle');
-          const showCourtButtons = !player.isPlaying && player.isActive && idleCourts.length > 0;
+          const showCourtButtons = !player.isPlaying && player.isActive && idleCourts.length > 0 && !isQueued;
           const waitSeconds = getWaitDuration(player, sessionStartTime, currentTime);
           const waitColor = getWaitColor(waitSeconds);
           
           return (
             <Col xs={24} sm={12} md={12} lg={12} xl={8} xxl={6} key={player.id}>
               <div style={{ 
-                background: player.isPlaying ? '#f6ffed' : (!player.isActive ? '#fafafa' : '#fff'), 
+                background: player.isPlaying ? '#f6ffed' : (isQueued ? '#fff7e6' : (!player.isActive ? '#fafafa' : '#fff')), 
                 border: '1px solid #f0f0f0', 
                 borderRadius: '6px',
                 padding: '8px',
@@ -72,12 +85,15 @@ const PlayerList: React.FC<PlayerListProps> = ({
                   <Text strong style={{ fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '65%', cursor: 'pointer' }} onClick={() => onViewPlayer(player.id)}>
                     {player.name}
                   </Text>
-                  <Tag 
-                    color={player.isPlaying ? 'green' : (waitColor || 'default')} 
-                    style={{ margin: 0, fontSize: '10px', lineHeight: '16px', padding: '0 4px', border: 'none' }}
-                  >
-                    {getWaitTime(player, sessionStartTime, currentTime)}
-                  </Tag>
+                  <Space size={4}>
+                    {isQueued && <Tag color="orange" style={{ margin: 0, fontSize: '10px', lineHeight: '16px', padding: '0 4px', border: 'none' }}>Queued</Tag>}
+                    <Tag 
+                      color={player.isPlaying ? 'green' : (waitColor || 'default')} 
+                      style={{ margin: 0, fontSize: '10px', lineHeight: '16px', padding: '0 4px', border: 'none' }}
+                    >
+                      {getWaitTime(player, sessionStartTime, currentTime)}
+                    </Tag>
+                  </Space>
                 </div>
 
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flex: 1 }}>
@@ -120,7 +136,7 @@ const PlayerList: React.FC<PlayerListProps> = ({
                       </>
                     ) : (
                       <span style={{ fontSize: '10px', color: '#ccc' }}>
-                        {player.isPlaying ? 'Playing' : (!player.isActive ? 'Away' : 'No Courts')}
+                        {player.isPlaying ? 'Playing' : (isQueued ? 'In Queue' : (!player.isActive ? 'Away' : 'No Courts'))}
                       </span>
                     )}
                   </div>
@@ -138,14 +154,20 @@ const PlayerList: React.FC<PlayerListProps> = ({
                           label: player.isActive ? 'Set Away' : 'Set Active', 
                           icon: player.isActive ? <PauseCircleOutlined /> : <PlayCircleOutlined />,
                           onClick: () => onToggleActive(player.id),
-                          disabled: player.isPlaying
+                          disabled: player.isPlaying || isQueued
+                        },
+                        {
+                          key: 'add-queue',
+                          label: 'Assign to Queue',
+                          onClick: () => onAddToQueue(player.id),
+                          disabled: player.isPlaying || !player.isActive || isQueued || isPlayerOnCourt(player.id)
                         },
                         { 
                         key: 'remove', 
                         label: 'Remove', 
                         danger: true, 
                         onClick: () => onRemovePlayer(player.id),
-                        disabled: player.isPlaying
+                        disabled: player.isPlaying || isQueued
                       }] }} 
                       trigger={['click']}
                     >
@@ -167,6 +189,7 @@ const PlayerList: React.FC<PlayerListProps> = ({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       {sortedPlayers.map(player => {
+        const isQueued = isPlayerInQueue(player.id);
         const idleCourts = courts.filter(c => c.status === 'idle');
         const waitSeconds = getWaitDuration(player, sessionStartTime, currentTime);
         const waitColor = getWaitColor(waitSeconds);
@@ -176,7 +199,7 @@ const PlayerList: React.FC<PlayerListProps> = ({
             display: 'flex', 
             flexDirection: 'column',
             padding: '6px 8px',
-            background: player.isPlaying ? '#f6ffed' : (!player.isActive ? '#fafafa' : '#fff'),
+            background: player.isPlaying ? '#f6ffed' : (isQueued ? '#fff7e6' : (!player.isActive ? '#fafafa' : '#fff')),
             border: '1px solid #f0f0f0',
             borderRadius: '4px',
             opacity: !player.isActive ? 0.6 : 1
@@ -205,6 +228,7 @@ const PlayerList: React.FC<PlayerListProps> = ({
                </div>
 
                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {isQueued && <Tag color="orange" style={{ margin: 0, fontSize: '10px', padding: '0 4px', border: 'none' }}>Queued</Tag>}
                   <Tag 
                     style={{ margin: 0, fontSize: '10px', padding: '0 4px', border: 'none' }}
                     color={waitColor}
@@ -223,14 +247,20 @@ const PlayerList: React.FC<PlayerListProps> = ({
                         label: player.isActive ? 'Set Away' : 'Set Active', 
                         icon: player.isActive ? <PauseCircleOutlined /> : <PlayCircleOutlined />,
                         onClick: () => onToggleActive(player.id),
-                        disabled: player.isPlaying
+                        disabled: player.isPlaying || isQueued
                       },
+                    {
+                      key: 'add-queue',
+                      label: 'Assign to Queue',
+                      onClick: () => onAddToQueue(player.id),
+                      disabled: player.isPlaying || !player.isActive || isQueued || isPlayerOnCourt(player.id)
+                    },
                       { 
                       key: 'remove', 
                       label: 'Remove', 
                       danger: true, 
                       onClick: () => onRemovePlayer(player.id),
-                      disabled: player.isPlaying
+                      disabled: player.isPlaying || isQueued
                     }] }} 
                     trigger={['click']}
                   >
@@ -245,6 +275,8 @@ const PlayerList: React.FC<PlayerListProps> = ({
             <div style={{ marginTop: 6, paddingLeft: 32 }}>
                {player.isPlaying ? (
                   <Tag color="green" style={{ margin: 0, fontSize: '10px', padding: '0 4px' }}>Playing</Tag>
+                ) : isQueued ? (
+                  <Tag color="orange" style={{ margin: 0, fontSize: '10px', padding: '0 4px' }}>In Queue</Tag>
                 ) : !player.isActive ? (
                   <Tag style={{ margin: 0, fontSize: '10px', padding: '0 4px' }}>Away</Tag>
                 ) : (

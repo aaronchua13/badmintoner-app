@@ -5,7 +5,6 @@ import {
   AppstoreAddOutlined, 
   PlayCircleOutlined, 
   DragOutlined, 
-  CheckCircleOutlined,
   TrophyOutlined,
   StopOutlined,
   BarChartOutlined,
@@ -13,7 +12,7 @@ import {
   MobileOutlined
 } from '@ant-design/icons';
 
-const { Title, Paragraph, Text } = Typography;
+const { Paragraph, Text } = Typography;
 
 interface InstructionsModalProps {
   visible: boolean;
@@ -61,7 +60,7 @@ const InstructionsModal: React.FC<InstructionsModalProps> = ({ visible, onClose 
                   <ul style={{ paddingLeft: 20, marginTop: 8 }}>
                     <li>Use <Text strong>+ Court</Text> to add available courts.</li>
                     <li>Use <Text strong>+ Player</Text> to register players.</li>
-                    <li><Text type="secondary">Tip: Use "Populate Dummy Players" in the menu to test the system.</Text></li>
+                    <li><Text type="secondary">Tip: Use &quot;Populate Dummy Players&quot; in the menu to test the system.</Text></li>
                   </ul>
                 </div>
               ),
@@ -89,13 +88,13 @@ const InstructionsModal: React.FC<InstructionsModalProps> = ({ visible, onClose 
               content: (
                 <div style={{ marginBottom: 16 }}>
                   <Paragraph style={{ margin: 0 }}>
-                    The system automatically sorts players by <Text strong>Idle Time</Text> (longest wait first).
+                    Manage player assignments via the <Text strong>Queue Tab</Text>.
                   </Paragraph>
                   <ul style={{ paddingLeft: 20, marginTop: 8 }}>
-                    <li>Select players from the list to add them to a court.</li>
-                    <li>You can assign 2 (Singles) or 4 (Doubles) players per court.</li>
-                    <li>Players currently in a match are marked as <Tag color="blue">Playing</Tag>.</li>
-                    <li>Players waiting are marked as <Tag color="orange">Queueing</Tag>.</li>
+                    <li><Text strong>Add to Queue:</Text> Select a player and click &quot;Add to Queue&quot;. Choose a specific queue group from the scrollable list.</li>
+                    <li><Text strong>Restriction:</Text> Players currently on a court (active or idle) <Text type="danger">cannot</Text> be added to a queue.</li>
+                    <li><Text strong>Mobile-Friendly:</Text> The queue list uses a compact vertical layout for easier management on small screens.</li>
+                    <li><Text strong>Auto-Assign:</Text> Enable &quot;Auto&quot; mode to automatically move queued matches to free courts.</li>
                   </ul>
                 </div>
               ),
@@ -113,7 +112,7 @@ const InstructionsModal: React.FC<InstructionsModalProps> = ({ visible, onClose 
                     <li>Click <Tag color="green">Start Match</Tag> to begin a game. This starts the match timer.</li>
                     <li>When the game ends, click <Tag color="red">Finish</Tag>.</li>
                     <li>(Optional) Enter scores to track wins/losses.</li>
-                    <li>Finishing a match resets the players' idle timers to 0.</li>
+                    <li>Finishing a match resets the players&apos; idle timers to 0.</li>
                   </ul>
                 </div>
               ),
@@ -157,7 +156,7 @@ const InstructionsModal: React.FC<InstructionsModalProps> = ({ visible, onClose 
                     <li><Text strong>Win Rate:</Text> Percentage of games won.</li>
                     <li><Text strong>Point Difference:</Text> Total points scored vs. conceded.</li>
                   </ul>
-                  <Text type="secondary">Note: Statistics are reset if you use "Reset Session".</Text>
+                  <Text type="secondary">Note: Statistics are reset if you use &quot;Reset Session&quot;.</Text>
                 </div>
               ),
             },
@@ -191,7 +190,8 @@ const InstructionsModal: React.FC<InstructionsModalProps> = ({ visible, onClose 
                     The app is fully optimized for mobile devices:
                   </Paragraph>
                   <ul style={{ paddingLeft: 20 }}>
-                    <li><Text strong>Compact Header:</Text> Essential controls are prioritized. Use the "More" (...) menu for extra options.</li>
+                    <li><Text strong>Compact Header:</Text> Essential controls are prioritized. Use the &quot;More&quot; (...) menu for extra options.</li>
+                    <li><Text strong>Vertical Queue:</Text> Queue items are stacked vertically for better visibility.</li>
                     <li><Text strong>Stacked Layout:</Text> Courts and Player List are stacked for easier scrolling.</li>
                     <li><Text strong>Quick Actions:</Text> Use the floating action button (+) at the bottom right to quickly add players or courts.</li>
                   </ul>
