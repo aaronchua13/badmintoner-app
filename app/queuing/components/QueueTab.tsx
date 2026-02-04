@@ -3,7 +3,7 @@ import { Card, Typography, Tag, Button, Radio, Tooltip } from 'antd';
 import { DeleteOutlined, DragOutlined, CloseOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { Player, Court, QueueItem } from '../types';
 import LevelTag from './LevelTag';
-import { DndContext, closestCenter } from '@dnd-kit/core';
+import { DndContext, closestCenter, useSensor, useSensors, TouchSensor, MouseSensor } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -71,7 +71,7 @@ const QueueRow: React.FC<{
   onRemovePlayer?: (playerId: string) => void;
   onRemovePlayers?: () => void;
 }> = ({ item, players, courts, onAssign, onRemove, id, onRemovePlayer, onRemovePlayers }) => {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -82,7 +82,8 @@ const QueueRow: React.FC<{
     display: 'flex',
     flexDirection: 'column', // Changed to column for mobile
     gap: 4,
-    position: 'relative' // For absolute positioning if needed
+    position: 'relative', // For absolute positioning if needed
+    zIndex: isDragging ? 1000 : 'auto'
   };
   const team1 = item.team1.map(pid => players.find(p => p.id === pid)).filter(Boolean) as Player[];
   const team2 = item.team2.map(pid => players.find(p => p.id === pid)).filter(Boolean) as Player[];
@@ -94,7 +95,7 @@ const QueueRow: React.FC<{
       {/* Header: Drag Handle + Queue ID/Title + Actions */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <Button type="text" size="small" icon={<DragOutlined />} {...attributes} {...listeners} style={{ cursor: 'grab', color: '#8c8c8c', width: 20, height: 20, minWidth: 20 }} />
+          <Button type="text" size="small" icon={<DragOutlined />} {...attributes} {...listeners} style={{ cursor: 'grab', color: '#8c8c8c', width: 20, height: 20, minWidth: 20, touchAction: 'none' }} />
           <span style={{ fontSize: 11, fontWeight: 600, color: '#595959' }}>Queue Item</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -164,6 +165,10 @@ const QueueTab: React.FC<QueueTabProps> = ({
   onRemovePlayersFromQueue
 }) => {
   const ids = queue.map(q => q.id);
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } })
+  );
   return (
     <Card styles={{ body: { padding: 8 } }} variant="borderless">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -185,6 +190,7 @@ const QueueTab: React.FC<QueueTabProps> = ({
       </div>
       
       <DndContext
+        sensors={sensors}
         collisionDetection={closestCenter}
         onDragEnd={(event) => {
           const { active, over } = event;
@@ -195,7 +201,7 @@ const QueueTab: React.FC<QueueTabProps> = ({
         }}
       >
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, overscrollBehavior: 'contain' }}>
             {queue.length === 0 ? (
               <div style={{ textAlign: 'center', color: '#999', padding: 16 }}>No queued matches</div>
             ) : (
