@@ -93,6 +93,7 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
       icon: <HistoryOutlined />,
       label: 'Match History',
       onClick: onOpenHistory,
+      className: isMobile ? '' : 'hidden-desktop',
     },
     {
       key: 'instructions',
@@ -129,20 +130,20 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
       onClick: onPopulateDummy
     },
     {
-      key: 'reset',
-      icon: <DeleteOutlined />,
-      label: 'Reset Session',
-      onClick: handleReset,
-      danger: true,
-      disabled: sessionStatus === 'idle'
-    },
-    {
       key: 'restart',
       icon: <ReloadOutlined />,
       label: 'Restart Session',
       onClick: handleRestart,
       disabled: sessionStatus === 'idle'
-    }
+    },
+    {
+      key: 'reset',
+      icon: <DeleteOutlined />,
+      label: 'Reset Session',
+      onClick: handleReset,
+      danger: true,
+      // Reset should be enabled all the time to allow clearing setup even before start
+    },
   ];
 
   return (

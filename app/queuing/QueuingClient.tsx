@@ -23,7 +23,7 @@ const { Content } = Layout;
 
 export default function QueuingClient() {
   const { state, actions } = useQueuingState();
-  const { sessionStartTime, sessionEndTime, sessionStatus, currentTime, courts, players, history, queue, autoAssignQueue, isLoaded } = state;
+  const { sessionStartTime, sessionEndTime, sessionStatus, currentTime, courts, players, history, queue, autoAssignQueue, courtHistory, isLoaded } = state;
 
   // Freeze time if session is ended to stop idle timers
   const effectiveTime = (sessionStatus === 'ended' && sessionEndTime) ? sessionEndTime : currentTime;
@@ -152,6 +152,7 @@ export default function QueuingClient() {
                     onStopMatch={(id) => setStoppingCourtId(id)}
                     onTransfer={(id) => setTransferringCourtId(id)}
                     onTogglePlayer={actions.togglePlayerSelection}
+                    onClearCourt={actions.clearCourt}
                   />
                 </Col>
               ))}
@@ -197,6 +198,7 @@ export default function QueuingClient() {
                       onStopMatch={(id) => setStoppingCourtId(id)}
                       onTransfer={(id) => setTransferringCourtId(id)}
                       onTogglePlayer={actions.togglePlayerSelection}
+                    onClearCourt={actions.clearCourt}
                     />
                   </Col>
                 ))}
@@ -299,7 +301,9 @@ export default function QueuingClient() {
         sessionEndTime={sessionEndTime || (sessionStatus === 'active' ? currentTime : null)}
         currentTime={effectiveTime}
         players={players}
+        courts={courts}
         history={history}
+        courtHistory={courtHistory}
       />
       
       <InstructionsModal

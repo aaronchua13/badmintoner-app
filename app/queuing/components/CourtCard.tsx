@@ -19,6 +19,7 @@ interface CourtCardProps {
   onStopMatch: (id: string) => void;
   onTransfer: (id: string) => void;
   onTogglePlayer: (courtId: string, playerId: string) => void;
+  onClearCourt: (id: string) => void;
 }
 
 const CourtCard: React.FC<CourtCardProps> = ({
@@ -32,7 +33,8 @@ const CourtCard: React.FC<CourtCardProps> = ({
   onFinishMatch,
   onStopMatch,
   onTransfer,
-  onTogglePlayer
+  onTogglePlayer,
+  onClearCourt
 }) => {
   const { md } = Grid.useBreakpoint();
   const isMobile = !md;
@@ -70,6 +72,13 @@ const CourtCard: React.FC<CourtCardProps> = ({
                 {court.startTime ? formatMatchTime(Math.floor((currentTime - court.startTime)/1000)) : '00:00'}
               </Tag>
             )}
+            <Button 
+              type="text" 
+              size="small"
+              icon={<CloseOutlined />} 
+              onClick={() => onClearCourt(court.id)}
+              disabled={court.status === 'active' || court.players.every(p => p === null)}
+            />
             <Button 
               type="text" 
               danger 

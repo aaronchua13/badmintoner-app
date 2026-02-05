@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Player, Court, MatchHistory, PlayerLevel, QueueItem } from '../types';
+import { Player, Court, MatchHistory, PlayerLevel, QueueItem, CourtHistoryItem } from '../types';
 
 interface QueueData {
   sessionStartTime: number | null;
@@ -10,11 +10,12 @@ interface QueueData {
   history: MatchHistory[];
   queue: QueueItem[];
   autoAssignQueue: boolean;
+  courtHistory: CourtHistoryItem[];
 }
 
 export const useQueuingState = () => {
   // -- State --
-  const [queueData, setQueueData] = useState<QueueData>({
+  const [queueData, setQueueData] = useState<QueueData>(() => ({
     sessionStartTime: null,
     sessionEndTime: null,
     sessionStatus: 'idle',
@@ -25,8 +26,12 @@ export const useQueuingState = () => {
     players: [],
     history: [],
     queue: [],
-    autoAssignQueue: false
-  });
+    autoAssignQueue: false,
+    courtHistory: [
+      { id: 'c1', name: 'Court 1', addedAt: Date.now(), removedAt: null, gamesPlayed: 0 },
+      { id: 'c2', name: 'Court 2', addedAt: Date.now(), removedAt: null, gamesPlayed: 0 },
+    ]
+  }));
 
   const [currentTime, setCurrentTime] = useState<number>(() => Date.now());
   const [isLoaded, setIsLoaded] = useState(false);
@@ -45,7 +50,18 @@ export const useQueuingState = () => {
           isActive: p.isActive !== undefined ? p.isActive : true
         }));
         
-        // eslint-disable-next-line react-hooks/set-state-in-effect
+         
+        const courtHistory = Array.isArray(parsed.courtHistory) 
+          ? parsed.courtHistory 
+          : parsed.courts.map((c: { id: string; name: string }) => ({
+              id: c.id,
+              name: c.name,
+              addedAt: Date.now(),
+              removedAt: null,
+              gamesPlayed: 0
+            }));
+
+        // eslint-disable-next-line
         setQueueData({
           sessionStartTime: parsed.sessionStartTime,
           sessionEndTime: parsed.sessionEndTime || null,
@@ -54,7 +70,8 @@ export const useQueuingState = () => {
           players: patchedPlayers,
           history: parsed.history,
           queue: Array.isArray(parsed.queue) ? parsed.queue : [],
-          autoAssignQueue: typeof parsed.autoAssignQueue === 'boolean' ? parsed.autoAssignQueue : false
+          autoAssignQueue: typeof parsed.autoAssignQueue === 'boolean' ? parsed.autoAssignQueue : false,
+          courtHistory
         });
       } catch (e) {
         console.error('Failed to parse saved queue data', e);
@@ -187,6 +204,13 @@ export const useQueuingState = () => {
     const newId = `c-${Date.now()}`; 
     setQueueData(prev => {
       const newCourt: Court = { id: newId, name, status: 'idle', players: [null, null, null, null], startTime: null };
+      const newHistoryItem: CourtHistoryItem = {
+        id: newId,
+        name,
+        addedAt: Date.now(),
+        removedAt: null,
+        gamesPlayed: 0
+      };
       let courts: Court[] = [...prev.courts, newCourt];
       let queue = [...prev.queue];
       if (prev.autoAssignQueue && queue.length > 0 && prev.sessionStatus === 'active') {
@@ -210,7 +234,7 @@ export const useQueuingState = () => {
           queue = queue.slice(1);
         }
       }
-      return { ...prev, courts, queue };
+      return { ...prev, courts, queue, courtHistory: [...prev.courtHistory, newHistoryItem] };
     });
   };
 
@@ -223,7 +247,8 @@ export const useQueuingState = () => {
       }
       return {
         ...prev,
-        courts: prev.courts.filter(c => c.id !== id)
+        courts: prev.courts.filter(c => c.id !== id),
+        courtHistory: prev.courtHistory.map(h => h.id === id ? { ...h, removedAt: Date.now() } : h)
       };
     });
   };
@@ -231,7 +256,8 @@ export const useQueuingState = () => {
   const updateCourtName = (id: string, newName: string) => {
     setQueueData(prev => ({
       ...prev,
-      courts: prev.courts.map(c => c.id === id ? { ...c, name: newName } : c)
+      courts: prev.courts.map(c => c.id === id ? { ...c, name: newName } : c),
+      courtHistory: prev.courtHistory.map(h => h.id === id ? { ...h, name: newName } : h)
     }));
   };
 
@@ -273,14 +299,24 @@ export const useQueuingState = () => {
   };
 
   const populateDummyPlayers = (levels: PlayerLevel[]) => {
-    const newPlayers: Player[] = [];
-    
-    for (let i = 1; i <= 40; i++) {
+    const dummyNames = [
+      "Allan", "Sam (Female)", "Bing (Female)", "Weng", "Joy (Female)",
+      "Nora (Female)", "Dodie", "Krislyn (Female)", "Harvey", "Cloyd",
+      "Aaron", "Jessica (Female)", "Nats (Female)", "Dan", "Flor (Female)",
+      "Kayth (Female)", "Zoro", "Shanks", "Goku", "Christian P",
+      "Charles", "Shaun", "Jerome", "Norman", "Psyche (Female)",
+      "Phinky (Female)", "Kalai (Female)", "Hayabusa", "Luffy", "Naruto"
+    ];
+
+    const newPlayers: Player[] = dummyNames.map((rawName, index) => {
+      const isFemale = rawName.toLowerCase().includes('(female)');
+      const name = rawName.replace(/\s*\(Female\)/i, '').trim();
+      const gender = isFemale ? 'Female' : 'Male';
       const level = levels[Math.floor(Math.random() * levels.length)];
-      const gender = Math.random() > 0.5 ? 'Male' : 'Female';
-      newPlayers.push({
-        id: `dummy-${Date.now()}-${i}`,
-        name: `Player ${i}`,
+      
+      return {
+        id: `dummy-${Date.now()}-${index}`,
+        name,
         level,
         gender,
         isActive: true,
@@ -293,8 +329,9 @@ export const useQueuingState = () => {
         firstMatchTime: null,
         partners: {},
         isPlaying: false,
-      });
-    }
+      };
+    });
+
     setQueueData(prev => ({
       ...prev,
       players: [...prev.players, ...newPlayers]
@@ -463,7 +500,8 @@ export const useQueuingState = () => {
         players: updatedPlayers,
         history: [matchRecord, ...history],
         courts: newCourts,
-        queue: newQueue
+        queue: newQueue,
+        courtHistory: prev.courtHistory.map(h => h.id === courtId ? { ...h, gamesPlayed: h.gamesPlayed + 1 } : h)
       };
     });
   };
@@ -645,18 +683,6 @@ export const useQueuingState = () => {
         sessionStatus: 'ended' as const,
         sessionEndTime: endTime
       };
-      try {
-        const now = Date.now();
-        const dateLabel = new Date(now).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        const filename = `Session - ${dateLabel} (${now}).json`;
-        const blob = new Blob([JSON.stringify(nextData, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.click();
-        setTimeout(() => URL.revokeObjectURL(url), 0);
-      } catch {}
       return nextData;
     });
   };
@@ -671,7 +697,8 @@ export const useQueuingState = () => {
       players: [],
       history: [],
       queue: [],
-      autoAssignQueue: false
+      autoAssignQueue: false,
+      courtHistory: []
     });
   };
 
@@ -700,6 +727,17 @@ export const useQueuingState = () => {
         startTime: null
       }));
 
+      const resetCourtHistory = prev.courts.map(c => {
+        const historyItem = prev.courtHistory.find(h => h.id === c.id);
+        return {
+           id: c.id,
+           name: c.name,
+           addedAt: historyItem ? historyItem.addedAt : Date.now(),
+           removedAt: null,
+           gamesPlayed: 0
+        };
+      });
+
       return {
         sessionStartTime: null,
         sessionEndTime: null,
@@ -708,7 +746,8 @@ export const useQueuingState = () => {
         players: resetPlayers,
         history: [],
         queue: [],
-        autoAssignQueue: false
+        autoAssignQueue: false,
+        courtHistory: resetCourtHistory
       };
     });
   };
@@ -724,6 +763,7 @@ export const useQueuingState = () => {
       history: queueData.history,
       queue: queueData.queue,
       autoAssignQueue: queueData.autoAssignQueue,
+      courtHistory: queueData.courtHistory,
       isLoaded
     },
     actions: {
@@ -754,6 +794,15 @@ export const useQueuingState = () => {
       assignQueueToCourt,
       setAutoAssignQueue,
       transferMatch,
+      clearCourt: (courtId: string) => {
+        setQueueData(prev => {
+          const court = prev.courts.find(c => c.id === courtId);
+          if (!court) return prev;
+          if (court.status !== 'idle') return prev;
+          const nextCourts = prev.courts.map(c => c.id === courtId ? { ...c, players: [null, null, null, null], startTime: null } : c);
+          return { ...prev, courts: nextCourts };
+        });
+      },
       exportSession: () => {
         const now = Date.now();
         const dateLabel = new Date(now).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -787,6 +836,16 @@ export const useQueuingState = () => {
             gender: p.gender || 'Male',
             isActive: p.isActive !== undefined ? p.isActive : true
           }));
+          const courtHistory = Array.isArray(parsed.courtHistory) 
+            ? parsed.courtHistory 
+            : parsed.courts.map((c: { id: string; name: string }) => ({
+                id: c.id,
+                name: c.name,
+                addedAt: parsed.sessionStartTime || Date.now(),
+                removedAt: null,
+                gamesPlayed: 0
+              }));
+
           setQueueData({
             sessionStartTime: parsed.sessionStartTime || null,
             sessionEndTime: parsed.sessionEndTime || null,
@@ -795,7 +854,8 @@ export const useQueuingState = () => {
             players: patchedPlayers,
             history: parsed.history,
             queue: Array.isArray(parsed.queue) ? parsed.queue : [],
-            autoAssignQueue: typeof parsed.autoAssignQueue === 'boolean' ? parsed.autoAssignQueue : false
+            autoAssignQueue: typeof parsed.autoAssignQueue === 'boolean' ? parsed.autoAssignQueue : false,
+            courtHistory
           });
           return { ok: true };
         } catch {

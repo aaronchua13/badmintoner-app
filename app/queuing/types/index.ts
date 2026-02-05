@@ -85,3 +85,11 @@ export interface QueueItem {
   team2: string[];
   createdAt: number;
 }
+
+export interface CourtHistoryItem {
+  id: string;
+  name: string;
+  addedAt: number;
+  removedAt: number | null;
+  gamesPlayed: number;
+}
