@@ -638,11 +638,27 @@ export const useQueuingState = () => {
   };
 
   const stopSession = () => {
-    setQueueData(prev => ({
-      ...prev,
-      sessionStatus: 'ended',
-      sessionEndTime: Date.now()
-    }));
+    setQueueData(prev => {
+      const endTime = Date.now();
+      const nextData = {
+        ...prev,
+        sessionStatus: 'ended' as const,
+        sessionEndTime: endTime
+      };
+      try {
+        const now = Date.now();
+        const dateLabel = new Date(now).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const filename = `Session - ${dateLabel} (${now}).json`;
+        const blob = new Blob([JSON.stringify(nextData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+      } catch {}
+      return nextData;
+    });
   };
 
   const resetState = () => {
@@ -737,7 +753,55 @@ export const useQueuingState = () => {
       moveQueueItem,
       assignQueueToCourt,
       setAutoAssignQueue,
-      transferMatch
+      transferMatch,
+      exportSession: () => {
+        const now = Date.now();
+        const dateLabel = new Date(now).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const filename = `Session - ${dateLabel} (${now}).json`;
+        const blob = new Blob([JSON.stringify(queueData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+      },
+      importSession: (jsonText: string) => {
+        if (queueData.sessionStatus === 'active') {
+          return { ok: false, error: 'Cannot import during an active session' };
+        }
+        try {
+          const parsed = JSON.parse(jsonText);
+          if (
+            !parsed ||
+            !Array.isArray(parsed.courts) ||
+            !Array.isArray(parsed.players) ||
+            !Array.isArray(parsed.history) ||
+            typeof parsed.sessionStatus !== 'string' ||
+            !['idle', 'active', 'ended'].includes(parsed.sessionStatus)
+          ) {
+            return { ok: false, error: 'Invalid session file' };
+          }
+          const patchedPlayers = parsed.players.map((p: Player & { isActive?: boolean }) => ({
+            ...p,
+            gender: p.gender || 'Male',
+            isActive: p.isActive !== undefined ? p.isActive : true
+          }));
+          setQueueData({
+            sessionStartTime: parsed.sessionStartTime || null,
+            sessionEndTime: parsed.sessionEndTime || null,
+            sessionStatus: parsed.sessionStatus,
+            courts: parsed.courts,
+            players: patchedPlayers,
+            history: parsed.history,
+            queue: Array.isArray(parsed.queue) ? parsed.queue : [],
+            autoAssignQueue: typeof parsed.autoAssignQueue === 'boolean' ? parsed.autoAssignQueue : false
+          });
+          return { ok: true };
+        } catch {
+          return { ok: false, error: 'Failed to parse session file' };
+        }
+      }
     }
   };
 };

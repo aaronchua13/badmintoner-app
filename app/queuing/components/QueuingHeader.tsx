@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Layout, Typography, Button, Dropdown, MenuProps, Tag } from 'antd';
-import { HomeOutlined, PlayCircleOutlined, HistoryOutlined, TeamOutlined, MoreOutlined, DeleteOutlined, QuestionCircleOutlined, ReloadOutlined, PoweroffOutlined, FileTextOutlined } from '@ant-design/icons';
+import { Layout, Typography, Button, Dropdown, MenuProps, Tag, message } from 'antd';
+import { HomeOutlined, PlayCircleOutlined, HistoryOutlined, TeamOutlined, MoreOutlined, DeleteOutlined, QuestionCircleOutlined, ReloadOutlined, PoweroffOutlined, FileTextOutlined, UploadOutlined, DownloadOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import { formatSessionDuration } from '../utils';
 import { useCustomBreakpoints } from '../hooks/useCustomBreakpoints';
@@ -24,6 +24,9 @@ interface QueuingHeaderProps {
   onOpenSummary: () => void;
   onPopulateDummy: () => void;
   onOpenInstructions: () => void;
+  onExportSession?: () => void;
+  onImportSession?: (content: string) => void;
+  hasActiveMatches?: boolean;
 }
 
 const QueuingHeader: React.FC<QueuingHeaderProps> = ({
@@ -38,13 +41,17 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
   onOpenHistory,
   onOpenSummary,
   onPopulateDummy,
-  onOpenInstructions
+  onOpenInstructions,
+  onExportSession,
+  onImportSession,
+  hasActiveMatches = false,
 }) => {
   const { isHeaderCompact } = useCustomBreakpoints();
   const isMobile = isHeaderCompact;
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isRestartModalOpen, setIsRestartModalOpen] = useState(false);
   const [isStopModalOpen, setIsStopModalOpen] = useState(false);
+  const [fileInputEl, setFileInputEl] = useState<HTMLInputElement | null>(null);
 
   const getSessionDuration = () => {
     if (sessionStatus === 'idle' || sessionStartTime === null) return 'Not Started';
@@ -65,6 +72,10 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
   };
 
   const handleStop = () => {
+    if (hasActiveMatches) {
+      message.error('There are active matches in progress. Please finish or stop them before stopping the session.');
+      return;
+    }
     setIsStopModalOpen(true);
   };
 
@@ -88,6 +99,25 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
       icon: <QuestionCircleOutlined />,
       label: 'Instructions',
       onClick: onOpenInstructions,
+    },
+    {
+      key: 'import',
+      icon: <UploadOutlined />,
+      label: 'Import Session',
+      onClick: () => {
+        if (sessionStatus === 'active') return;
+        if (fileInputEl) fileInputEl.click();
+      },
+      disabled: sessionStatus === 'active'
+    },
+    {
+      key: 'export',
+      icon: <DownloadOutlined />,
+      label: 'Export Session',
+      onClick: () => {
+        if (onExportSession) onExportSession();
+      },
+      disabled: sessionStatus === 'active'
     },
     {
       type: 'divider',
@@ -218,7 +248,7 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
           {/* More Menu - Always visible, content changes based on screen size */}
           <Dropdown 
             menu={{ 
-              items: isMobile ? menuItems : menuItems.filter(i => ['populate', 'reset'].includes(i?.key as string)) 
+              items: isMobile ? menuItems : menuItems.filter(i => ['populate', 'reset', 'import', 'export'].includes(i?.key as string)) 
             }} 
             trigger={['click']} 
             placement="bottomRight"
@@ -227,6 +257,23 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
           </Dropdown>
         </div>
       </Header>
+
+      <input
+        type="file"
+        accept="application/json"
+        style={{ display: 'none' }}
+        ref={(el) => setFileInputEl(el)}
+        onChange={async (e) => {
+          const file = e.target.files && e.target.files[0];
+          if (!file) return;
+          if (sessionStatus === 'active') return;
+          try {
+            const text = await file.text();
+            if (onImportSession) onImportSession(text);
+          } catch {}
+          e.currentTarget.value = '';
+        }}
+      />
 
       <ResetSessionModal
         visible={isResetModalOpen}

@@ -98,6 +98,8 @@ export default function QueuingClient() {
   const finishingCourt = courts.find(c => c.id === finishingCourtId);
   const transferringCourt = courts.find(c => c.id === transferringCourtId);
 
+  const hasActiveMatches = courts.some(court => court.status === 'active');
+
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <QueuingHeader 
@@ -113,6 +115,23 @@ export default function QueuingClient() {
         onOpenSummary={() => setIsSummaryOpen(true)}
         onOpenInstructions={() => setIsInstructionsOpen(true)}
         onPopulateDummy={() => actions.populateDummyPlayers(['Beginner', 'Intermediate', 'Advanced', 'Intermediate +', 'Advanced +'])}
+        hasActiveMatches={hasActiveMatches}
+        onExportSession={() => {
+          if (sessionStatus === 'active') {
+            alert('Cannot export during an active session.');
+            return;
+          }
+          actions.exportSession();
+        }}
+        onImportSession={(content: string) => {
+          const res = actions.importSession(content);
+          if (!res.ok && res.error) {
+            alert(res.error);
+            return;
+          }
+          setIsHistoryOpen(false);
+          setIsSummaryOpen(false);
+        }}
       />
       
       <Content style={{ padding: isMobileLayout ? '12px' : '24px' }}>
