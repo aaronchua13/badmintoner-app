@@ -99,18 +99,18 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
       onClick: onPopulateDummy
     },
     {
-      key: 'restart',
-      icon: <ReloadOutlined />,
-      label: 'Restart Session',
-      onClick: handleRestart,
-      disabled: sessionStatus === 'idle'
-    },
-    {
       key: 'reset',
       icon: <DeleteOutlined />,
       label: 'Reset Session',
       onClick: handleReset,
       danger: true,
+      disabled: sessionStatus === 'idle'
+    },
+    {
+      key: 'restart',
+      icon: <ReloadOutlined />,
+      label: 'Restart Session',
+      onClick: handleRestart,
       disabled: sessionStatus === 'idle'
     }
   ];
@@ -193,13 +193,12 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
                 </Button>
               )}
                <Button 
-                danger={sessionStatus !== 'idle'}
-                onClick={handleReset} 
-                icon={<DeleteOutlined />}
+                onClick={handleRestart} 
+                icon={<ReloadOutlined />}
                 type="text"
                 disabled={sessionStatus === 'idle'}
               >
-                Reset
+                Restart
               </Button>
               <Button icon={<HistoryOutlined />} onClick={onOpenHistory} type="text" />
               <Button icon={<QuestionCircleOutlined />} onClick={onOpenInstructions} type="text" />
@@ -219,7 +218,7 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
           {/* More Menu - Always visible, content changes based on screen size */}
           <Dropdown 
             menu={{ 
-              items: isMobile ? menuItems : menuItems.filter(i => ['populate', 'restart'].includes(i?.key as string)) 
+              items: isMobile ? menuItems : menuItems.filter(i => ['populate', 'reset'].includes(i?.key as string)) 
             }} 
             trigger={['click']} 
             placement="bottomRight"

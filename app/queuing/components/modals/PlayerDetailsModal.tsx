@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, Descriptions, Select, Radio, Space, Tabs, Statistic, Row, Col, List, Tag } from 'antd';
+import { Modal, Descriptions, Select, Radio, Space, Tabs, Statistic, Row, Col, Tag, Empty, Button } from 'antd';
 import { ManOutlined, WomanOutlined, TrophyOutlined, FireOutlined } from '@ant-design/icons';
 import { Player, PlayerLevel, LEVEL_COLORS, MatchHistory } from '../../types';
 import { formatDuration } from '../../utils';
@@ -121,48 +121,54 @@ const PlayerDetailsModal: React.FC<PlayerDetailsModalProps> = ({
             key: 'matches',
             label: `Matches (${playerHistory.length})`,
             children: (
-              <List
-                size="small"
-                itemLayout="horizontal"
-                dataSource={playerHistory}
-                pagination={{ pageSize: 5 }}
-                renderItem={(item) => {
-                  const playerTeam = item.players.find(p => p.id === player.id)?.team;
-                  const isWinner = item.winners === playerTeam;
-                  
-                  return (
-                    <List.Item>
-                      <List.Item.Meta
-                        avatar={
-                          item.isStopped ? (
-                            <Tag color="default">STOPPED</Tag>
+              playerHistory.length === 0 ? (
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No match history" />
+              ) : (
+                <div style={{ maxHeight: '400px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {playerHistory.map((item, index) => {
+                    const playerTeam = item.players.find(p => p.id === player.id)?.team;
+                    const isWinner = item.winners === playerTeam;
+                    
+                    return (
+                      <div 
+                        key={index} 
+                        style={{ 
+                          display: 'flex', 
+                          gap: 12, 
+                          padding: '8px 0', 
+                          borderBottom: index !== playerHistory.length - 1 ? '1px solid #f0f0f0' : 'none'
+                        }}
+                      >
+                        <div style={{ flexShrink: 0, paddingTop: 4 }}>
+                          {item.isStopped ? (
+                            <Tag color="default" style={{ margin: 0 }}>STOPPED</Tag>
                           ) : (
-                            <Tag color={isWinner ? 'green' : 'red'}>
+                            <Tag color={isWinner ? 'green' : 'red'} style={{ margin: 0 }}>
                               {isWinner ? 'WON' : 'LOST'}
                             </Tag>
-                          )
-                        }
-                        title={
-                          <Space>
-                            <span>{new Date(item.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            <Tag>{formatDuration(item.duration)}</Tag>
-                          </Space>
-                        }
-                        description={
-                          <div style={{ fontSize: '12px' }}>
-                            <div>
-                              Team 1: {item.players.filter(p => p.team === 1).map(p => p.name).join(', ')}
+                          )}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontWeight: 500 }}>
+                              {new Date(item.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <Tag style={{ margin: 0 }}>{formatDuration(item.duration)}</Tag>
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#666' }}>
+                            <div style={{ marginBottom: 2 }}>
+                              <span style={{ fontWeight: 500 }}>Team 1:</span> {item.players.filter(p => p.team === 1).map(p => p.name).join(', ')}
                             </div>
                             <div>
-                              Team 2: {item.players.filter(p => p.team === 2).map(p => p.name).join(', ')}
+                              <span style={{ fontWeight: 500 }}>Team 2:</span> {item.players.filter(p => p.team === 2).map(p => p.name).join(', ')}
                             </div>
                           </div>
-                        }
-                      />
-                    </List.Item>
-                  );
-                }}
-              />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )
             )
           }
         ]}

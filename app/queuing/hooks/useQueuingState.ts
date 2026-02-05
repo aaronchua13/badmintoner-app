@@ -586,6 +586,48 @@ export const useQueuingState = () => {
     });
   };
 
+  const transferMatch = (fromCourtId: string, toCourtId: string) => {
+    setQueueData(prev => {
+      const { courts } = prev;
+      const fromCourt = courts.find(c => c.id === fromCourtId);
+      const toCourt = courts.find(c => c.id === toCourtId);
+
+      if (!fromCourt || !toCourt) return prev;
+
+      // Check if target is valid (idle and empty)
+      const isTargetEmpty = toCourt.players.every(p => p === null);
+      if (toCourt.status !== 'idle' || !isTargetEmpty) {
+        return prev;
+      }
+
+      // Transfer data
+      const updatedCourts = courts.map(c => {
+        if (c.id === toCourtId) {
+          return {
+            ...c,
+            status: fromCourt.status,
+            players: [...fromCourt.players],
+            startTime: fromCourt.startTime
+          };
+        }
+        if (c.id === fromCourtId) {
+          return {
+            ...c,
+            status: 'idle' as const,
+            players: [null, null, null, null] as (string | null)[],
+            startTime: null
+          };
+        }
+        return c;
+      });
+
+      return {
+        ...prev,
+        courts: updatedCourts
+      };
+    });
+  };
+
   const startSession = () => {
     setQueueData(prev => ({ 
       ...prev, 
@@ -694,7 +736,8 @@ export const useQueuingState = () => {
       removePlayerFromQueue,
       moveQueueItem,
       assignQueueToCourt,
-      setAutoAssignQueue
+      setAutoAssignQueue,
+      transferMatch
     }
   };
 };

@@ -47,9 +47,17 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
   
   // Calculate idle time for display
   const playersWithStats: PlayerWithStats[] = players.map(p => {
-    const currentIdle = !p.isPlaying 
-      ? Math.floor(((sessionEndTime || currentTime) - p.lastMatchEndTime) / 1000)
-      : 0;
+    let currentIdle = 0;
+    
+    // Logic matches PlayerList/usePlayerFilters: 
+    // Only count current idle time if player has played at least one game
+    // and is not currently playing.
+    if (!p.isPlaying && p.gamesPlayed > 0 && sessionStartTime !== null) {
+       const effectiveStartTime = Math.max(p.lastMatchEndTime, sessionStartTime);
+       const effectiveEndTime = sessionEndTime || currentTime;
+       currentIdle = Math.floor((effectiveEndTime - effectiveStartTime) / 1000);
+    }
+    
     const totalIdle = p.totalIdleTime + (currentIdle > 0 ? currentIdle : 0);
     
     return {
@@ -126,76 +134,94 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
          </span>
        );
     }},
+    { title: 'Players', render: (_: unknown, r: MatchHistory) => (
+       <div style={{ fontSize: '12px' }}>
+          <div>T1: {r.players.filter(p => p.team === 1).map(p => p.name).join(', ')}</div>
+          <div>T2: {r.players.filter(p => p.team === 2).map(p => p.name).join(', ')}</div>
+       </div>
+    )}
   ];
 
   return (
     <Modal
-      title={<Title level={3} style={{ margin: 0 }}>Session Summary</Title>}
+      title={<Title level={5} style={{ margin: 0 }}>Session Summary</Title>}
       open={visible}
       onCancel={onClose}
       footer={[
-        <Button key="close" type="primary" onClick={onClose}>
+        <Button key="close" type="primary" size="small" onClick={onClose}>
           Close
         </Button>
       ]}
       width={900}
-      styles={{ body: { padding: isMobile ? '12px' : '24px' } }}
+      styles={{ body: { padding: isMobile ? '8px' : '12px' } }}
+      style={{ top: 20 }}
     >
-      <div style={{ marginBottom: 24 }}>
-        <Row gutter={[16, 16]}>
+      <div style={{ marginBottom: 12 }}>
+        <Row gutter={[8, 8]}>
           <Col span={isMobile ? 24 : 8}>
-            <Statistic 
-              title="Session Duration" 
-              value={formatSessionDuration(duration)} 
-              prefix={<ClockCircleOutlined />} 
-            />
+            <div style={{ padding: 8, background: '#fafafa', borderRadius: 4 }}>
+              <Statistic 
+                title={<span style={{ fontSize: 12 }}>Duration</span>}
+                value={formatSessionDuration(duration)} 
+                valueStyle={{ fontSize: 16 }}
+                prefix={<ClockCircleOutlined style={{ fontSize: 14 }} />} 
+              />
+            </div>
           </Col>
           <Col span={isMobile ? 12 : 8}>
-            <Statistic 
-              title="Total Matches" 
-              value={totalMatches} 
-              suffix={`(${completedMatches} completed)`}
-              prefix={<HistoryOutlined />} 
-            />
+             <div style={{ padding: 8, background: '#fafafa', borderRadius: 4 }}>
+              <Statistic 
+                title={<span style={{ fontSize: 12 }}>Matches</span>}
+                value={totalMatches} 
+                valueStyle={{ fontSize: 16 }}
+                suffix={<span style={{ fontSize: 12 }}>({completedMatches} done)</span>}
+                prefix={<HistoryOutlined style={{ fontSize: 14 }} />} 
+              />
+            </div>
           </Col>
           <Col span={isMobile ? 12 : 8}>
-            <Statistic 
-              title="Active Players" 
-              value={players.filter(p => p.gamesPlayed > 0).length} 
-              suffix={`/ ${players.length}`}
-              prefix={<TeamOutlined />} 
-            />
+             <div style={{ padding: 8, background: '#fafafa', borderRadius: 4 }}>
+              <Statistic 
+                title={<span style={{ fontSize: 12 }}>Active Players</span>}
+                value={players.filter(p => p.gamesPlayed > 0).length} 
+                valueStyle={{ fontSize: 16 }}
+                suffix={<span style={{ fontSize: 12 }}>/ {players.length}</span>}
+                prefix={<TeamOutlined style={{ fontSize: 14 }} />} 
+              />
+            </div>
           </Col>
         </Row>
       </div>
 
       <Tabs
         defaultActiveKey="leaderboard"
+        size="small"
         items={[
           {
             key: 'leaderboard',
             label: 'Leaderboard',
             children: (
               <div>
-                <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+                <Row gutter={[8, 8]} style={{ marginBottom: 12 }}>
                    {topPlayers.map((p, i) => (
-                     <Col span={isMobile ? 24 : 8} key={p.id}>
+                     <Col span={8} key={p.id}>
                        <div style={{ 
                          background: i === 0 ? '#fffbe6' : '#f9f9f9', 
-                         padding: 16, 
-                         borderRadius: 8, 
+                         padding: 8, 
+                         borderRadius: 6, 
                          textAlign: 'center',
                          border: i === 0 ? '1px solid #ffe58f' : '1px solid #f0f0f0',
                          display: 'flex',
-                         flexDirection: isMobile ? 'row' : 'column',
+                         flexDirection: 'column',
                          alignItems: 'center',
-                         justifyContent: isMobile ? 'flex-start' : 'center',
-                         gap: isMobile ? 16 : 0
+                         justifyContent: 'center',
+                         gap: 4,
+                         height: '100%'
                        }}>
-                         <TrophyOutlined style={{ fontSize: 24, color: i === 0 ? '#faad14' : i === 1 ? '#d9d9d9' : '#d48806', marginBottom: isMobile ? 0 : 8 }} />
-                         <div style={{ textAlign: isMobile ? 'left' : 'center' }}>
-                           <div style={{ fontWeight: 'bold', fontSize: 16 }}>{p.name}</div>
-                           <div>{p.wins} Wins / {p.gamesPlayed} Games</div>
+                         <TrophyOutlined style={{ fontSize: 16, color: i === 0 ? '#faad14' : i === 1 ? '#d9d9d9' : '#d48806', marginBottom: 4 }} />
+                         <div style={{ textAlign: 'center', width: '100%' }}>
+                           <div style={{ fontWeight: 'bold', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                           <div style={{ fontSize: 11 }}>{p.wins} W / {p.gamesPlayed} G</div>
                          </div>
                        </div>
                      </Col>
@@ -205,9 +231,10 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
                   dataSource={sortedPlayers} 
                   columns={playerColumns} 
                   rowKey="id" 
-                  pagination={{ pageSize: 10 }} 
+                  pagination={{ pageSize: 10, size: 'small' }} 
                   size="small"
-                  scroll={{ x: 600 }}
+                  scroll={{ x: 600, y: 300 }}
+                  style={{ fontSize: 12 }}
                 />
               </div>
             )
@@ -220,9 +247,9 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
                 dataSource={history} 
                 columns={historyColumns} 
                 rowKey="id" 
-                pagination={{ pageSize: 10 }} 
+                pagination={{ pageSize: 10, size: 'small' }} 
                 size="small"
-                scroll={{ x: 500 }}
+                scroll={{ x: 800, y: 300 }}
               />
             )
           }

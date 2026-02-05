@@ -17,6 +17,7 @@ import HistoryModal from './components/modals/HistoryModal';
 import PlayerDetailsModal from './components/modals/PlayerDetailsModal';
 import InstructionsModal from './components/modals/InstructionsModal';
 import SessionSummaryModal from './components/modals/SessionSummaryModal';
+import TransferCourtModal from './components/modals/TransferCourtModal';
 
 const { Content } = Layout;
 
@@ -34,6 +35,7 @@ export default function QueuingClient() {
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [finishingCourtId, setFinishingCourtId] = useState<string | null>(null);
   const [stoppingCourtId, setStoppingCourtId] = useState<string | null>(null);
+  const [transferringCourtId, setTransferringCourtId] = useState<string | null>(null);
   const [viewingPlayerId, setViewingPlayerId] = useState<string | null>(null);
   const [addPlayerMode, setAddPlayerMode] = useState<'close' | 'keep'>('close');
 
@@ -80,6 +82,13 @@ export default function QueuingClient() {
     }
   };
 
+  const handleTransferMatch = (targetCourtId: string) => {
+    if (transferringCourtId) {
+      actions.transferMatch(transferringCourtId, targetCourtId);
+      setTransferringCourtId(null);
+    }
+  };
+
   const handleStopSession = () => {
     actions.stopSession();
     setIsSummaryOpen(true);
@@ -87,6 +96,7 @@ export default function QueuingClient() {
 
   const viewingPlayer = players.find(p => p.id === viewingPlayerId);
   const finishingCourt = courts.find(c => c.id === finishingCourtId);
+  const transferringCourt = courts.find(c => c.id === transferringCourtId);
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -121,6 +131,7 @@ export default function QueuingClient() {
                     onStartMatch={actions.startMatch}
                     onFinishMatch={(id) => setFinishingCourtId(id)}
                     onStopMatch={(id) => setStoppingCourtId(id)}
+                    onTransfer={(id) => setTransferringCourtId(id)}
                     onTogglePlayer={actions.togglePlayerSelection}
                   />
                 </Col>
@@ -165,6 +176,7 @@ export default function QueuingClient() {
                       onStartMatch={actions.startMatch}
                       onFinishMatch={(id) => setFinishingCourtId(id)}
                       onStopMatch={(id) => setStoppingCourtId(id)}
+                      onTransfer={(id) => setTransferringCourtId(id)}
                       onTogglePlayer={actions.togglePlayerSelection}
                     />
                   </Col>
@@ -197,7 +209,7 @@ export default function QueuingClient() {
         )}
       </Content>
 
-      {sessionStatus === 'active' && (
+      {(sessionStatus === 'active' || sessionStatus === 'idle') && (
         <FloatButton.Group
           trigger="click"
           type="primary"
@@ -245,6 +257,14 @@ export default function QueuingClient() {
         onCancel={() => setStoppingCourtId(null)}
         onStop={handleStopMatch}
         form={stopMatchForm}
+      />
+
+      <TransferCourtModal
+        visible={!!transferringCourtId}
+        onCancel={() => setTransferringCourtId(null)}
+        onTransfer={handleTransferMatch}
+        courts={courts}
+        currentCourt={transferringCourt}
       />
 
       <HistoryModal
