@@ -9,7 +9,10 @@ import {
   StopOutlined,
   BarChartOutlined,
   SettingOutlined,
-  MobileOutlined
+  MobileOutlined,
+  DatabaseOutlined,
+  SearchOutlined,
+  ExportOutlined
 } from '@ant-design/icons';
 
 const { Paragraph, Text } = Typography;
@@ -32,7 +35,7 @@ const InstructionsModal: React.FC<InstructionsModalProps> = ({ visible, onClose 
       onCancel={onClose}
       footer={null}
       width={800}
-      styles={{ body: { padding: '24px' } }}
+      styles={{ body: { paddingTop: '24px' } }}
     >
       <div style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: '8px' }}>
         <Paragraph style={{ fontSize: '16px' }}>
@@ -59,8 +62,8 @@ const InstructionsModal: React.FC<InstructionsModalProps> = ({ visible, onClose 
                   </Paragraph>
                   <ul style={{ paddingLeft: 20, marginTop: 8 }}>
                     <li>Use <Text strong>+ Court</Text> to add available courts.</li>
-                    <li>Use <Text strong>+ Player</Text> to register players.</li>
-                    <li><Text type="secondary">Tip: Use &quot;Populate Dummy Players&quot; in the menu to test the system.</Text></li>
+                    <li>Use <Text strong>+ Player</Text> to register players manually or import from <Text strong>Players DB</Text>.</li>
+                    <li><Text type="secondary">Tip: The Players Database saves players permanently across sessions.</Text></li>
                   </ul>
                 </div>
               ),
@@ -143,6 +146,22 @@ const InstructionsModal: React.FC<InstructionsModalProps> = ({ visible, onClose 
           ghost
           items={[
             {
+              key: '0',
+              label: <Text strong><DatabaseOutlined /> Players Database</Text>,
+              children: (
+                <div>
+                  <Paragraph>
+                    Manage your regular players with persistent storage:
+                  </Paragraph>
+                  <ul style={{ paddingLeft: 20 }}>
+                    <li><Text strong>Persistent Storage:</Text> Players in the database are saved permanently.</li>
+                    <li><Text strong>Bulk Add:</Text> Select multiple players and add them to the current session in one go.</li>
+                    <li><Text strong>Management:</Text> Add, edit, or delete players from the global roster.</li>
+                  </ul>
+                </div>
+              ),
+            },
+            {
               key: '1',
               label: <Text strong><TrophyOutlined /> Scoring & Statistics</Text>,
               children: (
@@ -162,20 +181,28 @@ const InstructionsModal: React.FC<InstructionsModalProps> = ({ visible, onClose 
             },
             {
               key: '2',
-              label: <Text strong><StopOutlined /> Stopping vs. Resetting</Text>,
+              label: <Text strong><StopOutlined /> Session Management & Controls</Text>,
               children: (
                 <div>
                   <Paragraph>
-                    Understand the difference between Stop and Reset:
+                    Control the lifecycle of your session:
                   </Paragraph>
-                  <ul>
+                  <ul style={{ paddingLeft: 20 }}>
                     <li>
                       <Text strong type="danger">Stop Session:</Text> Ends the session timer and disables new matches. 
                       Use this when the session is over but you want to share results/stats with players.
                     </li>
                     <li>
+                      <Text strong type="warning">Restart Session:</Text> Resets all scores, stats, and timers to zero but <Text strong>keeps</Text> the players and courts. 
+                      Use this to start a new round of games with the same group.
+                    </li>
+                    <li>
                       <Text strong type="danger">Reset Session:</Text> Completely clears all data (players, courts, history) 
                       and resets the system to a blank state. Use this to start a brand new event.
+                    </li>
+                    <li>
+                      <Text strong><ExportOutlined /> Import / Export:</Text> Save your current session to a JSON file (Export) or load a previous session (Import). 
+                      Useful for backing up data or transferring control to another device.
                     </li>
                   </ul>
                 </div>
@@ -183,6 +210,22 @@ const InstructionsModal: React.FC<InstructionsModalProps> = ({ visible, onClose 
             },
             {
               key: '3',
+              label: <Text strong><SearchOutlined /> Search & Filter</Text>,
+              children: (
+                <div>
+                  <Paragraph>
+                    Quickly find players in large sessions using the tools in the Player Panel:
+                  </Paragraph>
+                  <ul style={{ paddingLeft: 20 }}>
+                    <li><Text strong>Search:</Text> Type in the search bar to filter players by name.</li>
+                    <li><Text strong>Level Filter:</Text> Use the dropdown to show only specific skill levels (e.g., "Advanced").</li>
+                    <li><Text strong>Status Tabs:</Text> Switch between "Active", "Inactive", "Queue", or "All" tabs to see players based on their current state.</li>
+                  </ul>
+                </div>
+              ),
+            },
+            {
+              key: '4',
               label: <Text strong><MobileOutlined /> Mobile Experience</Text>,
               children: (
                 <div>
