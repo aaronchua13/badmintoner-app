@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Layout, Typography, Button, Dropdown, MenuProps, Tag, message } from 'antd';
-import { HomeOutlined, PlayCircleOutlined, HistoryOutlined, TeamOutlined, MoreOutlined, DeleteOutlined, QuestionCircleOutlined, ReloadOutlined, PoweroffOutlined, FileTextOutlined, UploadOutlined, DownloadOutlined } from '@ant-design/icons';
+import { HomeOutlined, PlayCircleOutlined, HistoryOutlined, TeamOutlined, MoreOutlined, DeleteOutlined, QuestionCircleOutlined, ReloadOutlined, PoweroffOutlined, FileTextOutlined, UploadOutlined, DownloadOutlined, DatabaseOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import { formatSessionDuration } from '../utils';
 import { useCustomBreakpoints } from '../hooks/useCustomBreakpoints';
@@ -27,6 +27,7 @@ interface QueuingHeaderProps {
   onExportSession?: () => void;
   onImportSession?: (content: string) => void;
   hasActiveMatches?: boolean;
+  onOpenPlayersDb?: () => void;
 }
 
 const QueuingHeader: React.FC<QueuingHeaderProps> = ({
@@ -45,6 +46,7 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
   onExportSession,
   onImportSession,
   hasActiveMatches = false,
+  onOpenPlayersDb,
 }) => {
   const { isHeaderCompact } = useCustomBreakpoints();
   const isMobile = isHeaderCompact;
@@ -100,6 +102,13 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
       icon: <QuestionCircleOutlined />,
       label: 'Instructions',
       onClick: onOpenInstructions,
+    },
+    {
+      key: 'players-db',
+      icon: <DatabaseOutlined />,
+      label: 'Players Database',
+      onClick: () => onOpenPlayersDb && onOpenPlayersDb(),
+      className: isMobile ? '' : 'hidden-desktop',
     },
     {
       key: 'import',
@@ -249,7 +258,7 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
           {/* More Menu - Always visible, content changes based on screen size */}
           <Dropdown 
             menu={{ 
-              items: isMobile ? menuItems : menuItems.filter(i => ['populate', 'reset', 'import', 'export'].includes(i?.key as string)) 
+              items: isMobile ? menuItems : menuItems.filter(i => ['populate', 'reset', 'import', 'export', 'players-db'].includes(i?.key as string)) 
             }} 
             trigger={['click']} 
             placement="bottomRight"
@@ -265,14 +274,15 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
         style={{ display: 'none' }}
         ref={(el) => setFileInputEl(el)}
         onChange={async (e) => {
-          const file = e.target.files && e.target.files[0];
+          const target = e.currentTarget;
+          const file = target.files && target.files[0];
           if (!file) return;
           if (sessionStatus === 'active') return;
           try {
             const text = await file.text();
             if (onImportSession) onImportSession(text);
           } catch {}
-          e.currentTarget.value = '';
+          target.value = '';
         }}
       />
 

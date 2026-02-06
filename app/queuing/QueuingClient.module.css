@@ -1,0 +1,78 @@
+.layout {
+  min-height: 100vh;
+}
+
+.fabOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+}
+
+.fabContainer {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.fabItems {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+@keyframes fabSlideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fabItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: fabSlideIn 0.2s ease-out forwards;
+  opacity: 0;
+}
+
+.delay1 {
+  animation-delay: 0.05s;
+}
+
+.delay2 {
+  animation-delay: 0.1s;
+}
+
+.fabLabel {
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* FloatButton override to make it flow in flex container */
+.staticButton {
+  position: static !important;
+}
+
+.content {
+  padding: 24px;
+}
+
+.mobileContentWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (max-width: 767px) {
+  .content {
+    padding: 12px;
+  }
+}

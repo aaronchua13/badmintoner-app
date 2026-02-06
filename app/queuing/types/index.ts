@@ -93,3 +93,12 @@ export interface CourtHistoryItem {
   removedAt: number | null;
   gamesPlayed: number;
 }
+
+export interface PlayersDbEntry {
+  id: string;
+  name: string;
+  gender: Gender;
+  level: PlayerLevel;
+  createdAt: number;
+  updatedAt: number;
+}

@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Layout, Row, Col, FloatButton, Form, Grid } from 'antd';
-import { PlusOutlined, UserAddOutlined, AppstoreAddOutlined } from '@ant-design/icons';
+import { Layout, Row, Col, FloatButton, Form, Grid, message } from 'antd';
+import { PlusOutlined, UserAddOutlined, AppstoreAddOutlined, DatabaseOutlined, CloseOutlined } from '@ant-design/icons';
 import { PlayerLevel, Gender } from './types';
 import { useQueuingState } from './hooks/useQueuingState';
 import { useCustomBreakpoints } from './hooks/useCustomBreakpoints';
@@ -18,6 +18,8 @@ import PlayerDetailsModal from './components/modals/PlayerDetailsModal';
 import InstructionsModal from './components/modals/InstructionsModal';
 import SessionSummaryModal from './components/modals/SessionSummaryModal';
 import TransferCourtModal from './components/modals/TransferCourtModal';
+import PlayersDatabaseModal from './components/modals/PlayersDatabaseModal';
+import styles from './QueuingClient.module.css';
 
 const { Content } = Layout;
 
@@ -38,6 +40,8 @@ export default function QueuingClient() {
   const [transferringCourtId, setTransferringCourtId] = useState<string | null>(null);
   const [viewingPlayerId, setViewingPlayerId] = useState<string | null>(null);
   const [addPlayerMode, setAddPlayerMode] = useState<'close' | 'keep'>('close');
+  const [isPlayersDbOpen, setIsPlayersDbOpen] = useState(false);
+  const [isFabOpen, setIsFabOpen] = useState(false);
 
   const [addPlayerForm] = Form.useForm();
   const [addCourtForm] = Form.useForm();
@@ -53,7 +57,11 @@ export default function QueuingClient() {
   if (!isLoaded) return null;
 
   const handleAddPlayer = (values: { name: string; level: PlayerLevel; gender: Gender }) => {
-    actions.addPlayer(values);
+    const res = actions.addPlayer(values);
+    if (!res.ok) {
+      message.error(res.error || 'Player exists in database');
+      return;
+    }
     addPlayerForm.resetFields(['name']);
     if (addPlayerMode === 'close') {
       setIsAddPlayerOpen(false);
@@ -101,7 +109,7 @@ export default function QueuingClient() {
   const hasActiveMatches = courts.some(court => court.status === 'active');
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Layout className={styles.layout}>
       <QueuingHeader 
         sessionStartTime={sessionStartTime}
         sessionEndTime={sessionEndTime}
@@ -115,6 +123,7 @@ export default function QueuingClient() {
         onOpenSummary={() => setIsSummaryOpen(true)}
         onOpenInstructions={() => setIsInstructionsOpen(true)}
         onPopulateDummy={() => actions.populateDummyPlayers(['Beginner', 'Intermediate', 'Advanced', 'Intermediate +', 'Advanced +'])}
+        onOpenPlayersDb={() => setIsPlayersDbOpen(true)}
         hasActiveMatches={hasActiveMatches}
         onExportSession={() => {
           if (sessionStatus === 'active') {
@@ -134,9 +143,9 @@ export default function QueuingClient() {
         }}
       />
       
-      <Content style={{ padding: isMobileLayout ? '12px' : '24px' }}>
+      <Content className={styles.content}>
         {isMobileLayout ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className={styles.mobileContentWrapper}>
             <Row gutter={[16, 16]}>
               {courts.map(court => (
                 <Col span={24} key={court.id}>
@@ -231,21 +240,65 @@ export default function QueuingClient() {
       </Content>
 
       {(sessionStatus === 'active' || sessionStatus === 'idle') && (
-        <FloatButton.Group
-          trigger="click"
-          type="primary"
-          style={{ right: 24, bottom: 24 }}
-          icon={<PlusOutlined />}
-        >
-          <FloatButton 
-            icon={<UserAddOutlined />} 
-            onClick={() => setIsAddPlayerOpen(true)} 
-          />
-          <FloatButton 
-            icon={<AppstoreAddOutlined />} 
-            onClick={() => setIsAddCourtOpen(true)} 
-          />
-        </FloatButton.Group>
+        <>
+          {isFabOpen && (
+            <div 
+              className={styles.fabOverlay} 
+              onClick={() => setIsFabOpen(false)} 
+            />
+          )}
+          <div className={styles.fabContainer}>
+            {isFabOpen && (
+              <div className={styles.fabItems}>
+                <div className={styles.fabItem}>
+                  <span className={styles.fabLabel}>
+                    Add Player
+                  </span>
+                  <FloatButton 
+                    icon={<UserAddOutlined />} 
+                    onClick={() => {
+                      setIsAddPlayerOpen(true);
+                      setIsFabOpen(false);
+                    }} 
+                    className={styles.staticButton}
+                  />
+                </div>
+                <div className={`${styles.fabItem} ${styles.delay1}`}>
+                  <span className={styles.fabLabel}>
+                    Add Court
+                  </span>
+                  <FloatButton 
+                    icon={<AppstoreAddOutlined />} 
+                    onClick={() => {
+                      setIsAddCourtOpen(true);
+                      setIsFabOpen(false);
+                    }} 
+                    className={styles.staticButton}
+                  />
+                </div>
+                <div className={`${styles.fabItem} ${styles.delay2}`}>
+                  <span className={styles.fabLabel}>
+                    Add from Players DB
+                  </span>
+                  <FloatButton 
+                    icon={<DatabaseOutlined />} 
+                    onClick={() => {
+                      setIsPlayersDbOpen(true);
+                      setIsFabOpen(false);
+                    }} 
+                    className={styles.staticButton}
+                  />
+                </div>
+              </div>
+            )}
+            <FloatButton 
+              icon={isFabOpen ? <CloseOutlined /> : <PlusOutlined />} 
+              type="primary"
+              onClick={() => setIsFabOpen(!isFabOpen)}
+              className={styles.staticButton}
+            />
+          </div>
+        </>
       )}
 
       <AddPlayerModal
@@ -319,6 +372,27 @@ export default function QueuingClient() {
         history={history}
         onUpdateLevel={actions.updatePlayerLevel}
         onUpdateGender={actions.updatePlayerGender}
+      />
+      
+      <PlayersDatabaseModal
+        visible={isPlayersDbOpen}
+        onClose={() => setIsPlayersDbOpen(false)}
+        existingPlayers={players.map(p => p.name)}
+        onAddToSession={(list) => {
+          let added = 0;
+          for (const item of list) {
+            if (players.some(p => p.name.trim().toLowerCase() === item.name.trim().toLowerCase())) {
+              continue;
+            }
+            const res = actions.addPlayer({ name: item.name, gender: item.gender, level: item.level });
+            if (res.ok) added++;
+          }
+          if (added === 0) {
+            message.info('No new players added to session');
+          } else {
+            message.success(`Added ${added} player(s) to session`);
+          }
+        }}
       />
     </Layout>
   );

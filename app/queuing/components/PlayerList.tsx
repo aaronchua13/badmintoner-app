@@ -60,7 +60,7 @@ const PlayerList: React.FC<PlayerListProps> = ({
 
   if (playerViewMode === 'grid') {
     return (
-      <Row gutter={[12, 12]}>
+      <Row gutter={[12, 12]} style={{ paddingBottom: 16 }}>
         {sortedPlayers.map(player => {
           const isQueued = isPlayerInQueue(player.id);
           const idleCourts = courts.filter(c => c.status === 'idle');
@@ -187,7 +187,7 @@ const PlayerList: React.FC<PlayerListProps> = ({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingBottom: 16 }}>
       {sortedPlayers.map(player => {
         const isQueued = isPlayerInQueue(player.id);
         const idleCourts = courts.filter(c => c.status === 'idle');

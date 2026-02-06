@@ -1,0 +1,148 @@
+.modalBody {
+  padding: 12px 12px;
+}
+
+.header {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.searchInput {
+  flex: 1;
+}
+
+.listContainer {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+}
+
+.listWrapper {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 16px;
+}
+
+.listItem {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.listItem:last-child {
+  border-bottom: none;
+}
+
+.emptyState {
+  padding: 24px;
+  text-align: center;
+  color: #999;
+}
+
+.checkbox {
+  flex-shrink: 0;
+}
+
+.nameWrapper {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.editInput {
+  width: 100%;
+}
+
+.nameDisplay {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  cursor: pointer;
+  gap: 4px;
+}
+
+.nameText {
+  flex: 1;
+  margin: 0;
+}
+
+.editIcon {
+  color: #8c8c8c;
+}
+
+.genderSelect {
+  width: 60px;
+}
+
+.levelSelect {
+  width: 110px;
+}
+
+.levelOption {
+  display: flex;
+  align-items: center;
+}
+
+.levelBadge {
+  padding: 0 4px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.actionsWrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.actionButton {
+  min-width: 28px !important;
+  width: 28px !important;
+  padding: 0 !important;
+}
+
+.desktopRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.desktopNameContainer {
+  flex: 1;
+  min-width: 0;
+  margin-right: 8px;
+  display: flex;
+  align-items: center;
+}
+
+.desktopMetaContainer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.mobileWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.mobileTopRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.mobileBottomRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 24px;
+}

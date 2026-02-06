@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Player, Court, MatchHistory, PlayerLevel, QueueItem, CourtHistoryItem } from '../types';
+import { Player, Court, MatchHistory, PlayerLevel, QueueItem, CourtHistoryItem, Gender, PlayersDbEntry } from '../types';
+import { v4 as uuidv4 } from 'uuid';
 
 interface QueueData {
   sessionStartTime: number | null;
@@ -98,7 +99,7 @@ export const useQueuingState = () => {
   // -- Actions --
 
   const createQueueItem = (): string => {
-    const newId = `q-${Date.now()}`;
+    const newId = `q-${uuidv4()}`;
     setQueueData(prev => ({
       ...prev,
       queue: [...prev.queue, { id: newId, team1: [], team2: [], createdAt: Date.now() }]
@@ -201,7 +202,7 @@ export const useQueuingState = () => {
 
  
   const addCourt = (name: string) => {
-    const newId = `c-${Date.now()}`; 
+    const newId = `c-${uuidv4()}`; 
     setQueueData(prev => {
       const newCourt: Court = { id: newId, name, status: 'idle', players: [null, null, null, null], startTime: null };
       const newHistoryItem: CourtHistoryItem = {
@@ -261,9 +262,46 @@ export const useQueuingState = () => {
     }));
   };
 
+  const readDb = (): PlayersDbEntry[] => {
+    try {
+      const raw = localStorage.getItem('badminton_players_db');
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+  const writeDb = (entries: PlayersDbEntry[]) => {
+    localStorage.setItem('badminton_players_db', JSON.stringify(entries));
+  };
+  const insertIntoDb = (name: string, gender: Gender, level: PlayerLevel) => {
+    const lower = name.trim().toLowerCase();
+    const db = readDb();
+    if (db.some(e => e.name.trim().toLowerCase() === lower)) {
+      return { ok: false as const, error: 'Player already exists in database' };
+    }
+    const now = Date.now();
+    const entry: PlayersDbEntry = { id: `pdb-${uuidv4()}`, name: name.trim(), gender, level, createdAt: now, updatedAt: now };
+    writeDb([...db, entry]);
+    return { ok: true as const, entry };
+  };
+
   const addPlayer = (values: { name: string; level: PlayerLevel; gender: 'Male' | 'Female' }) => {
+    // Check if player is already in the current session state
+    if (queueData.players.some(p => p.name.trim().toLowerCase() === values.name.trim().toLowerCase())) {
+      return { ok: false as const, error: 'Player already in session' };
+    }
+
+    const insertRes = insertIntoDb(values.name, values.gender, values.level);
+    
+    // If insertion failed because it already exists, we can still add to the session.
+    // If it failed for other reasons, return the error.
+    if (!insertRes.ok && insertRes.error !== 'Player already exists in database') {
+      return { ok: false as const, error: insertRes.error };
+    }
+
     const newPlayer: Player = {
-      id: Date.now().toString(),
+      id: uuidv4(),
       name: values.name,
       level: values.level,
       gender: values.gender,
@@ -278,10 +316,19 @@ export const useQueuingState = () => {
       partners: {},
       isPlaying: false,
     };
-    setQueueData(prev => ({
-      ...prev,
-      players: [...prev.players, newPlayer]
-    }));
+    
+    setQueueData(prev => {
+      // Prevent duplicates in session
+      if (prev.players.some(p => p.name.trim().toLowerCase() === values.name.trim().toLowerCase())) {
+        return prev;
+      }
+      return {
+        ...prev,
+        players: [...prev.players, newPlayer]
+      };
+    });
+    
+    return { ok: true as const };
   };
 
   const updatePlayerLevel = (id: string, newLevel: PlayerLevel) => {

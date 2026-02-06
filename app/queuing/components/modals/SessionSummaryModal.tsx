@@ -148,7 +148,7 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
   ];
 
   const downloadSummary = () => {
-    const now = Date.now();
+    const now = currentTime;
     const dateObj = new Date(now);
     const dateLabel = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     const timeLabel = dateObj.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }).replace(/:/g, '');
@@ -252,7 +252,7 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
               <Statistic 
                 title={<span style={{ fontSize: 12 }}>Duration</span>}
                 value={formatSessionDuration(duration)} 
-                valueStyle={{ fontSize: 16 }}
+                styles={{ content: { fontSize: 16 } }}
                 prefix={<ClockCircleOutlined style={{ fontSize: 14 }} />} 
               />
             </div>
@@ -262,7 +262,7 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
               <Statistic 
                 title={<span style={{ fontSize: 12 }}>Matches</span>}
                 value={totalMatches} 
-                valueStyle={{ fontSize: 16 }}
+                styles={{ content: { fontSize: 16 } }}
                 suffix={<span style={{ fontSize: 12 }}>({completedMatches} done)</span>}
                 prefix={<HistoryOutlined style={{ fontSize: 14 }} />} 
               />
@@ -273,7 +273,7 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
               <Statistic 
                 title={<span style={{ fontSize: 12 }}>Active Players</span>}
                 value={players.filter(p => p.gamesPlayed > 0).length} 
-                valueStyle={{ fontSize: 16 }}
+                styles={{ content: { fontSize: 16 } }}
                 suffix={<span style={{ fontSize: 12 }}>/ {players.length}</span>}
                 prefix={<TeamOutlined style={{ fontSize: 14 }} />} 
               />
