@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Card, Typography, Radio, Space, Select, Button, Tabs } from 'antd';
-import { BarsOutlined, AppstoreOutlined, ManOutlined, WomanOutlined, SortAscendingOutlined, SortDescendingOutlined } from '@ant-design/icons';
+import React, { useState, useEffect } from 'react';
+import { Card, Typography, Radio, Space, Select, Button, Tabs, Input } from 'antd';
+import { BarsOutlined, AppstoreOutlined, ManOutlined, WomanOutlined, SortAscendingOutlined, SortDescendingOutlined, SearchOutlined } from '@ant-design/icons';
 import { Player, Court, PlayerLevel, LEVEL_COLORS, QueueItem } from '../types';
 import { usePlayerFilters } from '../hooks/usePlayerFilters';
 import PlayerList from './PlayerList';
@@ -58,6 +58,8 @@ const PlayerPanel: React.FC<PlayerPanelProps> = ({
     setLevelFilter,
     genderFilter,
     setGenderFilter,
+    searchQuery,
+    setSearchQuery,
     sortConfig,
     setSortConfig,
     playerViewMode,
@@ -68,6 +70,15 @@ const PlayerPanel: React.FC<PlayerPanelProps> = ({
     inactivePlayers,
     allPlayers
   } = usePlayerFilters(players, sessionStartTime, currentTime);
+
+  const [localSearch, setLocalSearch] = useState(searchQuery);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setSearchQuery(localSearch);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [localSearch, setSearchQuery]);
 
   const [assignPlayerId, setAssignPlayerId] = useState<string | null>(null);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
@@ -143,6 +154,17 @@ const PlayerPanel: React.FC<PlayerPanelProps> = ({
         </div>
         <div style={{ fontSize: '10px', color: '#888', marginBottom: 4 }}>
             Avg Games: {players.length ? (players.reduce((acc, p) => acc + p.gamesPlayed, 0) / players.length).toFixed(1) : 0}
+        </div>
+
+        <div style={{ marginBottom: 4 }}>
+          <Input 
+            size="small"
+            placeholder="Search players" 
+            prefix={<SearchOutlined style={{ color: '#ccc' }} />} 
+            value={localSearch}
+            onChange={e => setLocalSearch(e.target.value)}
+            allowClear
+          />
         </div>
         
         <div style={{ marginBottom: 4 }}>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Player, Court, MatchHistory, PlayerLevel, QueueItem } from '../types';
+import { Player, Court, MatchHistory, PlayerLevel, QueueItem, CourtHistoryItem, Gender, PlayersDbEntry } from '../types';
+import { v4 as uuidv4 } from 'uuid';
 
 interface QueueData {
   sessionStartTime: number | null;
@@ -10,11 +11,12 @@ interface QueueData {
   history: MatchHistory[];
   queue: QueueItem[];
   autoAssignQueue: boolean;
+  courtHistory: CourtHistoryItem[];
 }
 
 export const useQueuingState = () => {
   // -- State --
-  const [queueData, setQueueData] = useState<QueueData>({
+  const [queueData, setQueueData] = useState<QueueData>(() => ({
     sessionStartTime: null,
     sessionEndTime: null,
     sessionStatus: 'idle',
@@ -25,8 +27,12 @@ export const useQueuingState = () => {
     players: [],
     history: [],
     queue: [],
-    autoAssignQueue: false
-  });
+    autoAssignQueue: false,
+    courtHistory: [
+      { id: 'c1', name: 'Court 1', addedAt: Date.now(), removedAt: null, gamesPlayed: 0 },
+      { id: 'c2', name: 'Court 2', addedAt: Date.now(), removedAt: null, gamesPlayed: 0 },
+    ]
+  }));
 
   const [currentTime, setCurrentTime] = useState<number>(() => Date.now());
   const [isLoaded, setIsLoaded] = useState(false);
@@ -45,7 +51,18 @@ export const useQueuingState = () => {
           isActive: p.isActive !== undefined ? p.isActive : true
         }));
         
-        // eslint-disable-next-line react-hooks/set-state-in-effect
+         
+        const courtHistory = Array.isArray(parsed.courtHistory) 
+          ? parsed.courtHistory 
+          : parsed.courts.map((c: { id: string; name: string }) => ({
+              id: c.id,
+              name: c.name,
+              addedAt: Date.now(),
+              removedAt: null,
+              gamesPlayed: 0
+            }));
+
+        // eslint-disable-next-line
         setQueueData({
           sessionStartTime: parsed.sessionStartTime,
           sessionEndTime: parsed.sessionEndTime || null,
@@ -54,7 +71,8 @@ export const useQueuingState = () => {
           players: patchedPlayers,
           history: parsed.history,
           queue: Array.isArray(parsed.queue) ? parsed.queue : [],
-          autoAssignQueue: typeof parsed.autoAssignQueue === 'boolean' ? parsed.autoAssignQueue : false
+          autoAssignQueue: typeof parsed.autoAssignQueue === 'boolean' ? parsed.autoAssignQueue : false,
+          courtHistory
         });
       } catch (e) {
         console.error('Failed to parse saved queue data', e);
@@ -81,7 +99,7 @@ export const useQueuingState = () => {
   // -- Actions --
 
   const createQueueItem = (): string => {
-    const newId = `q-${Date.now()}`;
+    const newId = `q-${uuidv4()}`;
     setQueueData(prev => ({
       ...prev,
       queue: [...prev.queue, { id: newId, team1: [], team2: [], createdAt: Date.now() }]
@@ -184,9 +202,16 @@ export const useQueuingState = () => {
 
  
   const addCourt = (name: string) => {
-    const newId = `c-${Date.now()}`; 
+    const newId = `c-${uuidv4()}`; 
     setQueueData(prev => {
       const newCourt: Court = { id: newId, name, status: 'idle', players: [null, null, null, null], startTime: null };
+      const newHistoryItem: CourtHistoryItem = {
+        id: newId,
+        name,
+        addedAt: Date.now(),
+        removedAt: null,
+        gamesPlayed: 0
+      };
       let courts: Court[] = [...prev.courts, newCourt];
       let queue = [...prev.queue];
       if (prev.autoAssignQueue && queue.length > 0 && prev.sessionStatus === 'active') {
@@ -210,7 +235,7 @@ export const useQueuingState = () => {
           queue = queue.slice(1);
         }
       }
-      return { ...prev, courts, queue };
+      return { ...prev, courts, queue, courtHistory: [...prev.courtHistory, newHistoryItem] };
     });
   };
 
@@ -223,7 +248,8 @@ export const useQueuingState = () => {
       }
       return {
         ...prev,
-        courts: prev.courts.filter(c => c.id !== id)
+        courts: prev.courts.filter(c => c.id !== id),
+        courtHistory: prev.courtHistory.map(h => h.id === id ? { ...h, removedAt: Date.now() } : h)
       };
     });
   };
@@ -231,13 +257,51 @@ export const useQueuingState = () => {
   const updateCourtName = (id: string, newName: string) => {
     setQueueData(prev => ({
       ...prev,
-      courts: prev.courts.map(c => c.id === id ? { ...c, name: newName } : c)
+      courts: prev.courts.map(c => c.id === id ? { ...c, name: newName } : c),
+      courtHistory: prev.courtHistory.map(h => h.id === id ? { ...h, name: newName } : h)
     }));
   };
 
+  const readDb = (): PlayersDbEntry[] => {
+    try {
+      const raw = localStorage.getItem('badminton_players_db');
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+  const writeDb = (entries: PlayersDbEntry[]) => {
+    localStorage.setItem('badminton_players_db', JSON.stringify(entries));
+  };
+  const insertIntoDb = (name: string, gender: Gender, level: PlayerLevel) => {
+    const lower = name.trim().toLowerCase();
+    const db = readDb();
+    if (db.some(e => e.name.trim().toLowerCase() === lower)) {
+      return { ok: false as const, error: 'Player already exists in database' };
+    }
+    const now = Date.now();
+    const entry: PlayersDbEntry = { id: `pdb-${uuidv4()}`, name: name.trim(), gender, level, createdAt: now, updatedAt: now };
+    writeDb([...db, entry]);
+    return { ok: true as const, entry };
+  };
+
   const addPlayer = (values: { name: string; level: PlayerLevel; gender: 'Male' | 'Female' }) => {
+    // Check if player is already in the current session state
+    if (queueData.players.some(p => p.name.trim().toLowerCase() === values.name.trim().toLowerCase())) {
+      return { ok: false as const, error: 'Player already in session' };
+    }
+
+    const insertRes = insertIntoDb(values.name, values.gender, values.level);
+    
+    // If insertion failed because it already exists, we can still add to the session.
+    // If it failed for other reasons, return the error.
+    if (!insertRes.ok && insertRes.error !== 'Player already exists in database') {
+      return { ok: false as const, error: insertRes.error };
+    }
+
     const newPlayer: Player = {
-      id: Date.now().toString(),
+      id: uuidv4(),
       name: values.name,
       level: values.level,
       gender: values.gender,
@@ -252,10 +316,19 @@ export const useQueuingState = () => {
       partners: {},
       isPlaying: false,
     };
-    setQueueData(prev => ({
-      ...prev,
-      players: [...prev.players, newPlayer]
-    }));
+    
+    setQueueData(prev => {
+      // Prevent duplicates in session
+      if (prev.players.some(p => p.name.trim().toLowerCase() === values.name.trim().toLowerCase())) {
+        return prev;
+      }
+      return {
+        ...prev,
+        players: [...prev.players, newPlayer]
+      };
+    });
+    
+    return { ok: true as const };
   };
 
   const updatePlayerLevel = (id: string, newLevel: PlayerLevel) => {
@@ -273,14 +346,24 @@ export const useQueuingState = () => {
   };
 
   const populateDummyPlayers = (levels: PlayerLevel[]) => {
-    const newPlayers: Player[] = [];
-    
-    for (let i = 1; i <= 40; i++) {
+    const dummyNames = [
+      "Allan", "Sam (Female)", "Bing (Female)", "Weng", "Joy (Female)",
+      "Nora (Female)", "Dodie", "Krislyn (Female)", "Harvey", "Cloyd",
+      "Aaron", "Jessica (Female)", "Nats (Female)", "Dan", "Flor (Female)",
+      "Kayth (Female)", "Zoro", "Shanks", "Goku", "Christian P",
+      "Charles", "Shaun", "Jerome", "Norman", "Psyche (Female)",
+      "Phinky (Female)", "Kalai (Female)", "Hayabusa", "Luffy", "Naruto"
+    ];
+
+    const newPlayers: Player[] = dummyNames.map((rawName, index) => {
+      const isFemale = rawName.toLowerCase().includes('(female)');
+      const name = rawName.replace(/\s*\(Female\)/i, '').trim();
+      const gender = isFemale ? 'Female' : 'Male';
       const level = levels[Math.floor(Math.random() * levels.length)];
-      const gender = Math.random() > 0.5 ? 'Male' : 'Female';
-      newPlayers.push({
-        id: `dummy-${Date.now()}-${i}`,
-        name: `Player ${i}`,
+      
+      return {
+        id: `dummy-${Date.now()}-${index}`,
+        name,
         level,
         gender,
         isActive: true,
@@ -293,8 +376,9 @@ export const useQueuingState = () => {
         firstMatchTime: null,
         partners: {},
         isPlaying: false,
-      });
-    }
+      };
+    });
+
     setQueueData(prev => ({
       ...prev,
       players: [...prev.players, ...newPlayers]
@@ -463,7 +547,8 @@ export const useQueuingState = () => {
         players: updatedPlayers,
         history: [matchRecord, ...history],
         courts: newCourts,
-        queue: newQueue
+        queue: newQueue,
+        courtHistory: prev.courtHistory.map(h => h.id === courtId ? { ...h, gamesPlayed: h.gamesPlayed + 1 } : h)
       };
     });
   };
@@ -586,6 +671,48 @@ export const useQueuingState = () => {
     });
   };
 
+  const transferMatch = (fromCourtId: string, toCourtId: string) => {
+    setQueueData(prev => {
+      const { courts } = prev;
+      const fromCourt = courts.find(c => c.id === fromCourtId);
+      const toCourt = courts.find(c => c.id === toCourtId);
+
+      if (!fromCourt || !toCourt) return prev;
+
+      // Check if target is valid (idle and empty)
+      const isTargetEmpty = toCourt.players.every(p => p === null);
+      if (toCourt.status !== 'idle' || !isTargetEmpty) {
+        return prev;
+      }
+
+      // Transfer data
+      const updatedCourts = courts.map(c => {
+        if (c.id === toCourtId) {
+          return {
+            ...c,
+            status: fromCourt.status,
+            players: [...fromCourt.players],
+            startTime: fromCourt.startTime
+          };
+        }
+        if (c.id === fromCourtId) {
+          return {
+            ...c,
+            status: 'idle' as const,
+            players: [null, null, null, null] as (string | null)[],
+            startTime: null
+          };
+        }
+        return c;
+      });
+
+      return {
+        ...prev,
+        courts: updatedCourts
+      };
+    });
+  };
+
   const startSession = () => {
     setQueueData(prev => ({ 
       ...prev, 
@@ -596,11 +723,15 @@ export const useQueuingState = () => {
   };
 
   const stopSession = () => {
-    setQueueData(prev => ({
-      ...prev,
-      sessionStatus: 'ended',
-      sessionEndTime: Date.now()
-    }));
+    setQueueData(prev => {
+      const endTime = Date.now();
+      const nextData = {
+        ...prev,
+        sessionStatus: 'ended' as const,
+        sessionEndTime: endTime
+      };
+      return nextData;
+    });
   };
 
   const resetState = () => {
@@ -613,7 +744,8 @@ export const useQueuingState = () => {
       players: [],
       history: [],
       queue: [],
-      autoAssignQueue: false
+      autoAssignQueue: false,
+      courtHistory: []
     });
   };
 
@@ -642,6 +774,17 @@ export const useQueuingState = () => {
         startTime: null
       }));
 
+      const resetCourtHistory = prev.courts.map(c => {
+        const historyItem = prev.courtHistory.find(h => h.id === c.id);
+        return {
+           id: c.id,
+           name: c.name,
+           addedAt: historyItem ? historyItem.addedAt : Date.now(),
+           removedAt: null,
+           gamesPlayed: 0
+        };
+      });
+
       return {
         sessionStartTime: null,
         sessionEndTime: null,
@@ -650,7 +793,8 @@ export const useQueuingState = () => {
         players: resetPlayers,
         history: [],
         queue: [],
-        autoAssignQueue: false
+        autoAssignQueue: false,
+        courtHistory: resetCourtHistory
       };
     });
   };
@@ -666,6 +810,7 @@ export const useQueuingState = () => {
       history: queueData.history,
       queue: queueData.queue,
       autoAssignQueue: queueData.autoAssignQueue,
+      courtHistory: queueData.courtHistory,
       isLoaded
     },
     actions: {
@@ -694,7 +839,76 @@ export const useQueuingState = () => {
       removePlayerFromQueue,
       moveQueueItem,
       assignQueueToCourt,
-      setAutoAssignQueue
+      setAutoAssignQueue,
+      transferMatch,
+      clearCourt: (courtId: string) => {
+        setQueueData(prev => {
+          const court = prev.courts.find(c => c.id === courtId);
+          if (!court) return prev;
+          if (court.status !== 'idle') return prev;
+          const nextCourts = prev.courts.map(c => c.id === courtId ? { ...c, players: [null, null, null, null], startTime: null } : c);
+          return { ...prev, courts: nextCourts };
+        });
+      },
+      exportSession: () => {
+        const now = Date.now();
+        const dateLabel = new Date(now).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const filename = `Session - ${dateLabel} (${now}).json`;
+        const blob = new Blob([JSON.stringify(queueData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+      },
+      importSession: (jsonText: string) => {
+        if (queueData.sessionStatus === 'active') {
+          return { ok: false, error: 'Cannot import during an active session' };
+        }
+        try {
+          const parsed = JSON.parse(jsonText);
+          if (
+            !parsed ||
+            !Array.isArray(parsed.courts) ||
+            !Array.isArray(parsed.players) ||
+            !Array.isArray(parsed.history) ||
+            typeof parsed.sessionStatus !== 'string' ||
+            !['idle', 'active', 'ended'].includes(parsed.sessionStatus)
+          ) {
+            return { ok: false, error: 'Invalid session file' };
+          }
+          const patchedPlayers = parsed.players.map((p: Player & { isActive?: boolean }) => ({
+            ...p,
+            gender: p.gender || 'Male',
+            isActive: p.isActive !== undefined ? p.isActive : true
+          }));
+          const courtHistory = Array.isArray(parsed.courtHistory) 
+            ? parsed.courtHistory 
+            : parsed.courts.map((c: { id: string; name: string }) => ({
+                id: c.id,
+                name: c.name,
+                addedAt: parsed.sessionStartTime || Date.now(),
+                removedAt: null,
+                gamesPlayed: 0
+              }));
+
+          setQueueData({
+            sessionStartTime: parsed.sessionStartTime || null,
+            sessionEndTime: parsed.sessionEndTime || null,
+            sessionStatus: parsed.sessionStatus,
+            courts: parsed.courts,
+            players: patchedPlayers,
+            history: parsed.history,
+            queue: Array.isArray(parsed.queue) ? parsed.queue : [],
+            autoAssignQueue: typeof parsed.autoAssignQueue === 'boolean' ? parsed.autoAssignQueue : false,
+            courtHistory
+          });
+          return { ok: true };
+        } catch {
+          return { ok: false, error: 'Failed to parse session file' };
+        }
+      }
     }
   };
 };

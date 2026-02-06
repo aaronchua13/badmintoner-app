@@ -5,6 +5,7 @@ export const usePlayerFilters = (players: Player[], sessionStartTime: number | n
   const [playerTab, setPlayerTab] = useState<'all' | 'active' | 'inactive' | 'queue'>('all');
   const [levelFilter, setLevelFilter] = useState<PlayerLevel[]>([]);
   const [genderFilter, setGenderFilter] = useState<'All' | 'Male' | 'Female'>('All');
+  const [searchQuery, setSearchQuery] = useState('');
   const [sortConfig, setSortConfig] = useState<{ field: string; direction: 'asc' | 'desc' }>({ field: 'idle_time', direction: 'desc' });
   const [playerViewMode, setPlayerViewMode] = useState<'list' | 'grid'>('list');
 
@@ -12,9 +13,10 @@ export const usePlayerFilters = (players: Player[], sessionStartTime: number | n
     return players.filter(p => {
       if (levelFilter.length > 0 && !levelFilter.includes(p.level)) return false;
       if (genderFilter !== 'All' && p.gender !== genderFilter) return false;
+      if (searchQuery && !p.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
       return true;
     });
-  }, [players, levelFilter, genderFilter]);
+  }, [players, levelFilter, genderFilter, searchQuery]);
 
   const sortedPlayers = useMemo(() => {
     return [...baseFilteredPlayers].sort((a, b) => {
@@ -79,6 +81,7 @@ export const usePlayerFilters = (players: Player[], sessionStartTime: number | n
     playerTab, setPlayerTab,
     levelFilter, setLevelFilter,
     genderFilter, setGenderFilter,
+    searchQuery, setSearchQuery,
     sortConfig, setSortConfig,
     playerViewMode, setPlayerViewMode,
     allPlayers: sortedPlayers,

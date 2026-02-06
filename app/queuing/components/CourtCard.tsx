@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, Typography, Tag, Button, Grid, Tooltip } from 'antd';
-import { EditOutlined, ClockCircleOutlined, DeleteOutlined, StopOutlined, CloseOutlined } from '@ant-design/icons';
+import { EditOutlined, ClockCircleOutlined, DeleteOutlined, StopOutlined, CloseOutlined, SwapOutlined } from '@ant-design/icons';
 import { Court, Player } from '../types';
 import LevelTag from './LevelTag';
 import { formatMatchTime, getMatchOdds } from '../utils';
@@ -17,7 +17,9 @@ interface CourtCardProps {
   onStartMatch: (id: string) => void;
   onFinishMatch: (id: string) => void;
   onStopMatch: (id: string) => void;
+  onTransfer: (id: string) => void;
   onTogglePlayer: (courtId: string, playerId: string) => void;
+  onClearCourt: (id: string) => void;
 }
 
 const CourtCard: React.FC<CourtCardProps> = ({
@@ -30,7 +32,9 @@ const CourtCard: React.FC<CourtCardProps> = ({
   onStartMatch,
   onFinishMatch,
   onStopMatch,
-  onTogglePlayer
+  onTransfer,
+  onTogglePlayer,
+  onClearCourt
 }) => {
   const { md } = Grid.useBreakpoint();
   const isMobile = !md;
@@ -68,6 +72,13 @@ const CourtCard: React.FC<CourtCardProps> = ({
                 {court.startTime ? formatMatchTime(Math.floor((currentTime - court.startTime)/1000)) : '00:00'}
               </Tag>
             )}
+            <Button 
+              type="text" 
+              size="small"
+              icon={<CloseOutlined />} 
+              onClick={() => onClearCourt(court.id)}
+              disabled={court.status === 'active' || court.players.every(p => p === null)}
+            />
             <Button 
               type="text" 
               danger 
@@ -130,6 +141,9 @@ const CourtCard: React.FC<CourtCardProps> = ({
             </div>
           </div>
           <div style={{ display: 'flex', gap: 4 }}>
+            <Button size="small" block icon={<SwapOutlined />} onClick={() => onTransfer(court.id)}>
+              Transfer
+            </Button>
             <Button type="primary" size="small" block onClick={() => onFinishMatch(court.id)}>
               Finish
             </Button>

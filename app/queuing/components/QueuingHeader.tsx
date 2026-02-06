@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Layout, Typography, Button, Dropdown, MenuProps, Tag } from 'antd';
-import { HomeOutlined, PlayCircleOutlined, HistoryOutlined, TeamOutlined, MoreOutlined, DeleteOutlined, QuestionCircleOutlined, ReloadOutlined, PoweroffOutlined, FileTextOutlined } from '@ant-design/icons';
+import { Layout, Typography, Button, Dropdown, MenuProps, Tag, message } from 'antd';
+import { HomeOutlined, PlayCircleOutlined, HistoryOutlined, TeamOutlined, MoreOutlined, DeleteOutlined, QuestionCircleOutlined, ReloadOutlined, PoweroffOutlined, FileTextOutlined, UploadOutlined, DownloadOutlined, DatabaseOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import { formatSessionDuration } from '../utils';
 import { useCustomBreakpoints } from '../hooks/useCustomBreakpoints';
@@ -24,6 +24,10 @@ interface QueuingHeaderProps {
   onOpenSummary: () => void;
   onPopulateDummy: () => void;
   onOpenInstructions: () => void;
+  onExportSession?: () => void;
+  onImportSession?: (content: string) => void;
+  hasActiveMatches?: boolean;
+  onOpenPlayersDb?: () => void;
 }
 
 const QueuingHeader: React.FC<QueuingHeaderProps> = ({
@@ -38,13 +42,18 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
   onOpenHistory,
   onOpenSummary,
   onPopulateDummy,
-  onOpenInstructions
+  onOpenInstructions,
+  onExportSession,
+  onImportSession,
+  hasActiveMatches = false,
+  onOpenPlayersDb,
 }) => {
   const { isHeaderCompact } = useCustomBreakpoints();
   const isMobile = isHeaderCompact;
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isRestartModalOpen, setIsRestartModalOpen] = useState(false);
   const [isStopModalOpen, setIsStopModalOpen] = useState(false);
+  const [fileInputEl, setFileInputEl] = useState<HTMLInputElement | null>(null);
 
   const getSessionDuration = () => {
     if (sessionStatus === 'idle' || sessionStartTime === null) return 'Not Started';
@@ -65,6 +74,10 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
   };
 
   const handleStop = () => {
+    if (hasActiveMatches) {
+      message.error('There are active matches in progress. Please finish or stop them before stopping the session.');
+      return;
+    }
     setIsStopModalOpen(true);
   };
 
@@ -82,12 +95,39 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
       icon: <HistoryOutlined />,
       label: 'Match History',
       onClick: onOpenHistory,
+      className: isMobile ? '' : 'hidden-desktop',
     },
     {
       key: 'instructions',
       icon: <QuestionCircleOutlined />,
       label: 'Instructions',
       onClick: onOpenInstructions,
+    },
+    {
+      key: 'players-db',
+      icon: <DatabaseOutlined />,
+      label: 'Players Database',
+      onClick: () => onOpenPlayersDb && onOpenPlayersDb(),
+      className: isMobile ? '' : 'hidden-desktop',
+    },
+    {
+      key: 'import',
+      icon: <UploadOutlined />,
+      label: 'Import Session',
+      onClick: () => {
+        if (sessionStatus === 'active') return;
+        if (fileInputEl) fileInputEl.click();
+      },
+      disabled: sessionStatus === 'active'
+    },
+    {
+      key: 'export',
+      icon: <DownloadOutlined />,
+      label: 'Export Session',
+      onClick: () => {
+        if (onExportSession) onExportSession();
+      },
+      disabled: sessionStatus === 'active'
     },
     {
       type: 'divider',
@@ -111,8 +151,8 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
       label: 'Reset Session',
       onClick: handleReset,
       danger: true,
-      disabled: sessionStatus === 'idle'
-    }
+      // Reset should be enabled all the time to allow clearing setup even before start
+    },
   ];
 
   return (
@@ -193,13 +233,12 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
                 </Button>
               )}
                <Button 
-                danger={sessionStatus !== 'idle'}
-                onClick={handleReset} 
-                icon={<DeleteOutlined />}
+                onClick={handleRestart} 
+                icon={<ReloadOutlined />}
                 type="text"
                 disabled={sessionStatus === 'idle'}
               >
-                Reset
+                Restart
               </Button>
               <Button icon={<HistoryOutlined />} onClick={onOpenHistory} type="text" />
               <Button icon={<QuestionCircleOutlined />} onClick={onOpenInstructions} type="text" />
@@ -219,7 +258,7 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
           {/* More Menu - Always visible, content changes based on screen size */}
           <Dropdown 
             menu={{ 
-              items: isMobile ? menuItems : menuItems.filter(i => ['populate', 'restart'].includes(i?.key as string)) 
+              items: isMobile ? menuItems : menuItems.filter(i => ['populate', 'reset', 'import', 'export', 'players-db'].includes(i?.key as string)) 
             }} 
             trigger={['click']} 
             placement="bottomRight"
@@ -228,6 +267,24 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
           </Dropdown>
         </div>
       </Header>
+
+      <input
+        type="file"
+        accept="application/json"
+        style={{ display: 'none' }}
+        ref={(el) => setFileInputEl(el)}
+        onChange={async (e) => {
+          const target = e.currentTarget;
+          const file = target.files && target.files[0];
+          if (!file) return;
+          if (sessionStatus === 'active') return;
+          try {
+            const text = await file.text();
+            if (onImportSession) onImportSession(text);
+          } catch {}
+          target.value = '';
+        }}
+      />
 
       <ResetSessionModal
         visible={isResetModalOpen}
