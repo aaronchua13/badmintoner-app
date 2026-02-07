@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, Steps, Typography, Divider, Collapse, Tag } from 'antd';
+  import { Modal, Steps, Typography, Divider, Collapse, Tag, Button } from 'antd';
 import { 
   UserAddOutlined, 
   AppstoreAddOutlined, 
@@ -12,7 +12,9 @@ import {
   MobileOutlined,
   DatabaseOutlined,
   SearchOutlined,
-  ExportOutlined
+  ExportOutlined,
+  ReloadOutlined,
+  WifiOutlined
 } from '@ant-design/icons';
 
 const { Paragraph, Text } = Typography;
@@ -240,9 +242,44 @@ const InstructionsModal: React.FC<InstructionsModalProps> = ({ visible, onClose 
                   </ul>
                 </div>
               ),
+            },
+            {
+              key: '5',
+              label: <Text strong><WifiOutlined /> Offline Mode & Sync</Text>,
+              children: (
+                <div>
+                  <Paragraph>
+                    The app works seamlessly without an internet connection:
+                  </Paragraph>
+                  <ul style={{ paddingLeft: 20 }}>
+                    <li><Text strong>Offline Support:</Text> You can continue to add players, manage queues, and run matches even when offline. The status indicator in the header will show <Tag color="red">Offline</Tag>.</li>
+                    <li><Text strong>Data Persistence:</Text> All your data is saved automatically to your device. Closing the tab or browser won't lose your session.</li>
+                    <li><Text strong>Multi-Tab Sync:</Text> If you have the app open in multiple tabs, changes in one tab will instantly update in all others.</li>
+                  </ul>
+                </div>
+              ),
             }
           ]}
         />
+        
+        <Divider>Troubleshooting</Divider>
+        <div style={{ background: '#fff1f0', padding: '12px', borderRadius: '8px', border: '1px solid #ffa39e' }}>
+          <Paragraph style={{ marginBottom: 12 }}>
+            <Text strong type="danger">Having issues?</Text> If the app is stuck, not updating, or showing offline errors, use the button below to force a full reset of the application cache and service workers.
+          </Paragraph>
+          <Button 
+            type="primary" 
+            danger 
+            icon={<ReloadOutlined />} 
+            onClick={() => {
+              if (confirm('This will refresh the page and clear all app caches. Continue?')) {
+                window.location.href = '/queuing?sw=refresh';
+              }
+            }}
+          >
+            Reset App Data & Repair
+          </Button>
+        </div>
       </div>
     </Modal>
   );

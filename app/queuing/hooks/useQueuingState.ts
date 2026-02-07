@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Player, Court, MatchHistory, PlayerLevel, QueueItem, CourtHistoryItem, Gender, PlayersDbEntry } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -14,9 +14,13 @@ interface QueueData {
   courtHistory: CourtHistoryItem[];
 }
 
+const STORAGE_KEY = 'badminton_queue_data_v2';
+const LEGACY_STORAGE_KEY = 'badminton_queue_data';
+const CHANNEL_NAME = 'badminton_queue_sync';
+
 export const useQueuingState = () => {
   // -- State --
-  const [queueData, setQueueData] = useState<QueueData>(() => ({
+  const [queueData, _setQueueData] = useState<QueueData>(() => ({
     sessionStartTime: null,
     sessionEndTime: null,
     sessionStatus: 'idle',
@@ -35,57 +39,116 @@ export const useQueuingState = () => {
   }));
 
   const [currentTime, setCurrentTime] = useState<number>(() => Date.now());
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoaded] = useState(true);
 
-  // -- Persistence --
+  const skipPersistRef = useRef(false);
+  const shouldPersistRef = useRef(false);
+  const channelRef = useRef<BroadcastChannel | null>(null);
+  const writeVersionRef = useRef<number>(0);
+
+  const setQueueData = useCallback((value: React.SetStateAction<QueueData>) => {
+    shouldPersistRef.current = true;
+    _setQueueData(value);
+  }, []);
+
   useEffect(() => {
-    // Load data from localStorage on mount
-    const savedData = localStorage.getItem('badminton_queue_data');
-    if (savedData) {
-      try {
-        const parsed = JSON.parse(savedData);
-        // Patch legacy players
-        const patchedPlayers = parsed.players.map((p: Player & { isActive?: boolean }) => ({
+    const channel = new BroadcastChannel(CHANNEL_NAME);
+    channelRef.current = channel;
+    channel.onmessage = (event) => {
+      const { type, payload, version } = event.data;
+      if (type === 'SYNC_STATE' && payload) {
+        if (version > writeVersionRef.current) {
+          writeVersionRef.current = version;
+          skipPersistRef.current = true;
+          _setQueueData(payload);
+        }
+      }
+    };
+
+    try {
+      let raw = localStorage.getItem(STORAGE_KEY);
+      let version = 0;
+      if (!raw) {
+        const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+        if (legacy) {
+          raw = JSON.stringify({ version: Date.now(), data: JSON.parse(legacy) });
+        }
+      }
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const data = parsed.data || parsed;
+        version = parsed.version || Date.now();
+        writeVersionRef.current = version;
+        const patchedPlayers = (data.players || []).map((p: Player & { isActive?: boolean }) => ({
           ...p,
           gender: p.gender || 'Male',
           isActive: p.isActive !== undefined ? p.isActive : true
         }));
-        
-         
-        const courtHistory = Array.isArray(parsed.courtHistory) 
-          ? parsed.courtHistory 
-          : parsed.courts.map((c: { id: string; name: string }) => ({
+        const courtHistory = Array.isArray(data.courtHistory) 
+          ? data.courtHistory 
+          : (data.courts || []).map((c: { id: string; name: string }) => ({
               id: c.id,
               name: c.name,
               addedAt: Date.now(),
               removedAt: null,
               gamesPlayed: 0
             }));
-
-        // eslint-disable-next-line
-        setQueueData({
-          sessionStartTime: parsed.sessionStartTime,
-          sessionEndTime: parsed.sessionEndTime || null,
-          sessionStatus: parsed.sessionStatus || (parsed.sessionStartTime ? 'active' : 'idle'),
-          courts: parsed.courts,
-          players: patchedPlayers,
-          history: parsed.history,
-          queue: Array.isArray(parsed.queue) ? parsed.queue : [],
-          autoAssignQueue: typeof parsed.autoAssignQueue === 'boolean' ? parsed.autoAssignQueue : false,
-          courtHistory
-        });
-      } catch (e) {
-        console.error('Failed to parse saved queue data', e);
+        setTimeout(() => {
+          _setQueueData({
+            sessionStartTime: data.sessionStartTime,
+            sessionEndTime: data.sessionEndTime || null,
+            sessionStatus: data.sessionStatus || (data.sessionStartTime ? 'active' : 'idle'),
+            courts: data.courts || [],
+            players: patchedPlayers,
+            history: data.history || [],
+            queue: Array.isArray(data.queue) ? data.queue : [],
+            autoAssignQueue: typeof data.autoAssignQueue === 'boolean' ? data.autoAssignQueue : false,
+            courtHistory
+          });
+        }, 0);
       }
+    } catch (e) {
+      console.error('Failed to load queue data', e);
     }
-    setIsLoaded(true);
+    return () => {
+      channel.close();
+    };
   }, []);
 
   useEffect(() => {
-    // Save data to localStorage whenever it changes
-    if (isLoaded) {
-      localStorage.setItem('badminton_queue_data', JSON.stringify(queueData));
-    }
+    if (!isLoaded) return;
+    const timeoutId = setTimeout(() => {
+      if (skipPersistRef.current) {
+        if (shouldPersistRef.current) {
+          skipPersistRef.current = false;
+        } else {
+          skipPersistRef.current = false;
+          return;
+        }
+      }
+      let nextVersion = writeVersionRef.current + 1;
+      try {
+        const diskRaw = localStorage.getItem(STORAGE_KEY);
+        if (diskRaw) {
+          const diskParsed = JSON.parse(diskRaw);
+          if (diskParsed.version && diskParsed.version >= nextVersion) {
+            nextVersion = diskParsed.version + 1;
+          }
+        }
+      } catch {}
+      writeVersionRef.current = nextVersion;
+      const payload = { version: nextVersion, data: queueData };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        if (channelRef.current) {
+          channelRef.current.postMessage({ type: 'SYNC_STATE', payload: queueData, version: nextVersion });
+        }
+      } catch (e) {
+        console.error('Failed to save queue data', e);
+      }
+      shouldPersistRef.current = false;
+    }, 300);
+    return () => clearTimeout(timeoutId);
   }, [queueData, isLoaded]);
 
   // -- Timers --

@@ -1,0 +1,16 @@
+{
+  "name": "Badmintoner",
+  "short_name": "Badmintoner",
+  "description": "Manage badminton sessions, courts, player queues and history.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#52c41a",
+  "icons": [
+    {
+      "src": "/next.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
