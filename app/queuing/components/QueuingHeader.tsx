@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Layout, Typography, Button, Dropdown, MenuProps, Tag, message } from 'antd';
-import { HomeOutlined, PlayCircleOutlined, HistoryOutlined, TeamOutlined, MoreOutlined, DeleteOutlined, QuestionCircleOutlined, ReloadOutlined, PoweroffOutlined, FileTextOutlined, UploadOutlined, DownloadOutlined, DatabaseOutlined } from '@ant-design/icons';
+import { HomeOutlined, PlayCircleOutlined, HistoryOutlined, TeamOutlined, MoreOutlined, DeleteOutlined, QuestionCircleOutlined, ReloadOutlined, PoweroffOutlined, FileTextOutlined, UploadOutlined, DownloadOutlined, DatabaseOutlined, ToolOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import { formatSessionDuration } from '../utils';
 import { useCustomBreakpoints } from '../hooks/useCustomBreakpoints';
@@ -16,6 +16,7 @@ interface QueuingHeaderProps {
   sessionEndTime: number | null;
   sessionStatus: 'idle' | 'active' | 'ended';
   currentTime: number;
+  isOffline?: boolean;
   onStartSession: () => void;
   onStopSession: () => void;
   onResetSession: () => void;
@@ -35,6 +36,7 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
   sessionEndTime,
   sessionStatus,
   currentTime,
+  isOffline = false,
   onStartSession,
   onStopSession,
   onResetSession,
@@ -153,6 +155,20 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
       danger: true,
       // Reset should be enabled all the time to allow clearing setup even before start
     },
+    {
+      type: 'divider',
+    },
+    {
+      key: 'reset-app-data',
+      icon: <ToolOutlined />,
+      label: 'Reset App Data & Repair',
+      onClick: () => {
+        if (confirm('This will refresh the page and clear all app caches (including Service Workers). Use this if the app is stuck or not updating. Continue?')) {
+          window.location.href = '/queuing?sw=refresh';
+        }
+      },
+      danger: true,
+    },
   ];
 
   return (
@@ -177,6 +193,9 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
           {isMobile ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
                <Text strong style={{ fontSize: '16px', whiteSpace: 'nowrap' }}>Queue</Text>
+               <Tag color={isOffline ? 'red' : 'green'} style={{ margin: 0, fontSize: '12px', padding: '0 4px' }}>
+                 {isOffline ? 'Offline' : 'Online'}
+               </Tag>
                {sessionStatus !== 'idle' && (
                  <Tag color={sessionStatus === 'active' ? "blue" : "red"} style={{ margin: 0, fontSize: '12px', padding: '0 4px' }}>
                    {getSessionDuration()}
@@ -186,6 +205,7 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
           ) : (
             <>
               <Title level={4} style={{ margin: 0, fontSize: '18px', whiteSpace: 'nowrap' }}>🏸 Badminton Queue</Title>
+              <Tag color={isOffline ? 'red' : 'green'} style={{ marginLeft: 8 }}>{isOffline ? 'Offline' : 'Online'}</Tag>
               <Tag color={sessionStatus === 'active' ? "blue" : sessionStatus === 'ended' ? "red" : "default"} style={{ marginLeft: 8 }}>
                 {getSessionDuration()}
               </Tag>
@@ -258,8 +278,8 @@ const QueuingHeader: React.FC<QueuingHeaderProps> = ({
           {/* More Menu - Always visible, content changes based on screen size */}
           <Dropdown 
             menu={{ 
-              items: isMobile ? menuItems : menuItems.filter(i => ['populate', 'reset', 'import', 'export', 'players-db'].includes(i?.key as string)) 
-            }} 
+              items: isMobile ? menuItems : menuItems.filter(i => ['populate', 'reset', 'import', 'export', 'players-db', 'reset-app-data'].includes(i?.key as string)) 
+            }}  
             trigger={['click']} 
             placement="bottomRight"
           >

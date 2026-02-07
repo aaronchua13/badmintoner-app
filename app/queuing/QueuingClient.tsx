@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout, Row, Col, FloatButton, Form, Grid, message } from 'antd';
 import { PlusOutlined, UserAddOutlined, AppstoreAddOutlined, DatabaseOutlined, CloseOutlined } from '@ant-design/icons';
 import { PlayerLevel, Gender } from './types';
@@ -29,6 +29,128 @@ export default function QueuingClient() {
 
   // Freeze time if session is ended to stop idle timers
   const effectiveTime = (sessionStatus === 'ended' && sessionEndTime) ? sessionEndTime : currentTime;
+  const [isOnline, setIsOnline] = useState<boolean>(() => typeof navigator !== 'undefined' ? navigator.onLine : true);
+  
+  useEffect(() => {
+    // Function to check actual connectivity by bypassing Service Worker (using HEAD)
+    const checkConnectivity = async () => {
+      // If browser says offline, believe it immediately
+      if (!navigator.onLine) {
+        setIsOnline(false);
+        return;
+      }
+      
+      try {
+        // We use HEAD method because our SW only handles GET, so this hits the network
+        // We use a timestamp to prevent browser caching
+        // Add a 2-second timeout to fail fast if network is hanging
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        
+        // Use a dedicated API endpoint to verify full stack connectivity
+        // method: 'GET' is standard, but we use no-store to bypass caching
+        const res = await fetch(`/api/ping?t=${Date.now()}`, { 
+          method: 'GET', 
+          cache: 'no-store',
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!res.ok) throw new Error('Ping failed');
+        
+        setIsOnline(true);
+      } catch (error) {
+        // Only set offline if it's not an abort (though abort here means timeout, so actually yes)
+        // console.log('Connectivity check failed:', error);
+        setIsOnline(false);
+      }
+    };
+
+    const onOnline = () => {
+      setIsOnline(true);
+      checkConnectivity();
+    };
+    
+    const onOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    
+    // Poll every 3 seconds
+    const interval = setInterval(checkConnectivity, 3000);
+
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+      clearInterval(interval);
+    };
+  }, []);
+  
+  // Programmatic SW & cache reset: visit /queuing?sw=refresh
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+      const isRefresh = url.searchParams.get('sw') === 'refresh';
+
+      if (isRefresh) {
+        // Cleanup mode: Unregister all SWs and clear caches
+        Promise.resolve()
+          .then(async () => {
+            console.log('🧹 Starting cleanup...');
+            if ('serviceWorker' in navigator) {
+              const regs = await navigator.serviceWorker.getRegistrations();
+              console.log('Found registrations:', regs);
+              for (const reg of regs) {
+                const unregResult = await reg.unregister();
+                console.log(`Unregistered ${reg.scope}: ${unregResult}`);
+              }
+              console.log('✅ Service Workers unregistered');
+            }
+          })
+          .then(async () => {
+            if ('caches' in window) {
+              const keys = await caches.keys();
+              await Promise.all(keys.map(k => caches.delete(k)));
+              console.log('✅ Caches cleared');
+            }
+          })
+          .finally(() => {
+            console.log('🔄 Reloading...');
+            url.searchParams.delete('sw');
+            window.location.replace(url.toString());
+          });
+      } else {
+        // Normal mode: Register Manual Service Worker
+        if ('serviceWorker' in navigator && window.location.protocol.includes('http')) {
+          const newSwUrl = '/badminton-sw.js';
+          
+          navigator.serviceWorker.getRegistrations().then(async (regs) => {
+            // Unregister ANY worker that is not the new one
+            const unregisterPromises = regs.map(reg => {
+              if (!reg.active?.scriptURL.endsWith(newSwUrl)) {
+                console.log('Unregistering old SW:', reg.scope);
+                return reg.unregister();
+              }
+              return Promise.resolve(true);
+            });
+
+            await Promise.all(unregisterPromises);
+
+            // Register the new one
+            try {
+              const reg = await navigator.serviceWorker.register(newSwUrl);
+              console.log('✅ Service Worker registered:', reg.scope);
+            } catch (err) {
+              console.error('❌ SW Register fail:', err);
+            }
+          });
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);
   const [isAddCourtOpen, setIsAddCourtOpen] = useState(false);
@@ -115,6 +237,7 @@ export default function QueuingClient() {
         sessionEndTime={sessionEndTime}
         sessionStatus={sessionStatus}
         currentTime={effectiveTime}
+        isOffline={!isOnline}
         onStartSession={actions.startSession}
         onStopSession={handleStopSession}
         onResetSession={actions.resetState}
