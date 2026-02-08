@@ -132,7 +132,9 @@ export default function MainLayoutClient({ children, user }: MainLayoutClientPro
             fontSize: '24px', 
             fontWeight: 'bold', 
             marginRight: isMobile ? '0' : '48px',
-            color: '#1890ff'
+            color: '#1890ff',
+            display: 'flex',
+            alignItems: 'center'
           }}>
             <Link href="/" style={{ color: 'inherit' }}>Badmintoner</Link>
           </div>

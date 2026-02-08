@@ -1,6 +1,7 @@
 import React from 'react';
-import { Row, Col, Typography, Tag, Badge, Avatar, Button, Dropdown, Space } from 'antd';
+import { Row, Col, Typography, Tag, Badge, Avatar, Button, Dropdown, Space, Tooltip } from 'antd';
 import { TeamOutlined, InfoCircleOutlined, MoreOutlined, ManOutlined, WomanOutlined, PauseCircleOutlined, PlayCircleOutlined } from '@ant-design/icons';
+import { QueueIcon } from './QueueIcon';
 import { Player, Court, LEVEL_COLORS, QueueItem } from '../types';
 import LevelTag from './LevelTag';
 import { formatDuration, getWaitTime, getWaitDuration } from '../utils';
@@ -86,7 +87,6 @@ const PlayerList: React.FC<PlayerListProps> = ({
                     {player.name}
                   </Text>
                   <Space size={4}>
-                    {isQueued && <Tag color="orange" style={{ margin: 0, fontSize: '10px', lineHeight: '16px', padding: '0 4px', border: 'none' }}>Queued</Tag>}
                     <Tag 
                       color={player.isPlaying ? 'green' : (waitColor || 'default')} 
                       style={{ margin: 0, fontSize: '10px', lineHeight: '16px', padding: '0 4px', border: 'none' }}
@@ -147,6 +147,12 @@ const PlayerList: React.FC<PlayerListProps> = ({
                       onClick={() => onViewPlayer(player.id)}
                       style={{ width: 22, height: 22, minWidth: 22, fontSize: '11px', color: '#1890ff' }}
                     />
+                    <Button
+                      type="text" size="small" icon={<QueueIcon />}
+                      onClick={() => onAddToQueue(player.id)}
+                      disabled={player.isPlaying || !player.isActive || isQueued || isPlayerOnCourt(player.id)}
+                      style={{ width: 28, height: 28, minWidth: 28, fontSize: '11px', color: '#faad14' }}
+                    />
                     <Dropdown 
                       menu={{ items: [
                         { 
@@ -155,12 +161,6 @@ const PlayerList: React.FC<PlayerListProps> = ({
                           icon: player.isActive ? <PauseCircleOutlined /> : <PlayCircleOutlined />,
                           onClick: () => onToggleActive(player.id),
                           disabled: player.isPlaying || isQueued
-                        },
-                        {
-                          key: 'add-queue',
-                          label: 'Assign to Queue',
-                          onClick: () => onAddToQueue(player.id),
-                          disabled: player.isPlaying || !player.isActive || isQueued || isPlayerOnCourt(player.id)
                         },
                         { 
                         key: 'remove', 
@@ -228,7 +228,6 @@ const PlayerList: React.FC<PlayerListProps> = ({
                </div>
 
                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  {isQueued && <Tag color="orange" style={{ margin: 0, fontSize: '10px', padding: '0 4px', border: 'none' }}>Queued</Tag>}
                   <Tag 
                     style={{ margin: 0, fontSize: '10px', padding: '0 4px', border: 'none' }}
                     color={waitColor}
@@ -240,6 +239,12 @@ const PlayerList: React.FC<PlayerListProps> = ({
                      onClick={() => onViewPlayer(player.id)}
                      style={{ fontSize: '12px', color: '#1890ff', width: 24 }}
                   />
+                  <Button
+                    type="text" size="small" icon={<QueueIcon />}
+                    onClick={() => onAddToQueue(player.id)}
+                    disabled={player.isPlaying || !player.isActive || isQueued || isPlayerOnCourt(player.id)}
+                    style={{ fontSize: '12px', color: '#faad14', width: 24 }}
+                  />
                   <Dropdown 
                     menu={{ items: [
                       { 
@@ -249,12 +254,6 @@ const PlayerList: React.FC<PlayerListProps> = ({
                         onClick: () => onToggleActive(player.id),
                         disabled: player.isPlaying || isQueued
                       },
-                    {
-                      key: 'add-queue',
-                      label: 'Assign to Queue',
-                      onClick: () => onAddToQueue(player.id),
-                      disabled: player.isPlaying || !player.isActive || isQueued || isPlayerOnCourt(player.id)
-                    },
                       { 
                       key: 'remove', 
                       label: 'Remove', 
