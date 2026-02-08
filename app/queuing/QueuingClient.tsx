@@ -29,7 +29,8 @@ export default function QueuingClient() {
 
   // Freeze time if session is ended to stop idle timers
   const effectiveTime = (sessionStatus === 'ended' && sessionEndTime) ? sessionEndTime : currentTime;
-  const [isOnline, setIsOnline] = useState<boolean>(() => typeof navigator !== 'undefined' ? navigator.onLine : true);
+  // Initialize to true to match server rendering and prevent hydration mismatch
+  const [isOnline, setIsOnline] = useState<boolean>(true);
   
   useEffect(() => {
     // Function to check actual connectivity by bypassing Service Worker (using HEAD)
@@ -77,6 +78,9 @@ export default function QueuingClient() {
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
     
+    // Check immediately on mount
+    checkConnectivity();
+
     // Poll every 3 seconds
     const interval = setInterval(checkConnectivity, 3000);
 
