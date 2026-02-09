@@ -20,6 +20,7 @@ interface QueueTabProps {
   onMoveQueueItem: (fromIndex: number, toIndex: number) => void;
   onRemovePlayerFromQueue?: (queueId: string, playerId: string) => void;
   onRemovePlayersFromQueue?: (queueId: string) => void;
+  helpIconRef?: React.RefObject<any>;
 }
 
 const TeamPlayersList: React.FC<{
@@ -196,6 +197,7 @@ const QueueTab: React.FC<QueueTabProps> = ({
               </div>
             </div>
           }>
+            <QuestionCircleOutlined style={{ color: '#999', cursor: 'help' }} />
           </Tooltip>
         </div>
       </div>
