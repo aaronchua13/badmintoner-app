@@ -99,7 +99,14 @@ const InstructionsModal: React.FC<InstructionsModalProps> = ({ visible, onClose 
                     <li><Text strong>Add to Queue:</Text> Select a player and click &quot;Add to Queue&quot;. Choose a specific queue group from the scrollable list.</li>
                     <li><Text strong>Restriction:</Text> Players currently on a court (active or idle) <Text type="danger">cannot</Text> be added to a queue.</li>
                     <li><Text strong>Mobile-Friendly:</Text> The queue list uses a compact vertical layout for easier management on small screens.</li>
-                    <li><Text strong>Auto-Assign:</Text> Enable &quot;Auto&quot; mode to automatically move queued matches to free courts.</li>
+                    <li>
+                      <Text strong>Manual vs Auto Queue:</Text> 
+                      <div style={{ marginTop: 6 }}>
+                        <Text>Manual means you choose when a queued match goes to a court.</Text><br />
+                        <Text>Auto means when a game finishes or a new court is added, the system automatically moves the first queue item that has at least one player to an empty court.</Text><br />
+                        <Text type="secondary">Auto does not move items just because you add players to the queue while courts are empty. It only reacts to matches finishing or courts being added.</Text>
+                      </div>
+                    </li>
                   </ul>
                 </div>
               ),
@@ -216,12 +223,13 @@ const InstructionsModal: React.FC<InstructionsModalProps> = ({ visible, onClose 
               children: (
                 <div>
                   <Paragraph>
-                    Quickly find players in large sessions using the tools in the Player Panel:
+                    Quickly find and understand players using the tools in the Player Panel:
                   </Paragraph>
                   <ul style={{ paddingLeft: 20 }}>
                     <li><Text strong>Search:</Text> Type in the search bar to filter players by name.</li>
                     <li><Text strong>Level Filter:</Text> Use the dropdown to show only specific skill levels (e.g., "Advanced").</li>
                     <li><Text strong>Status Tabs:</Text> Switch between "Active", "Inactive", "Queue", or "All" tabs to see players based on their current state.</li>
+                    <li><Text strong>Stats:</Text> Each player shows Games, Wins/Losses, Level, Gender, Total Idle Time, and Current Waiting Time to help you make fair assignments.</li>
                   </ul>
                 </div>
               ),
