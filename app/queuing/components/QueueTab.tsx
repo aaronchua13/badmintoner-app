@@ -183,8 +183,19 @@ const QueueTab: React.FC<QueueTabProps> = ({
             <Radio.Button value="manual" style={{ padding: '0 8px' }}>Manual</Radio.Button>
             <Radio.Button value="auto" style={{ padding: '0 8px' }}>Auto</Radio.Button>
           </Radio.Group>
-          <Tooltip title="Auto: Automatically assigns the first queue item (with at least one player) to an idle court.">
-            <QuestionCircleOutlined style={{ color: '#999', cursor: 'help' }} />
+          <Tooltip title={
+            <div style={{ maxWidth: 280 }}>
+              <div style={{ marginBottom: 6 }}>
+                <strong>Manual:</strong> You choose when a queued match goes to a court.
+              </div>
+              <div>
+                <strong>Auto:</strong> When a game finishes or a new court is added, the system moves the first queue item that has at least one player to any empty court automatically.
+              </div>
+              <div style={{ marginTop: 6 }}>
+                It does not auto-move just because you add players to the queue while courts are empty. Auto only reacts to matches finishing or courts being added.
+              </div>
+            </div>
+          }>
           </Tooltip>
         </div>
       </div>
