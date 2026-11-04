@@ -7,6 +7,12 @@ export function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  if (pathname === '/queing') {
+    const target = request.nextUrl.clone();
+    target.pathname = '/queuing';
+    return NextResponse.redirect(target);
+  }
+
   // Define valid routes
   const validRoutes = [
     '/',

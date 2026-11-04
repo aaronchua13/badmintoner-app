@@ -1,11 +1,12 @@
 .modalBody {
-  padding: 12px 12px;
+  padding: 0;
 }
 
 .header {
   display: flex;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: var(--queue-dialog-pad, 12px);
+  flex-wrap: wrap;
 }
 
 .searchInput {
@@ -15,7 +16,7 @@
 .listContainer {
   max-height: 400px;
   overflow-y: auto;
-  border: 1px solid #f0f0f0;
+  border: 1px solid var(--ant-color-border-secondary);
   border-radius: 8px;
 }
 
@@ -26,8 +27,8 @@
 }
 
 .listItem {
-  padding: 8px 12px;
-  border-bottom: 1px solid #f0f0f0;
+  padding: calc(var(--queue-dialog-pad, 20px) / 2) 12px;
+  border-bottom: 1px solid var(--ant-color-border-secondary);
 }
 
 .listItem:last-child {
@@ -37,7 +38,7 @@
 .emptyState {
   padding: 24px;
   text-align: center;
-  color: #999;
+  color: var(--ant-color-text-description);
 }
 
 .checkbox {
@@ -69,7 +70,7 @@
 }
 
 .editIcon {
-  color: #8c8c8c;
+  color: var(--ant-color-text-secondary);
 }
 
 .genderSelect {
@@ -88,7 +89,7 @@
 .levelBadge {
   padding: 0 4px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: calc(var(--queue-dialog-size, 14px) - 2px);
 }
 
 .actionsWrapper {
@@ -145,4 +146,10 @@
   align-items: center;
   gap: 8px;
   padding-left: 24px;
+}
+
+@media (pointer: coarse) {
+  .actionButton { width: 44px !important; min-width: 44px !important; min-height: 44px; }
+  .nameDisplay, .checkbox { min-height: 44px; }
+  .checkbox { min-width: 32px; display: flex; align-items: center; }
 }

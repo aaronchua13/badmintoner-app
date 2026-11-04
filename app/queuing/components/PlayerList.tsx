@@ -1,314 +1,255 @@
-import React from 'react';
-import { Row, Col, Typography, Tag, Badge, Avatar, Button, Dropdown, Space, Tooltip } from 'antd';
-import { TeamOutlined, InfoCircleOutlined, MoreOutlined, ManOutlined, WomanOutlined, PauseCircleOutlined, PlayCircleOutlined } from '@ant-design/icons';
-import { QueueIcon } from './QueueIcon';
-import { Player, Court, LEVEL_COLORS, QueueItem } from '../types';
-import LevelTag from './LevelTag';
-import { formatDuration, getWaitTime, getWaitDuration } from '../utils';
-
-const { Text } = Typography;
-
-interface PlayerListProps {
+import React from "react";
+import { Button, Dropdown, Empty, Tag } from "antd";
+import { MoreOutlined } from "@ant-design/icons";
+import { Player, Court, QueueItem, isCheckedIn } from "../types";
+import { ActionResult } from "../state/model";
+import {
+  getWaitTime,
+  getWaitDuration,
+  formatDuration,
+  getCurrentWaitDuration,
+  getWaitPriority,
+} from "../utils";
+import styles from "../QueuingClient.module.css";
+interface Props {
+  paymentTags?: Record<string, React.ReactNode>;
   sortedPlayers: Player[];
   courts: Court[];
-  playerViewMode: 'list' | 'grid';
+  queue: QueueItem[];
+  playerViewMode: "list" | "grid";
   sessionStartTime: number | null;
   currentTime: number;
-  onToggleSelection: (courtId: string, playerId: string) => void;
+  disabled?: boolean;
+  onToggleSelection: (court: string, player: string) => Promise<ActionResult>;
   onViewPlayer: (id: string) => void;
-  onRemovePlayer: (id: string) => void;
-  onToggleActive: (id: string) => void;
+  onRemovePlayer: (id: string) => Promise<ActionResult>;
+  onToggleActive: (id: string) => Promise<ActionResult>;
+  onCheckIn: (id: string) => Promise<ActionResult>;
+  onUndoCheckIn: (id: string) => Promise<ActionResult>;
   onAddToQueue: (id: string) => void;
-  queue: QueueItem[];
 }
-
-const getWaitColor = (seconds: number) => {
-  const minutes = seconds / 60;
-  if (minutes >= 20) return 'error'; // Red (Danger)
-  if (minutes >= 15) return 'warning'; // Orange (Warning)
-  return undefined; // Default
-};
-
-const PlayerList: React.FC<PlayerListProps> = ({
-  sortedPlayers,
-  courts,
-  playerViewMode,
-  sessionStartTime,
-  currentTime,
-  onToggleSelection,
-  onViewPlayer,
-  onRemovePlayer,
-  onToggleActive,
-  onAddToQueue,
-  queue
-}) => {
-  if (sortedPlayers.length === 0) {
+export default function PlayerList(p: Props) {
+  if (!p.sortedPlayers.length)
     return (
-      <div style={{ textAlign: 'center', padding: '32px', color: '#999' }}>
-         <TeamOutlined style={{ fontSize: 24, marginBottom: 8 }} /><br />
-         No players found
-      </div>
+      <Empty
+        image={Empty.PRESENTED_IMAGE_SIMPLE}
+        description="No players match this view. Add players or adjust your filters."
+      />
     );
-  }
-
-  const isPlayerInQueue = (playerId: string) => {
-    return queue.some(q => q.team1.includes(playerId) || q.team2.includes(playerId));
-  };
-
-  const isPlayerOnCourt = (playerId: string) => {
-    return courts.some(c => c.players.includes(playerId));
-  };
-
-  if (playerViewMode === 'grid') {
-    return (
-      <Row gutter={[12, 12]} style={{ paddingBottom: 16 }}>
-        {sortedPlayers.map(player => {
-          const isQueued = isPlayerInQueue(player.id);
-          const idleCourts = courts.filter(c => c.status === 'idle');
-          const showCourtButtons = !player.isPlaying && player.isActive && idleCourts.length > 0 && !isQueued;
-          const waitSeconds = getWaitDuration(player, sessionStartTime, currentTime);
-          const waitColor = getWaitColor(waitSeconds);
-          
-          return (
-            <Col xs={24} sm={12} md={12} lg={12} xl={8} xxl={6} key={player.id}>
-              <div style={{ 
-                background: player.isPlaying ? '#f6ffed' : (isQueued ? '#fff7e6' : (!player.isActive ? '#fafafa' : '#fff')), 
-                border: '1px solid #f0f0f0', 
-                borderRadius: '6px',
-                padding: '8px',
-                position: 'relative',
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                opacity: !player.isActive ? 0.6 : 1
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <Text strong style={{ fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '65%', cursor: 'pointer' }} onClick={() => onViewPlayer(player.id)}>
-                    {player.name}
-                  </Text>
-                  <Space size={4}>
-                    <Tag 
-                      color={player.isPlaying ? 'green' : (waitColor || 'default')} 
-                      style={{ margin: 0, fontSize: '10px', lineHeight: '16px', padding: '0 4px', border: 'none' }}
-                    >
-                      {getWaitTime(player, sessionStartTime, currentTime)}
-                    </Tag>
-                  </Space>
-                </div>
-
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flex: 1 }}>
-                  <Badge dot={player.isPlaying} color="green" offset={[-2, 2]}>
-                    <Avatar size={32} style={{ backgroundColor: LEVEL_COLORS[player.level] || '#ccc', fontSize: '14px' }}>
-                      {player.name[0]?.toUpperCase()}
-                    </Avatar>
-                  </Badge>
-                  <div style={{ fontSize: '11px', color: '#666', lineHeight: '1.4', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                     <span>G: {player.gamesPlayed}</span>
-                     <span>
-                        <span style={{ color: '#389e0d', fontWeight: 600 }}>W{player.wins}</span>
-                        <span style={{ margin: '0 2px' }}>-</span>
-                        <span style={{ color: '#cf1322', fontWeight: 600 }}>L{player.losses}</span>
-                     </span>
-                     <LevelTag level={player.level} />
-                     <span>Idle: {formatDuration(player.totalIdleTime + ((player.isPlaying || player.gamesPlayed === 0 || sessionStartTime === null) ? 0 : Math.floor((currentTime - Math.max(player.lastMatchEndTime, sessionStartTime))/1000)))}</span>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: 6, borderTop: '1px solid #f5f5f5' }}>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', maxWidth: '100%', alignItems: 'center' }}>
-                    {showCourtButtons ? (
-                      <>
-                        <span style={{ fontSize: '10px', color: '#888', lineHeight: 'normal' }}>Assign to:</span>
-                        {idleCourts.map(court => {
-                          const isSelected = court.players.includes(player.id);
-                          return (
-                            <Button 
-                              key={court.id} 
-                              size="small" 
-                              type={isSelected ? 'primary' : 'default'}
-                              onClick={() => onToggleSelection(court.id, player.id)}
-                              style={{ fontSize: '10px', height: '20px', padding: '0 8px', minWidth: '24px' }}
-                            >
-                              {court.name.replace('Court ', 'C')}
-                            </Button>
-                          );
-                        })}
-                      </>
-                    ) : (
-                      <span style={{ fontSize: '10px', color: '#ccc' }}>
-                        {player.isPlaying ? 'Playing' : (isQueued ? 'In Queue' : (!player.isActive ? 'Away' : 'No Courts'))}
-                      </span>
-                    )}
-                  </div>
-                  
-                  <Space size={0}>
-                    <Button 
-                      type="text" size="small" icon={<InfoCircleOutlined />} 
-                      onClick={() => onViewPlayer(player.id)}
-                      style={{ width: 22, height: 22, minWidth: 22, fontSize: '11px', color: '#1890ff' }}
-                    />
-                    <Button
-                      type="text" size="small" icon={<QueueIcon />}
-                      onClick={() => onAddToQueue(player.id)}
-                      disabled={player.isPlaying || !player.isActive || isQueued || isPlayerOnCourt(player.id)}
-                      style={{ width: 28, height: 28, minWidth: 28, fontSize: '11px', color: '#faad14' }}
-                    />
-                    <Dropdown 
-                      menu={{ items: [
-                        { 
-                          key: 'toggle-active', 
-                          label: player.isActive ? 'Set Away' : 'Set Active', 
-                          icon: player.isActive ? <PauseCircleOutlined /> : <PlayCircleOutlined />,
-                          onClick: () => onToggleActive(player.id),
-                          disabled: player.isPlaying || isQueued
-                        },
-                        { 
-                        key: 'remove', 
-                        label: 'Remove', 
-                        danger: true, 
-                        onClick: () => onRemovePlayer(player.id),
-                        disabled: player.isPlaying || isQueued
-                      }] }} 
-                      trigger={['click']}
-                    >
-                      <Button 
-                        type="text" size="small" icon={<MoreOutlined />} 
-                        style={{ width: 22, height: 22, minWidth: 22, fontSize: '11px', color: '#999' }}
-                      />
-                    </Dropdown>
-                  </Space>
-                </div>
-              </div>
-            </Col>
-          );
-        })}
-      </Row>
-    );
-  }
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingBottom: 16 }}>
-      {sortedPlayers.map(player => {
-        const isQueued = isPlayerInQueue(player.id);
-        const idleCourts = courts.filter(c => c.status === 'idle');
-        const waitSeconds = getWaitDuration(player, sessionStartTime, currentTime);
-        const waitColor = getWaitColor(waitSeconds);
-
+    <div
+      className={
+        p.playerViewMode === "grid" ? styles.playerGrid : styles.playerRows
+      }
+    >
+      {p.sortedPlayers.map((player) => {
+        const queued = p.queue.some((q) =>
+          [...q.team1, ...q.team2].includes(player.id),
+        );
+        const court = p.courts.find((c) => c.players.includes(player.id));
+        const waitPriority = getWaitPriority(
+          getCurrentWaitDuration(player, p.sessionStartTime, p.currentTime),
+        );
+        const present = isCheckedIn(player);
+        const available =
+          present && player.isActive && !player.isPlaying && !queued;
+        const assigned = available && !!court;
         return (
-          <div key={player.id} style={{ 
-            display: 'flex', 
-            flexDirection: 'column',
-            padding: '6px 8px',
-            background: player.isPlaying ? '#f6ffed' : (isQueued ? '#fff7e6' : (!player.isActive ? '#fafafa' : '#fff')),
-            border: '1px solid #f0f0f0',
-            borderRadius: '4px',
-            opacity: !player.isActive ? 0.6 : 1
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-                  <Avatar size={24} style={{ backgroundColor: LEVEL_COLORS[player.level], fontSize: '12px' }}>
-                    {player.name[0]?.toUpperCase()}
-                  </Avatar>
-                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <Text strong style={{ fontSize: '13px' }} ellipsis>{player.name}</Text>
-                        {player.gender === 'Male' ? <ManOutlined style={{ fontSize: '10px', color: '#1890ff' }} /> : <WomanOutlined style={{ fontSize: '10px', color: '#eb2f96' }} />}
-                     </div>
-                     <div style={{ display: 'flex', gap: 6, fontSize: '10px', color: '#666', flexWrap: 'wrap', alignItems: 'center' }}>
-                        <LevelTag level={player.level} style={{ transform: 'scale(0.8)', marginLeft: -4 }} />
-                        <span>G: {player.gamesPlayed}</span>
-                        <span>
-                           <span style={{ color: '#389e0d', fontWeight: 600 }}>W{player.wins}</span>
-                           <span style={{ margin: '0 2px' }}>-</span>
-                           <span style={{ color: '#cf1322', fontWeight: 600 }}>L{player.losses}</span>
-                        </span>
-                        <span>Idle: {formatDuration(player.totalIdleTime + ((player.isPlaying || player.gamesPlayed === 0 || sessionStartTime === null) ? 0 : Math.floor((currentTime - Math.max(player.lastMatchEndTime, sessionStartTime))/1000)))}</span>
-                     </div>
-                  </div>
-               </div>
-
-               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Tag 
-                    style={{ margin: 0, fontSize: '10px', padding: '0 4px', border: 'none' }}
-                    color={waitColor}
-                  >
-                     {getWaitTime(player, sessionStartTime, currentTime)}
-                  </Tag>
-                  <Button 
-                     type="text" size="small" icon={<InfoCircleOutlined />} 
-                     onClick={() => onViewPlayer(player.id)}
-                     style={{ fontSize: '12px', color: '#1890ff', width: 24 }}
-                  />
-                  <Button
-                    type="text" size="small" icon={<QueueIcon />}
-                    onClick={() => onAddToQueue(player.id)}
-                    disabled={player.isPlaying || !player.isActive || isQueued || isPlayerOnCourt(player.id)}
-                    style={{ fontSize: '12px', color: '#faad14', width: 24 }}
-                  />
-                  <Dropdown 
-                    menu={{ items: [
-                      { 
-                        key: 'toggle-active', 
-                        label: player.isActive ? 'Set Away' : 'Set Active', 
-                        icon: player.isActive ? <PauseCircleOutlined /> : <PlayCircleOutlined />,
-                        onClick: () => onToggleActive(player.id),
-                        disabled: player.isPlaying || isQueued
-                      },
-                      { 
-                      key: 'remove', 
-                      label: 'Remove', 
-                      danger: true, 
-                      onClick: () => onRemovePlayer(player.id),
-                      disabled: player.isPlaying || isQueued
-                    }] }} 
-                    trigger={['click']}
-                  >
-                    <Button 
-                      type="text" size="small" icon={<MoreOutlined />} 
-                      style={{ width: 24, height: 24, minWidth: 24, fontSize: '12px', color: '#999' }}
-                    />
-                  </Dropdown>
-               </div>
-            </div>
-
-            <div style={{ marginTop: 6, paddingLeft: 32 }}>
-               {player.isPlaying ? (
-                  <Tag color="green" style={{ margin: 0, fontSize: '10px', padding: '0 4px' }}>Playing</Tag>
-                ) : isQueued ? (
-                  <Tag color="orange" style={{ margin: 0, fontSize: '10px', padding: '0 4px' }}>In Queue</Tag>
-                ) : !player.isActive ? (
-                  <Tag style={{ margin: 0, fontSize: '10px', padding: '0 4px' }}>Away</Tag>
-                ) : (
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                    {idleCourts.length > 0 ? (
-                      <>
-                        <span style={{ fontSize: '10px', color: '#888', lineHeight: 'normal' }}>Assign to:</span>
-                        {idleCourts.map(court => {
-                           const isSelected = court.players.includes(player.id);
-                           return (
-                             <Button 
-                               key={court.id} 
-                               size="small" 
-                               type={isSelected ? 'primary' : 'default'}
-                               onClick={() => onToggleSelection(court.id, player.id)}
-                               style={{ fontSize: '10px', height: '20px', padding: '0 8px', minWidth: '24px' }}
-                             >
-                               {court.name.replace('Court ', 'C')}
-                             </Button>
-                           );
-                         })}
-                      </>
-                    ) : (
-                       <span style={{ fontSize: '10px', color: '#ccc' }}>No Courts</span>
-                     )}
-                  </div>
+          <div
+            className={styles.playerRow}
+            data-testid="player-row"
+            data-player-status={
+              !present
+                ? "not-arrived"
+                : player.isPlaying
+                  ? "playing"
+                  : queued
+                    ? "queued"
+                    : !player.isActive
+                      ? "away"
+                      : court
+                        ? "assigned"
+                        : "waiting"
+            }
+            key={player.id}
+          >
+            <button
+              className={styles.nameButton}
+              onClick={() => p.onViewPlayer(player.id)}
+            >
+              <span className={styles.playerInitial} aria-hidden="true">
+                {player.name.charAt(0).toUpperCase()}
+              </span>
+              <span
+                className={styles.attendanceMark}
+                title={present ? `Present · checked in ${new Date(player.checkedInAt ?? player.joinedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Not arrived"}
+                aria-hidden="true"
+              >
+                {present ? "✓" : "○"}
+              </span>
+              <span className={styles.playerIdentity}>
+                <strong title={player.name}>{player.name}</strong>
+                {p.paymentTags?.[player.id]}
+              </span>
+            </button>
+            <span className={styles.rosterLevel} data-label="Level">
+              {player.level}
+            </span>
+            <span className={styles.playerStat} data-label="Current idle">
+              <strong
+                className={styles.waitValue}
+                data-wait-priority={waitPriority}
+                title={
+                  waitPriority === "urgent"
+                    ? "Long wait: 20 minutes or more"
+                    : waitPriority === "warning"
+                      ? "Long wait: 15 minutes or more"
+                      : undefined
+                }
+              >
+                {getWaitTime(player, p.sessionStartTime, p.currentTime)}
+              </strong>
+              <small>current idle</small>
+            </span>
+            <span className={styles.playerStat} data-label="Total idle">
+              <strong>
+                {formatDuration(
+                  player.totalIdleTime +
+                    Math.max(
+                      0,
+                      getWaitDuration(
+                        player,
+                        p.sessionStartTime,
+                        p.currentTime,
+                      ),
+                    ),
                 )}
+              </strong>
+              <small>total idle</small>
+            </span>
+            <span className={styles.playerStat} data-label="Games">
+              <strong>{player.gamesPlayed}</strong>
+              <small>games</small>
+            </span>
+            <Tag
+              color={player.isPlaying ? "green" : queued ? "gold" : assigned ? "blue" : "default"}
+              title={assigned ? `Assigned to ${court?.name}` : undefined}
+              aria-label={assigned ? `Assigned to ${court?.name}` : undefined}
+            >
+              {!present
+                ? "Not arrived"
+                : player.isPlaying
+                  ? "Playing"
+                  : queued
+                    ? "Queued"
+                    : !player.isActive
+                      ? "Away"
+                      : court
+                        ? "Assigned"
+                        : "Waiting"}
+            </Tag>
+            <div className={styles.rowActions}>
+              {!present ? (
+                <Button
+                  type="primary"
+                  disabled={p.disabled}
+                  onClick={() => {
+                    void p.onCheckIn(player.id);
+                  }}
+                >
+                  Check in
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    disabled={p.disabled || !available || !!court}
+                    onClick={() => p.onAddToQueue(player.id)}
+                  >
+                    Queue
+                  </Button>
+                  <Dropdown
+                    trigger={["click"]}
+                    menu={{
+                      items: p.courts
+                        .filter(
+                          (c) =>
+                            c.status === "idle" &&
+                            (c.players.includes(null) ||
+                              c.players.includes(player.id)),
+                        )
+                        .map((c) => ({
+                          key: c.id,
+                          label: `${c.players.includes(player.id) ? "Remove from" : "Assign to"} ${c.name}`,
+                          onClick: () => {
+                            void p.onToggleSelection(c.id, player.id);
+                          },
+                        })),
+                    }}
+                  >
+                    <Button
+                      disabled={
+                        p.disabled ||
+                        !available ||
+                        !p.courts.some(
+                          (c) =>
+                            c.status === "idle" &&
+                            (c.players.includes(null) ||
+                              c.players.includes(player.id)),
+                        )
+                      }
+                    >
+                      Court
+                    </Button>
+                  </Dropdown>
+                </>
+              )}
+              <Dropdown
+                trigger={["click"]}
+                menu={{
+                  items: [
+                    {
+                      key: "details",
+                      label: "Player details",
+                      onClick: () => p.onViewPlayer(player.id),
+                    },
+                    {
+                      key: "active",
+                      label: player.isActive ? "Mark away" : "Mark available",
+                      disabled: p.disabled || player.isPlaying || !present,
+                      onClick: () => {
+                        void p.onToggleActive(player.id);
+                      },
+                    },
+                    {
+                      key: "undo-check-in",
+                      label: "Undo check-in",
+                      disabled: p.disabled || !present || player.isPlaying,
+                      onClick: () => {
+                        void p.onUndoCheckIn(player.id);
+                      },
+                    },
+                    {
+                      key: "remove",
+                      label: "Remove player",
+                      danger: true,
+                      disabled: p.disabled || player.isPlaying,
+                      onClick: () => {
+                        void p.onRemovePlayer(player.id);
+                      },
+                    },
+                  ],
+                }}
+              >
+                <Button
+                  type="text"
+                  icon={<MoreOutlined />}
+                  aria-label={`Options for ${player.name}`}
+                />
+              </Dropdown>
             </div>
           </div>
         );
       })}
     </div>
   );
-};
-
-export default PlayerList;
+}

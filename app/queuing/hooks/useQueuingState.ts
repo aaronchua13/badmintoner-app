@@ -1,977 +1,238 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Player, Court, MatchHistory, PlayerLevel, QueueItem, CourtHistoryItem, Gender, PlayersDbEntry } from '../types';
-import { v4 as uuidv4 } from 'uuid';
-
-interface QueueData {
-  sessionStartTime: number | null;
-  sessionEndTime: number | null;
-  sessionStatus: 'idle' | 'active' | 'ended';
-  courts: Court[];
-  players: Player[];
-  history: MatchHistory[];
-  queue: QueueItem[];
-  autoAssignQueue: boolean;
-  courtHistory: CourtHistoryItem[];
-}
-
-const STORAGE_KEY = 'badminton_queue_data_v2';
-const LEGACY_STORAGE_KEY = 'badminton_queue_data';
-const CHANNEL_NAME = 'badminton_queue_sync';
-
+import { Expenses, Arrangement, Receipt } from "../state/billing";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { Gender, PlayerLevel } from "../types";
+import { ActionResult, errorText, parseSession } from "../state/model";
+import { PlayerInput, Scores } from "../state/transitions";
+import {
+  dispatch,
+  getSnapshot,
+  getServerSnapshot,
+  initialize,
+  refresh,
+  subscribe,
+} from "../state/store";
 export const useQueuingState = () => {
-  // -- State --
-  const [queueData, _setQueueData] = useState<QueueData>(() => ({
-    sessionStartTime: null,
-    sessionEndTime: null,
-    sessionStatus: 'idle',
-    courts: [
-      { id: 'c1', name: 'Court 1', status: 'idle', players: [null, null, null, null], startTime: null },
-      { id: 'c2', name: 'Court 2', status: 'idle', players: [null, null, null, null], startTime: null },
-    ],
-    players: [],
-    history: [],
-    queue: [],
-    autoAssignQueue: false,
-    courtHistory: [
-      { id: 'c1', name: 'Court 1', addedAt: Date.now(), removedAt: null, gamesPlayed: 0 },
-      { id: 'c2', name: 'Court 2', addedAt: Date.now(), removedAt: null, gamesPlayed: 0 },
-    ]
-  }));
-
-  const [currentTime, setCurrentTime] = useState<number>(() => Date.now());
-  const [isLoaded] = useState(true);
-
-  const skipPersistRef = useRef(false);
-  const shouldPersistRef = useRef(false);
-  const channelRef = useRef<BroadcastChannel | null>(null);
-  const writeVersionRef = useRef<number>(0);
-
-  const setQueueData = useCallback((value: React.SetStateAction<QueueData>) => {
-    shouldPersistRef.current = true;
-    _setQueueData(value);
-  }, []);
-
+  const snapshot = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getServerSnapshot,
+  );
+  const [currentTime, setCurrentTime] = useState(Date.now);
   useEffect(() => {
-    const channel = new BroadcastChannel(CHANNEL_NAME);
-    channelRef.current = channel;
-    channel.onmessage = (event) => {
-      const { type, payload, version } = event.data;
-      if (type === 'SYNC_STATE' && payload) {
-        if (version > writeVersionRef.current) {
-          writeVersionRef.current = version;
-          skipPersistRef.current = true;
-          _setQueueData(payload);
-        }
-      }
-    };
-
-    try {
-      let raw = localStorage.getItem(STORAGE_KEY);
-      let version = 0;
-      if (!raw) {
-        const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
-        if (legacy) {
-          raw = JSON.stringify({ version: Date.now(), data: JSON.parse(legacy) });
-        }
-      }
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        const data = parsed.data || parsed;
-        version = parsed.version || Date.now();
-        writeVersionRef.current = version;
-        const patchedPlayers = (data.players || []).map((p: Player & { isActive?: boolean }) => ({
-          ...p,
-          gender: p.gender || 'Male',
-          isActive: p.isActive !== undefined ? p.isActive : true
-        }));
-        const courtHistory = Array.isArray(data.courtHistory) 
-          ? data.courtHistory 
-          : (data.courts || []).map((c: { id: string; name: string }) => ({
-              id: c.id,
-              name: c.name,
-              addedAt: Date.now(),
-              removedAt: null,
-              gamesPlayed: 0
-            }));
-        setTimeout(() => {
-          _setQueueData({
-            sessionStartTime: data.sessionStartTime,
-            sessionEndTime: data.sessionEndTime || null,
-            sessionStatus: data.sessionStatus || (data.sessionStartTime ? 'active' : 'idle'),
-            courts: data.courts || [],
-            players: patchedPlayers,
-            history: data.history || [],
-            queue: Array.isArray(data.queue) ? data.queue : [],
-            autoAssignQueue: typeof data.autoAssignQueue === 'boolean' ? data.autoAssignQueue : false,
-            courtHistory
-          });
-        }, 0);
-      }
-    } catch (e) {
-      console.error('Failed to load queue data', e);
-    }
-    return () => {
-      channel.close();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isLoaded) return;
-    const timeoutId = setTimeout(() => {
-      if (skipPersistRef.current) {
-        if (shouldPersistRef.current) {
-          skipPersistRef.current = false;
-        } else {
-          skipPersistRef.current = false;
-          return;
-        }
-      }
-      let nextVersion = writeVersionRef.current + 1;
-      try {
-        const diskRaw = localStorage.getItem(STORAGE_KEY);
-        if (diskRaw) {
-          const diskParsed = JSON.parse(diskRaw);
-          if (diskParsed.version && diskParsed.version >= nextVersion) {
-            nextVersion = diskParsed.version + 1;
-          }
-        }
-      } catch {}
-      writeVersionRef.current = nextVersion;
-      const payload = { version: nextVersion, data: queueData };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-        if (channelRef.current) {
-          channelRef.current.postMessage({ type: 'SYNC_STATE', payload: queueData, version: nextVersion });
-        }
-      } catch (e) {
-        console.error('Failed to save queue data', e);
-      }
-      shouldPersistRef.current = false;
-    }, 300);
-    return () => clearTimeout(timeoutId);
-  }, [queueData, isLoaded]);
-
-  // -- Timers --
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(Date.now());
-    }, 1000);
+    void initialize();
+    const timer = setInterval(() => setCurrentTime(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
-
-  // -- Actions --
-
-  const createQueueItem = (): string => {
-    const newId = `q-${uuidv4()}`;
-    setQueueData(prev => ({
-      ...prev,
-      queue: [...prev.queue, { id: newId, team1: [], team2: [], createdAt: Date.now() }]
-    }));
-    return newId;
-  };
-
-  const addPlayerToQueueItem = (queueId: string, playerId: string) => {
-    setQueueData(prev => {
-      const player = prev.players.find(p => p.id === playerId);
-      if (!player) return prev;
-      if (player.isPlaying || !player.isActive) return prev;
-      if (prev.courts.some(c => c.players.includes(playerId))) return prev;
-      if (prev.queue.some(q => q.team1.includes(playerId) || q.team2.includes(playerId))) return prev;
-      const idx = prev.queue.findIndex(q => q.id === queueId);
-      if (idx === -1) return prev;
-      const item = prev.queue[idx];
-      const total = item.team1.length + item.team2.length;
-      if (total >= 4) return prev;
-      const nextItem: QueueItem = { ...item };
-      if (nextItem.team1.length < 2) {
-        nextItem.team1 = [...nextItem.team1, playerId];
-      } else {
-        nextItem.team2 = [...nextItem.team2, playerId];
-      }
-      const nextQueue = [...prev.queue];
-      nextQueue[idx] = nextItem;
-      return { ...prev, queue: nextQueue };
-    });
-  };
-
-  const removeQueueItem = (id: string) => {
-    setQueueData(prev => ({ ...prev, queue: prev.queue.filter(q => q.id !== id) }));
-  };
-
-  const removePlayersFromQueue = (queueId: string) => {
-    setQueueData(prev => {
-      const item = prev.queue.find(q => q.id === queueId);
-      if (!item) return prev;
-      const nextQueue = prev.queue.map(q => q.id === queueId ? { ...q, team1: [], team2: [] } : q);
-      return { ...prev, queue: nextQueue };
-    });
-  };
-
-  const removePlayerFromQueue = (queueId: string, playerId: string) => {
-    setQueueData(prev => {
-      const item = prev.queue.find(q => q.id === queueId);
-      if (!item) return prev;
-      const nextQueue = prev.queue.map(q => {
-        if (q.id !== queueId) return q;
-        return {
-          ...q,
-          team1: q.team1.filter(id => id !== playerId),
-          team2: q.team2.filter(id => id !== playerId)
-        };
-      });
-      return { ...prev, queue: nextQueue };
-    });
-  };
-
-  const moveQueueItem = (fromIndex: number, toIndex: number) => {
-    setQueueData(prev => {
-      const arr = [...prev.queue];
-      const [moved] = arr.splice(fromIndex, 1);
-      arr.splice(toIndex, 0, moved);
-      return { ...prev, queue: arr };
-    });
-  };
-
-  const assignQueueToCourt = (queueId: string, courtId: string) => {
-    setQueueData(prev => {
-      const court = prev.courts.find(c => c.id === courtId);
-      if (!court) return prev;
-      if (court.status !== 'idle') return prev;
-      const item = prev.queue.find(q => q.id === queueId);
-      if (!item) return prev;
-      const playerIds = [...item.team1, ...item.team2];
-      if (playerIds.length === 0) return prev;
-      let updatedCourts = prev.courts.map(c => {
-        const newPlayers = c.players.map(pid => (playerIds.includes(pid as string) ? null : pid));
-        return { ...c, players: newPlayers };
-      });
-      updatedCourts = updatedCourts.map(c => {
-        if (c.id !== courtId) return c;
-        // Fix: Clear court and assign queue players (overwrite existing idle players)
-        const newPlayers: (string | null)[] = [null, null, null, null];
-        for (let i = 0; i < playerIds.length && i < 4; i++) {
-          newPlayers[i] = playerIds[i];
-        }
-        return { ...c, players: newPlayers };
-      });
-      const newQueue = prev.queue.filter(q => q.id !== queueId);
-      return { ...prev, courts: updatedCourts, queue: newQueue };
-    });
-  };
-
-  const setAutoAssignQueue = (enabled: boolean) => {
-    setQueueData(prev => ({ ...prev, autoAssignQueue: enabled }));
-  };
-
- 
-  const addCourt = (name: string) => {
-    const newId = `c-${uuidv4()}`; 
-    setQueueData(prev => {
-      const newCourt: Court = { id: newId, name, status: 'idle', players: [null, null, null, null], startTime: null };
-      const newHistoryItem: CourtHistoryItem = {
-        id: newId,
-        name,
-        addedAt: Date.now(),
-        removedAt: null,
-        gamesPlayed: 0
-      };
-      let courts: Court[] = [...prev.courts, newCourt];
-      let queue = [...prev.queue];
-      if (prev.autoAssignQueue && queue.length > 0 && prev.sessionStatus === 'active') {
-        const item = queue[0];
-        const playerIds = [...item.team1, ...item.team2];
-        if (playerIds.length > 0) {
-          courts = courts.map(c => {
-            const newPlayers = c.players.map(pid => (playerIds.includes(pid as string) ? null : pid));
-            return { ...c, players: newPlayers };
-          });
-          courts = courts.map(c => {
-            if (c.id !== newId) return c;
-            const newPlayers = [...c.players];
-            for (const pid of playerIds) {
-              const idx = newPlayers.indexOf(null);
-              if (idx === -1) break;
-              newPlayers[idx] = pid;
-            }
-            return { ...c, players: newPlayers };
-          });
-          queue = queue.slice(1);
-        }
-      }
-      return { ...prev, courts, queue, courtHistory: [...prev.courtHistory, newHistoryItem] };
-    });
-  };
-
-  const removeCourt = (id: string) => {
-    setQueueData(prev => {
-      const court = prev.courts.find(c => c.id === id);
-      if (court && court.status === 'active') {
-        alert('Cannot remove an active court. Finish the match first.');
-        return prev;
-      }
-      return {
-        ...prev,
-        courts: prev.courts.filter(c => c.id !== id),
-        courtHistory: prev.courtHistory.map(h => h.id === id ? { ...h, removedAt: Date.now() } : h)
-      };
-    });
-  };
-
-  const updateCourtName = (id: string, newName: string) => {
-    setQueueData(prev => ({
-      ...prev,
-      courts: prev.courts.map(c => c.id === id ? { ...c, name: newName } : c),
-      courtHistory: prev.courtHistory.map(h => h.id === id ? { ...h, name: newName } : h)
-    }));
-  };
-
-  const readDb = (): PlayersDbEntry[] => {
-    try {
-      const raw = localStorage.getItem('badminton_players_db');
-      const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  };
-  const writeDb = (entries: PlayersDbEntry[]) => {
-    localStorage.setItem('badminton_players_db', JSON.stringify(entries));
-  };
-  const insertIntoDb = (name: string, gender: Gender, level: PlayerLevel) => {
-    const lower = name.trim().toLowerCase();
-    const db = readDb();
-    if (db.some(e => e.name.trim().toLowerCase() === lower)) {
-      return { ok: false as const, error: 'Player already exists in database' };
-    }
-    const now = Date.now();
-    const entry: PlayersDbEntry = { id: `pdb-${uuidv4()}`, name: name.trim(), gender, level, createdAt: now, updatedAt: now };
-    writeDb([...db, entry]);
-    return { ok: true as const, entry };
-  };
-
-  const addPlayer = (values: { name: string; level: PlayerLevel; gender: 'Male' | 'Female' }) => {
-    // Check if player is already in the current session state
-    if (queueData.players.some(p => p.name.trim().toLowerCase() === values.name.trim().toLowerCase())) {
-      return { ok: false as const, error: 'Player already in session' };
-    }
-
-    const insertRes = insertIntoDb(values.name, values.gender, values.level);
-    
-    // If insertion failed because it already exists, we can still add to the session.
-    // If it failed for other reasons, return the error.
-    if (!insertRes.ok && insertRes.error !== 'Player already exists in database') {
-      return { ok: false as const, error: insertRes.error };
-    }
-
-    const newPlayer: Player = {
-      id: uuidv4(),
-      name: values.name,
-      level: values.level,
-      gender: values.gender,
-      isActive: true,
-      joinedAt: Date.now(),
-      gamesPlayed: 0,
-      wins: 0,
-      losses: 0,
-      totalIdleTime: 0,
-      lastMatchEndTime: Date.now(),
-      firstMatchTime: null,
-      partners: {},
-      isPlaying: false,
-    };
-    
-    setQueueData(prev => {
-      // Prevent duplicates in session
-      if (prev.players.some(p => p.name.trim().toLowerCase() === values.name.trim().toLowerCase())) {
-        return prev;
-      }
-      return {
-        ...prev,
-        players: [...prev.players, newPlayer]
-      };
-    });
-    
-    return { ok: true as const };
-  };
-
-  const updatePlayerLevel = (id: string, newLevel: PlayerLevel) => {
-    setQueueData(prev => ({
-      ...prev,
-      players: prev.players.map(p => p.id === id ? { ...p, level: newLevel } : p)
-    }));
-  };
-
-  const updatePlayerGender = (id: string, newGender: 'Male' | 'Female') => {
-    setQueueData(prev => ({
-      ...prev,
-      players: prev.players.map(p => p.id === id ? { ...p, gender: newGender } : p)
-    }));
-  };
-
-  const populateDummyPlayers = (levels: PlayerLevel[]) => {
-    const dummyNames = [
-      "Allan", "Sam (Female)", "Bing (Female)", "Weng", "Joy (Female)",
-      "Nora (Female)", "Dodie", "Krislyn (Female)", "Harvey", "Cloyd",
-      "Aaron", "Jessica (Female)", "Nats (Female)", "Dan", "Flor (Female)",
-      "Kayth (Female)", "Zoro", "Shanks", "Goku", "Christian P",
-      "Charles", "Shaun", "Jerome", "Norman", "Psyche (Female)",
-      "Phinky (Female)", "Kalai (Female)", "Hayabusa", "Luffy", "Naruto"
-    ];
-
-    const newPlayers: Player[] = dummyNames.map((rawName, index) => {
-      const isFemale = rawName.toLowerCase().includes('(female)');
-      const name = rawName.replace(/\s*\(Female\)/i, '').trim();
-      const gender = isFemale ? 'Female' : 'Male';
-      const level = levels[Math.floor(Math.random() * levels.length)];
-      
-      return {
-        id: `dummy-${Date.now()}-${index}`,
-        name,
-        level,
-        gender,
-        isActive: true,
-        joinedAt: Date.now(),
-        gamesPlayed: 0,
-        wins: 0,
-        losses: 0,
-        totalIdleTime: 0,
-        lastMatchEndTime: Date.now(),
-        firstMatchTime: null,
-        partners: {},
-        isPlaying: false,
-      };
-    });
-
-    setQueueData(prev => ({
-      ...prev,
-      players: [...prev.players, ...newPlayers]
-    }));
-  };
-
-  const togglePlayerSelection = (courtId: string, playerId: string) => {
-    setQueueData(prev => {
-      const { courts } = prev;
-      const court = courts.find(c => c.id === courtId);
-      if (!court) return prev;
-
-      let updatedCourts = [...courts];
-
-      if (court.players.includes(playerId)) {
-        // Remove from court
-        const newPlayers = court.players.map(p => p === playerId ? null : p);
-        updatedCourts = updatedCourts.map(c => c.id === courtId ? { ...c, players: newPlayers } : c);
-      } else {
-        // Add to court
-        const emptyIndex = court.players.indexOf(null);
-        if (emptyIndex === -1) return prev; // Full
-        
-        // Check if player is already on another court
-        const otherCourt = courts.find(c => c.id !== courtId && c.players.includes(playerId));
-        
-        if (otherCourt) {
-          // Remove from other court
-          const updatedOtherCourtPlayers = otherCourt.players.map(p => p === playerId ? null : p);
-          updatedCourts = updatedCourts.map(c => c.id === otherCourt.id ? { ...c, players: updatedOtherCourtPlayers } : c);
-        }
-        
-        updatedCourts = updatedCourts.map(c => {
-          if (c.id === courtId) {
-             const newPlayers = [...c.players];
-             const idx = newPlayers.indexOf(null);
-             if (idx !== -1) newPlayers[idx] = playerId;
-             return { ...c, players: newPlayers };
-          }
-          return c;
-        });
-      }
-
-      return { ...prev, courts: updatedCourts };
-    });
-  };
-
-  const startMatch = (courtId: string) => {
-    setQueueData(prev => {
-      const { courts, players } = prev;
-      const court = courts.find(c => c.id === courtId);
-      if (!court) return prev;
-      
-      const team1Count = [court.players[0], court.players[1]].filter(Boolean).length;
-      const team2Count = [court.players[2], court.players[3]].filter(Boolean).length;
-
-      if (team1Count !== 2 || team2Count !== 2) {
-        alert("Games are strictly 2 vs 2. Need exactly 2 players per team.");
-        return prev;
-      }
-
-      const activePlayerIds = court.players.filter(Boolean) as string[];
-      const updatedPlayers = players.map(p => {
-        if (activePlayerIds.includes(p.id)) {
-          return { 
-            ...p, 
-            isPlaying: true, 
-            firstMatchTime: p.firstMatchTime || Date.now(),
-            totalIdleTime: p.gamesPlayed === 0 
-              ? p.totalIdleTime 
-              : p.totalIdleTime + Math.floor((Date.now() - p.lastMatchEndTime) / 1000)
-          };
-        }
-        return p;
-      });
-
-      const updatedCourts = courts.map(c => c.id === courtId ? { ...c, status: 'active' as const, startTime: Date.now() } : c);
-
-      return {
-        ...prev,
-        players: updatedPlayers,
-        courts: updatedCourts
-      };
-    });
-  };
-
-  const finishMatch = (courtId: string, values: { team1Score?: number; team2Score?: number; winningTeam?: number }) => {
-    setQueueData(prev => {
-      const { courts, players, history } = prev;
-      const court = courts.find(c => c.id === courtId);
-      if (!court) return prev;
-
-      const endTime = Date.now();
-      const duration = court.startTime ? Math.floor((endTime - court.startTime) / 1000) : 0;
-      
-      const team1Ids = [court.players[0], court.players[1]].filter(Boolean) as string[];
-      const team2Ids = [court.players[2], court.players[3]].filter(Boolean) as string[];
-      const allPlayerIds = [...team1Ids, ...team2Ids];
-
-      const winningTeam = values.winningTeam; 
-
-      const updatedPlayers = players.map(p => {
-        if (allPlayerIds.includes(p.id)) {
-          const isTeam1 = team1Ids.includes(p.id);
-          const isWinner = (winningTeam === 1 && isTeam1) || (winningTeam === 2 && !isTeam1);
-          
-          const newPartners = { ...p.partners };
-          const teammates = isTeam1 ? team1Ids : team2Ids;
-          teammates.forEach(tmId => {
-            if (tmId !== p.id) {
-              newPartners[tmId] = (newPartners[tmId] || 0) + 1;
-            }
-          });
-
-          return {
-            ...p,
-            isPlaying: false,
-            lastMatchEndTime: endTime,
-            gamesPlayed: p.gamesPlayed + 1,
-            wins: isWinner ? p.wins + 1 : p.wins,
-            losses: !isWinner && winningTeam ? p.losses + 1 : p.losses,
-            partners: newPartners
-          };
-        }
-        return p;
-      });
-
-      const matchRecord: MatchHistory = {
-        id: Date.now().toString(),
-        courtName: court.name,
-        startTime: court.startTime || 0,
-        endTime,
-        duration,
-        players: [
-          ...team1Ids.map(id => ({ id, name: players.find(p => p.id === id)?.name || '', team: 1 as const })),
-          ...team2Ids.map(id => ({ id, name: players.find(p => p.id === id)?.name || '', team: 2 as const })),
-        ],
-        winners: winningTeam as 1 | 2 | undefined,
-        score: values.team1Score && values.team2Score ? `${values.team1Score} - ${values.team2Score}` : undefined
-      };
-      let newCourts: Court[] = courts.map(c => c.id === courtId ? { ...c, status: 'idle' as const, players: [null, null, null, null], startTime: null } : c);
-      let newQueue = [...prev.queue];
-      if (prev.autoAssignQueue && newQueue.length > 0 && prev.sessionStatus === 'active') {
-        const item = newQueue[0];
-        const playerIds = [...item.team1, ...item.team2];
-        if (playerIds.length > 0) {
-        newCourts = newCourts.map(c => {
-          const newPlayers = c.players.map(pid => (playerIds.includes(pid as string) ? null : pid));
-          return { ...c, players: newPlayers };
-        });
-        newCourts = newCourts.map(c => {
-          if (c.id !== courtId) return c;
-          const newPlayers = [...c.players];
-          for (const pid of playerIds) {
-            const idx = newPlayers.indexOf(null);
-            if (idx === -1) break;
-            newPlayers[idx] = pid;
-          }
-          return { ...c, players: newPlayers };
-        });
-        newQueue = newQueue.slice(1);
-        }
-      }
-      return {
-        ...prev,
-        players: updatedPlayers,
-        history: [matchRecord, ...history],
-        courts: newCourts,
-        queue: newQueue,
-        courtHistory: prev.courtHistory.map(h => h.id === courtId ? { ...h, gamesPlayed: h.gamesPlayed + 1 } : h)
-      };
-    });
-  };
-
-  const stopMatch = (courtId: string, reason: string) => {
-    setQueueData(prev => {
-      const { courts, players, history } = prev;
-      const court = courts.find(c => c.id === courtId);
-      if (!court) return prev;
-
-      const endTime = Date.now();
-      const duration = court.startTime ? Math.floor((endTime - court.startTime) / 1000) : 0;
-      const activePlayerIds = court.players.filter(Boolean) as string[];
-
-      const updatedPlayers = players.map(p => {
-        if (activePlayerIds.includes(p.id)) {
-          return {
-            ...p,
-            isPlaying: false,
-            lastMatchEndTime: endTime,
-            gamesPlayed: p.gamesPlayed,
-          };
-        }
-        return p;
-      });
-
-      const team1Ids = [court.players[0], court.players[1]].filter(Boolean) as string[];
-      const team2Ids = [court.players[2], court.players[3]].filter(Boolean) as string[];
-
-      const matchRecord: MatchHistory = {
-        id: Date.now().toString(),
-        courtName: court.name,
-        startTime: court.startTime || 0,
-        endTime,
-        duration,
-        players: [
-          ...team1Ids.map(id => ({ id, name: players.find(p => p.id === id)?.name || '', team: 1 as const })),
-          ...team2Ids.map(id => ({ id, name: players.find(p => p.id === id)?.name || '', team: 2 as const })),
-        ],
-        isStopped: true,
-        reason
-      };
-
-      let newCourts: Court[] = courts.map(c => c.id === courtId ? { ...c, status: 'idle' as const, players: [null, null, null, null], startTime: null } : c);
-      let newQueue = [...prev.queue];
-      if (prev.autoAssignQueue && newQueue.length > 0 && prev.sessionStatus === 'active') {
-        const item = newQueue[0];
-        const playerIds = [...item.team1, ...item.team2];
-        if (playerIds.length > 0) {
-        newCourts = newCourts.map(c => {
-          const newPlayers = c.players.map(pid => (playerIds.includes(pid as string) ? null : pid));
-          return { ...c, players: newPlayers };
-        });
-        newCourts = newCourts.map(c => {
-          if (c.id !== courtId) return c;
-          const newPlayers = [...c.players];
-          for (const pid of playerIds) {
-            const idx = newPlayers.indexOf(null);
-            if (idx === -1) break;
-            newPlayers[idx] = pid;
-          }
-          return { ...c, players: newPlayers };
-        });
-        newQueue = newQueue.slice(1);
-        }
-      }
-      return {
-        ...prev,
-        players: updatedPlayers,
-        history: [matchRecord, ...history],
-        courts: newCourts,
-        queue: newQueue
-      };
-    });
-  };
-
-  const removePlayer = (id: string) => {
-    setQueueData(prev => ({
-      ...prev,
-      players: prev.players.filter(p => p.id !== id),
-      courts: prev.courts.map(c => ({
-        ...c,
-        players: c.players.map(pid => pid === id ? null : pid)
-      }))
-    }));
-  };
-  
-  const togglePlayerActive = (id: string) => {
-    setQueueData(prev => {
-      const { players, courts } = prev;
-      const player = players.find(p => p.id === id);
-      if (!player) return prev;
-
-      if (player.isPlaying) {
-        return prev; // Cannot toggle active state while playing
-      }
-
-      let newCourts = courts;
-      
-      // If player is being set to inactive (currently active), remove them from any idle courts
-      if (player.isActive) {
-        newCourts = courts.map(c => {
-          if (c.status === 'idle' && c.players.includes(id)) {
-             return {
-               ...c,
-               players: c.players.map(pid => pid === id ? null : pid)
-             };
-          }
-          return c;
-        });
-      }
-
-      const newPlayers = players.map(p => p.id === id ? { ...p, isActive: !p.isActive } : p);
-
-      return {
-        ...prev,
-        players: newPlayers,
-        courts: newCourts
-      };
-    });
-  };
-
-  const transferMatch = (fromCourtId: string, toCourtId: string) => {
-    setQueueData(prev => {
-      const { courts } = prev;
-      const fromCourt = courts.find(c => c.id === fromCourtId);
-      const toCourt = courts.find(c => c.id === toCourtId);
-
-      if (!fromCourt || !toCourt) return prev;
-
-      // Check if target is valid (idle and empty)
-      const isTargetEmpty = toCourt.players.every(p => p === null);
-      if (toCourt.status !== 'idle' || !isTargetEmpty) {
-        return prev;
-      }
-
-      // Transfer data
-      const updatedCourts = courts.map(c => {
-        if (c.id === toCourtId) {
-          return {
-            ...c,
-            status: fromCourt.status,
-            players: [...fromCourt.players],
-            startTime: fromCourt.startTime
-          };
-        }
-        if (c.id === fromCourtId) {
-          return {
-            ...c,
-            status: 'idle' as const,
-            players: [null, null, null, null] as (string | null)[],
-            startTime: null
-          };
-        }
-        return c;
-      });
-
-      return {
-        ...prev,
-        courts: updatedCourts
-      };
-    });
-  };
-
-  const startSession = () => {
-    setQueueData(prev => ({ 
-      ...prev, 
-      sessionStartTime: Date.now(),
-      sessionStatus: 'active',
-      sessionEndTime: null
-    }));
-  };
-
-  const stopSession = () => {
-    setQueueData(prev => {
-      const endTime = Date.now();
-      const nextData = {
-        ...prev,
-        sessionStatus: 'ended' as const,
-        sessionEndTime: endTime
-      };
-      return nextData;
-    });
-  };
-
-  const resetState = () => {
-    localStorage.removeItem('badminton_queue_data');
-    setQueueData({
-      sessionStartTime: null,
-      sessionEndTime: null,
-      sessionStatus: 'idle',
-      courts: [],
-      players: [],
-      history: [],
-      queue: [],
-      autoAssignQueue: false,
-      courtHistory: []
-    });
-  };
-
-  const restartSession = () => {
-    setQueueData(prev => {
-      // Reset players: keep list but reset stats/status
-      const resetPlayers = prev.players.map(p => ({
-        ...p,
-        isActive: true,
-        joinedAt: Date.now(),
-        gamesPlayed: 0,
-        wins: 0,
-        losses: 0,
-        totalIdleTime: 0,
-        lastMatchEndTime: Date.now(),
-        firstMatchTime: null,
-        partners: {},
-        isPlaying: false
-      }));
-
-      // Reset courts: keep list but reset status
-      const resetCourts = prev.courts.map(c => ({
-        ...c,
-        status: 'idle' as const,
-        players: [null, null, null, null],
-        startTime: null
-      }));
-
-      const resetCourtHistory = prev.courts.map(c => {
-        const historyItem = prev.courtHistory.find(h => h.id === c.id);
-        return {
-           id: c.id,
-           name: c.name,
-           addedAt: historyItem ? historyItem.addedAt : Date.now(),
-           removedAt: null,
-           gamesPlayed: 0
-        };
-      });
-
-      return {
-        sessionStartTime: null,
-        sessionEndTime: null,
-        sessionStatus: 'idle',
-        courts: resetCourts,
-        players: resetPlayers,
-        history: [],
-        queue: [],
-        autoAssignQueue: false,
-        courtHistory: resetCourtHistory
-      };
-    });
-  };
-
+  const data = snapshot.data.session;
+  const matchTime = (id: string) =>
+    data.courts.find((c) => c.id === id)?.startTime ?? null;
   return {
     state: {
-      sessionStartTime: queueData.sessionStartTime,
-      sessionEndTime: queueData.sessionEndTime,
-      sessionStatus: queueData.sessionStatus,
+      ...data,
       currentTime,
-      courts: queueData.courts,
-      players: queueData.players,
-      history: queueData.history,
-      queue: queueData.queue,
-      autoAssignQueue: queueData.autoAssignQueue,
-      courtHistory: queueData.courtHistory,
-      isLoaded
+      isLoaded: snapshot.loaded,
+      saveStatus: !snapshot.loaded
+        ? "Loading saved session…"
+        : snapshot.pending
+          ? "Saving…"
+          : snapshot.error
+            ? "Not saved"
+            : "Saved on this device",
+      storageError: snapshot.error,
     },
     actions: {
-      setSessionStartTime: (time: number | null) => setQueueData(prev => ({ ...prev, sessionStartTime: time })),
-      addCourt,
-      removeCourt,
-      updateCourtName,
-      addPlayer,
-      updatePlayerLevel,
-      updatePlayerGender,
-      populateDummyPlayers,
-      togglePlayerSelection,
-      startMatch,
-      finishMatch,
-      stopMatch,
-      removePlayer,
-      togglePlayerActive,
-      startSession,
-      stopSession,
-      resetState,
-      restartSession,
-      createQueueItem,
-      addPlayerToQueueItem,
-      removeQueueItem,
-      removePlayersFromQueue,
-      removePlayerFromQueue,
-      moveQueueItem,
-      assignQueueToCourt,
-      setAutoAssignQueue,
-      transferMatch,
-      clearCourt: (courtId: string) => {
-        setQueueData(prev => {
-          const court = prev.courts.find(c => c.id === courtId);
-          if (!court) return prev;
-          if (court.status !== 'idle') return prev;
-          const nextCourts = prev.courts.map(c => c.id === courtId ? { ...c, players: [null, null, null, null], startTime: null } : c);
-          return { ...prev, courts: nextCourts };
+      retryStorage: refresh,
+      setCalculatorExclusions: (playerIds: string[]) =>
+        dispatch({ type: "setCalculatorExclusions", playerIds }),
+      setPlayerCharges: (
+        playerIds: string[],
+        exemptPlayerIds: string[],
+        amount: number,
+      ) =>
+        dispatch({
+          type: "setPlayerCharges",
+          playerIds,
+          exemptPlayerIds,
+          amount,
+          revision: snapshot.data.revision,
+        }),
+      setExpenses: (values: Expenses, calculatorExcluded?: string[]) =>
+        dispatch({ type: "setExpenses", values, calculatorExcluded }),
+      setArrangement: (playerId: string, values: Arrangement) =>
+        dispatch({ type: "setArrangement", playerId, values }),
+      saveReceipt: (values: Receipt, editing: boolean) =>
+        dispatch({ type: "saveReceipt", values, editing }),
+      deleteReceipt: (id: string) => dispatch({ type: "deleteReceipt", id }),
+      finalizeBilling: () =>
+        dispatch({ type: "finalizeBilling", revision: snapshot.data.revision }),
+      reopenBilling: () =>
+        dispatch({ type: "reopenBilling", revision: snapshot.data.revision }),
+      addPlayer: (values: PlayerInput) =>
+        dispatch({ type: "addPlayer", values, id: crypto.randomUUID() }),
+      checkInPlayer: (id: string) => dispatch({ type: "checkInPlayer", id }),
+      undoCheckIn: (id: string) => dispatch({ type: "undoCheckIn", id }),
+      addCourt: (name: string) =>
+        dispatch({ type: "addCourt", name, id: crypto.randomUUID() }),
+      removeCourt: (id: string) => dispatch({ type: "removeCourt", id }),
+      clearCourt: (id: string) => dispatch({ type: "clearCourt", id }),
+      updateCourtName: (id: string, name: string) =>
+        dispatch({ type: "updateCourtName", id, name }),
+      removePlayer: (id: string) => dispatch({ type: "removePlayer", id }),
+      togglePlayerActive: (id: string) =>
+        dispatch({ type: "togglePlayerActive", id }),
+      updatePlayerLevel: (id: string, level: PlayerLevel) =>
+        dispatch({ type: "updatePlayerLevel", id, level }),
+      updatePlayerGender: (id: string, gender: Gender) =>
+        dispatch({ type: "updatePlayerGender", id, gender }),
+      togglePlayerSelection: (courtId: string, playerId: string) =>
+        dispatch({
+          type: "togglePlayerSelection",
+          courtId,
+          playerId,
+          selected: !data.courts
+            .find((c) => c.id === courtId)
+            ?.players.includes(playerId),
+        }),
+      startMatch: (courtId: string) =>
+        dispatch({
+          type: "startMatch",
+          courtId,
+          players: data.courts.find((c) => c.id === courtId)?.players,
+        }),
+      finishMatch: (
+        courtId: string,
+        values: Scores,
+        expectedStartTime = matchTime(courtId),
+      ) =>
+        dispatch({
+          type: "finishMatch",
+          courtId,
+          startTime: expectedStartTime,
+          values,
+          id: crypto.randomUUID(),
+        }),
+      stopMatch: (
+        courtId: string,
+        reason: string,
+        expectedStartTime = matchTime(courtId),
+      ) =>
+        dispatch({
+          type: "stopMatch",
+          courtId,
+          startTime: expectedStartTime,
+          reason,
+          id: crypto.randomUUID(),
+        }),
+      transferMatch: (
+        from: string,
+        to: string,
+        expectedStartTime = matchTime(from),
+      ) =>
+        dispatch({
+          type: "transferMatch",
+          from,
+          to,
+          startTime: expectedStartTime,
+        }),
+      startSession: () => dispatch({ type: "startSession" }),
+      stopSession: () => dispatch({ type: "stopSession" }),
+      resetState: () => dispatch({ type: "resetState" }),
+      restartSession: () => dispatch({ type: "restartSession" }),
+      createQueueItem: () =>
+        dispatch({ type: "createQueueItem", id: crypto.randomUUID() }),
+      addPlayerToQueueItem: (queueId: string, playerId: string) =>
+        dispatch({ type: "addPlayerToQueueItem", queueId, playerId }),
+      removePlayerFromQueue: (queueId: string, playerId: string) =>
+        dispatch({ type: "removePlayerFromQueue", queueId, playerId }),
+      removeQueueItem: (id: string) =>
+        dispatch({ type: "removeQueueItem", id }),
+      removePlayersFromQueue: (id: string) =>
+        dispatch({ type: "removePlayersFromQueue", id }),
+      moveQueueItem: (from: number, to: number) => {
+        const items = [...data.queue];
+        const [item] = items.splice(from, 1);
+        if (!item || to < 0 || to > items.length)
+          return Promise.resolve<ActionResult>({
+            ok: false,
+            error: "Invalid queue position",
+          });
+        return dispatch({
+          type: "moveQueueItem",
+          id: item.id,
+          beforeId: items[to]?.id ?? null,
         });
       },
-      exportSession: () => {
-        const now = Date.now();
-        const dateLabel = new Date(now).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        const filename = `Session - ${dateLabel} (${now}).json`;
-        const blob = new Blob([JSON.stringify(queueData, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.click();
-        setTimeout(() => URL.revokeObjectURL(url), 0);
-      },
-      importSession: (jsonText: string) => {
-        if (queueData.sessionStatus === 'active') {
-          return { ok: false, error: 'Cannot import during an active session' };
-        }
-        try {
-          const parsed = JSON.parse(jsonText);
-          if (
-            !parsed ||
-            !Array.isArray(parsed.courts) ||
-            !Array.isArray(parsed.players) ||
-            !Array.isArray(parsed.history) ||
-            typeof parsed.sessionStatus !== 'string' ||
-            !['idle', 'active', 'ended'].includes(parsed.sessionStatus)
-          ) {
-            return { ok: false, error: 'Invalid session file' };
-          }
-          const patchedPlayers = parsed.players.map((p: Player & { isActive?: boolean }) => ({
-            ...p,
-            gender: p.gender || 'Male',
-            isActive: p.isActive !== undefined ? p.isActive : true
-          }));
-          const courtHistory = Array.isArray(parsed.courtHistory) 
-            ? parsed.courtHistory 
-            : parsed.courts.map((c: { id: string; name: string }) => ({
-                id: c.id,
-                name: c.name,
-                addedAt: parsed.sessionStartTime || Date.now(),
-                removedAt: null,
-                gamesPlayed: 0
-              }));
-
-          setQueueData({
-            sessionStartTime: parsed.sessionStartTime || null,
-            sessionEndTime: parsed.sessionEndTime || null,
-            sessionStatus: parsed.sessionStatus,
-            courts: parsed.courts,
-            players: patchedPlayers,
-            history: parsed.history,
-            queue: Array.isArray(parsed.queue) ? parsed.queue : [],
-            autoAssignQueue: typeof parsed.autoAssignQueue === 'boolean' ? parsed.autoAssignQueue : false,
-            courtHistory
+      assignQueueToCourt: (queueId: string, courtId: string) =>
+        dispatch({ type: "assignQueueToCourt", queueId, courtId }),
+      populateDummyPlayers: async (levels: PlayerLevel[]) => {
+        for (const [i, name] of [
+          "Allan",
+          "Sam",
+          "Bing",
+          "Weng",
+          "Joy",
+          "Nora",
+          "Dodie",
+          "Krislyn",
+          "Harvey",
+          "Cloyd",
+          "Aaron",
+          "Jessica",
+          "Nats",
+          "Dan",
+          "Flor",
+          "Kayth",
+          "Zoro",
+          "Shanks",
+          "Goku",
+          "Christian P",
+          "Charles",
+          "Shaun",
+          "Jerome",
+          "Norman",
+          "Psyche",
+          "Phinky",
+          "Kalai",
+          "Hayabusa",
+          "Luffy",
+          "Naruto",
+        ].entries()) {
+          const result = await dispatch({
+            type: "addPlayer",
+            values: {
+              name,
+              level: levels[i % levels.length] ?? "Intermediate",
+              gender: i % 2 ? "Female" : "Male",
+            },
+            id: crypto.randomUUID(),
           });
-          return { ok: true };
-        } catch {
-          return { ok: false, error: 'Failed to parse session file' };
+          if (!result.ok) return result;
         }
-      }
-    }
+        return { ok: true } as ActionResult;
+      },
+      exportSession: () => {
+        const blob = new Blob(
+          [JSON.stringify({ ...data, schemaVersion: 3 }, null, 2)],
+          { type: "application/json" },
+        );
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Session-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      },
+      importSession: async (json: string): Promise<ActionResult> => {
+        try {
+          return await dispatch({
+            type: "importSession",
+            data: parseSession(JSON.parse(json)),
+            revision: snapshot.data.revision,
+          });
+        } catch (e) {
+          return { ok: false, error: errorText(e) };
+        }
+      },
+    },
   };
 };

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Modal, Tabs, Statistic, Row, Col, Table, Tag, Typography, Button, Grid, Select } from 'antd';
+import { Modal, Tabs, Statistic, Row, Col, Table, Tag, Typography, Button, Grid, Empty, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { MatchHistory, Player, Court, CourtHistoryItem } from '../../types';
 import { formatSessionDuration, formatMatchTime } from '../../utils';
@@ -13,6 +13,7 @@ import {
 const { Title } = Typography;
 
 interface SessionSummaryModalProps {
+  onOpenPayments?: () => void;
   visible: boolean;
   onClose: () => void;
   sessionStartTime: number | null;
@@ -29,6 +30,7 @@ interface PlayerWithStats extends Player {
 }
 
 const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
+  onOpenPayments,
   visible,
   onClose,
   sessionStartTime,
@@ -36,15 +38,15 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
   currentTime,
   players,
   history,
-  courts = [],
   courtHistory = []
 }) => {
   const { md } = Grid.useBreakpoint();
   const isMobile = !md;
-  const [exportType, setExportType] = useState<'excel' | 'sheets'>('excel');
+  const { token } = theme.useToken();
+  const [leaderboardPage, setLeaderboardPage] = useState({ current: 1, pageSize: 10 });
 
-  const duration = sessionStartTime && sessionEndTime 
-    ? Math.floor((sessionEndTime - sessionStartTime) / 1000) 
+  const duration = sessionStartTime !== null
+    ? Math.max(0, Math.floor(((sessionEndTime ?? currentTime) - sessionStartTime) / 1000)) 
     : 0;
   
   const totalMatches = history.length;
@@ -57,8 +59,8 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
     // Logic matches PlayerList/usePlayerFilters: 
     // Only count current idle time if player has played at least one game
     // and is not currently playing.
-    if (!p.isPlaying && p.gamesPlayed > 0 && sessionStartTime !== null) {
-       const effectiveStartTime = Math.max(p.lastMatchEndTime, sessionStartTime);
+    if (p.checkedInAt !== null && !p.isPlaying && p.gamesPlayed > 0 && sessionStartTime !== null) {
+       const effectiveStartTime = Math.max(p.lastMatchEndTime, p.checkedInAt ?? p.joinedAt, sessionStartTime);
        const effectiveEndTime = sessionEndTime || currentTime;
        currentIdle = Math.floor((effectiveEndTime - effectiveStartTime) / 1000);
     }
@@ -77,12 +79,15 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
     return b.gamesPlayed - a.gamesPlayed;
   });
 
-  const topPlayers = sortedPlayers.slice(0, 3);
+  const topPlayers = sortedPlayers.filter(p => p.gamesPlayed > 0).slice(0, 3);
+  const finishedMatches = history.filter(h => !h.isStopped);
+  const averageMatch = finishedMatches.length ? Math.round(finishedMatches.reduce((sum, h) => sum + h.duration, 0) / finishedMatches.length) : 0;
 
   const playerColumns: ColumnsType<PlayerWithStats> = [
     { 
       title: 'Rank', 
-      render: (_: unknown, __: unknown, index: number) => index + 1, 
+      render: (_: unknown, __: unknown, index: number) =>
+        (leaderboardPage.current - 1) * leaderboardPage.pageSize + index + 1, 
       width: 60, 
       fixed: isMobile ? 'left' : undefined 
     },
@@ -110,7 +115,7 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
       dataIndex: 'wins', 
       key: 'wins', 
       sorter: (a: PlayerWithStats, b: PlayerWithStats) => a.wins - b.wins, 
-      defaultSortOrder: 'descend' 
+ 
     },
     { 
       title: 'Win Rate', 
@@ -157,7 +162,8 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
     const wbOpen = `<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:html="http://www.w3.org/TR/REC-html40">`;
     const wbClose = `</Workbook>`;
     const sheet = (name: string, rows: string) => `<Worksheet ss:Name="${name}"><Table>${rows}</Table></Worksheet>`;
-    const cellStr = (v: string) => `<Cell><Data ss:Type="String">${v}</Data></Cell>`;
+    const escapeXml = (value: string) => value.replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' }[c]!));
+    const cellStr = (v: string) => `<Cell><Data ss:Type="String">${escapeXml(v)}</Data></Cell>`;
     const row = (cells: string[]) => `<Row>${cells.join('')}</Row>`;
     
     const leaderboardRows = [
@@ -203,6 +209,7 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
     const xml = [
       xmlHeader,
       wbOpen,
+      sheet('Overview', [row(['Session duration', formatSessionDuration(duration)].map(cellStr)), row(['Completed matches', String(completedMatches)].map(cellStr)), row(['Stopped matches', String(totalMatches - completedMatches)].map(cellStr)), row(['Players', String(players.length)].map(cellStr))].join('')),
       sheet('Leaderboard', leaderboardRows),
       sheet('MatchHistory', historyRows),
       sheet('CourtHistory', courtHistoryRows),
@@ -212,7 +219,7 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${filename}.${exportType === 'excel' ? 'xls' : 'xls'}`;
+    a.download = `${filename}.xls`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 0);
   };
@@ -223,19 +230,8 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
       open={visible}
       onCancel={onClose}
       footer={[
-        <Select
-          key="type"
-          size="small"
-          style={{ width: 180, marginRight: "8px" }}
-          value={exportType}
-          onChange={(v) => setExportType(v)}
-          options={[
-            { value: 'excel', label: 'Excel' },
-            { value: 'sheets', label: 'Google Sheets' }
-          ]}
-        />,
         <Button key="download" onClick={downloadSummary} size="small">
-          Download Summary
+          Download Excel
         </Button>,
         <Button key="close" type="primary" size="small" onClick={onClose}>
           Close
@@ -245,10 +241,15 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
       styles={{ body: { padding: isMobile ? '8px' : '12px' } }}
       style={{ top: 20 }}
     >
-      <div style={{ marginBottom: 12 }}>
+      {onOpenPayments && <div style={{ marginBottom: 16 }}><p>Review actual expenses and player charges to finalize payment settlement.</p><Button onClick={onOpenPayments}>Review payments</Button></div>}
+      <div style={{ marginBottom: 20 }}>
+        <Tag color={sessionEndTime !== null ? 'default' : sessionStartTime !== null ? 'green' : 'blue'}>{sessionEndTime !== null ? 'Final results' : sessionStartTime !== null ? 'Live overview' : 'Session setup'}</Tag>
+        <p style={{ color: token.colorTextSecondary, margin: '10px 0 16px' }}>
+          {sessionStartTime !== null ? `Started ${new Date(sessionStartTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}` : 'Start a session to track playing time and results.'}
+        </p>
         <Row gutter={[8, 8]}>
-          <Col span={isMobile ? 24 : 8}>
-            <div style={{ padding: 8, background: '#fafafa', borderRadius: 4 }}>
+          <Col xs={12} md={6}>
+            <div style={{ padding: 16, background: token.colorFillAlter, border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 10 }}>
               <Statistic 
                 title={<span style={{ fontSize: 12 }}>Duration</span>}
                 value={formatSessionDuration(duration)} 
@@ -257,21 +258,21 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
               />
             </div>
           </Col>
-          <Col span={isMobile ? 12 : 8}>
-             <div style={{ padding: 8, background: '#fafafa', borderRadius: 4 }}>
+          <Col xs={12} md={6}>
+             <div style={{ padding: 16, background: token.colorFillAlter, border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 10 }}>
               <Statistic 
                 title={<span style={{ fontSize: 12 }}>Matches</span>}
                 value={totalMatches} 
-                styles={{ content: { fontSize: 16 } }}
                 suffix={<span style={{ fontSize: 12 }}>({completedMatches} done)</span>}
+                styles={{ content: { fontSize: 16 } }}
                 prefix={<HistoryOutlined style={{ fontSize: 14 }} />} 
               />
             </div>
           </Col>
-          <Col span={isMobile ? 12 : 8}>
-             <div style={{ padding: 8, background: '#fafafa', borderRadius: 4 }}>
+          <Col xs={12} md={6}>
+             <div style={{ padding: 16, background: token.colorFillAlter, border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 10 }}>
               <Statistic 
-                title={<span style={{ fontSize: 12 }}>Active Players</span>}
+                title={<span style={{ fontSize: 12 }}>Players who played</span>}
                 value={players.filter(p => p.gamesPlayed > 0).length} 
                 styles={{ content: { fontSize: 16 } }}
                 suffix={<span style={{ fontSize: 12 }}>/ {players.length}</span>}
@@ -279,7 +280,13 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
               />
             </div>
           </Col>
+          <Col xs={12} md={6}>
+            <div style={{ padding: 16, background: token.colorFillAlter, border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 10 }}>
+              <Statistic title={<span style={{ fontSize: 12 }}>Average match</span>} value={averageMatch ? formatMatchTime(averageMatch) : '—'} styles={{ content: { fontSize: 16 } }} prefix={<ClockCircleOutlined style={{ fontSize: 14 }} />} />
+            </div>
+          </Col>
         </Row>
+        <p style={{ margin: '12px 0 0', color: token.colorTextSecondary, fontSize: 12 }}>{completedMatches} completed · {totalMatches - completedMatches} stopped · {players.filter(p => p.isPlaying).length} playing now</p>
       </div>
 
       <Tabs
@@ -288,18 +295,19 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
         items={[
           {
             key: 'leaderboard',
-            label: 'Leaderboard',
+            label: `Leaderboard (${players.length})`,
             children: (
               <div>
                 <Row gutter={[8, 8]} style={{ marginBottom: 12 }}>
+                   {topPlayers.length === 0 && <Col span={24}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Complete a match to see session leaders" /></Col>}
                    {topPlayers.map((p, i) => (
                      <Col span={8} key={p.id}>
                        <div style={{ 
-                         background: i === 0 ? '#fffbe6' : '#f9f9f9', 
+                         background: i === 0 ? token.colorPrimaryBg : token.colorFillAlter, 
                          padding: 8, 
                          borderRadius: 6, 
                          textAlign: 'center',
-                         border: i === 0 ? '1px solid #ffe58f' : '1px solid #f0f0f0',
+                         border: `1px solid ${i === 0 ? token.colorPrimaryBorder : token.colorBorderSecondary}`,
                          display: 'flex',
                          flexDirection: 'column',
                          alignItems: 'center',
@@ -320,7 +328,11 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
                   dataSource={sortedPlayers} 
                   columns={playerColumns} 
                   rowKey="id" 
-                  pagination={{ pageSize: 10, size: 'small' }} 
+                  pagination={{ ...leaderboardPage, size: 'small' }}
+                  onChange={(pagination) => setLeaderboardPage({
+                    current: pagination.current ?? 1,
+                    pageSize: pagination.pageSize ?? 10,
+                  })}
                   size="small"
                   scroll={{ x: 600, y: 300 }}
                   style={{ fontSize: 12 }}
@@ -330,7 +342,7 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
           },
           {
             key: 'history',
-            label: 'Match History',
+            label: `Match history (${history.length})`,
             children: (
               <Table 
                 dataSource={history} 

@@ -1,526 +1,1012 @@
-'use client';
-
-import React, { useState, useEffect } from 'react';
-import { Layout, Row, Col, FloatButton, Form, Grid, message } from 'antd';
-import { PlusOutlined, UserAddOutlined, AppstoreAddOutlined, DatabaseOutlined, CloseOutlined } from '@ant-design/icons';
-import { PlayerLevel, Gender } from './types';
-import { useQueuingState } from './hooks/useQueuingState';
-import { useCustomBreakpoints } from './hooks/useCustomBreakpoints';
-import QueuingHeader from './components/QueuingHeader';
-import PlayerPanel from './components/PlayerPanel';
-import CourtCard from './components/CourtCard';
-import AddPlayerModal from './components/modals/AddPlayerModal';
-import AddCourtModal from './components/modals/AddCourtModal';
-import FinishMatchModal from './components/modals/FinishMatchModal';
-import StopMatchModal from './components/modals/StopMatchModal';
-import HistoryModal from './components/modals/HistoryModal';
-import PlayerDetailsModal from './components/modals/PlayerDetailsModal';
-import InstructionsModal from './components/modals/InstructionsModal';
-import SessionSummaryModal from './components/modals/SessionSummaryModal';
-import TransferCourtModal from './components/modals/TransferCourtModal';
-import PlayersDatabaseModal from './components/modals/PlayersDatabaseModal';
-import styles from './QueuingClient.module.css';
-
-const { Content } = Layout;
-
+"use client";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import {
+  Alert,
+  Button,
+  ConfigProvider,
+  Empty,
+  Form,
+  Modal,
+  Segmented,
+  Select,
+  Spin,
+  Steps,
+  message,
+  theme,
+} from "antd";
+import {
+  PlusOutlined,
+  TeamOutlined,
+  AppstoreOutlined,
+  OrderedListOutlined,
+} from "@ant-design/icons";
+import { Gender, PlayerLevel, isCheckedIn } from "./types";
+import { ActionResult } from "./state/model";
+import { useConfirmation } from "./hooks/useConfirmation";
+import { parseSession, errorText } from "./state/model";
+import { useQueuingState } from "./hooks/useQueuingState";
+import PaymentsPanel, { PaymentTag } from "./components/PaymentsPanel";
+import { calculateBilling } from "./state/billing";
+import QueuingHeader from "./components/QueuingHeader";
+import CourtCard from "./components/CourtCard";
+import PlayerPanel from "./components/PlayerPanel";
+import QueueTab from "./components/QueueTab";
+import AddPlayerModal from "./components/modals/AddPlayerModal";
+import AddCourtModal from "./components/modals/AddCourtModal";
+import FinishMatchModal from "./components/modals/FinishMatchModal";
+import StopMatchModal from "./components/modals/StopMatchModal";
+import TransferCourtModal from "./components/modals/TransferCourtModal";
+import HistoryModal from "./components/modals/HistoryModal";
+import SessionSummaryModal from "./components/modals/SessionSummaryModal";
+import InstructionsModal from "./components/modals/InstructionsModal";
+import PlayerDetailsModal from "./components/modals/PlayerDetailsModal";
+import PlayersDatabaseModal from "./components/modals/PlayersDatabaseModal";
+import styles from "./QueuingClient.module.css";
+import "./queuing-overlays.css";
+import { useAppearance } from "./hooks/useAppearance";
+type View = "courts" | "queue" | "players";
+type Density = "compact" | "comfortable";
+const densityKey = "badminton_queue_density";
+function readDensity(): Density {
+  try {
+    return localStorage.getItem(densityKey) === "comfortable"
+      ? "comfortable"
+      : "compact";
+  } catch {
+    return "compact";
+  }
+}
+function subscribeDensity(fn: () => void) {
+  window.addEventListener("storage", fn);
+  window.addEventListener("queue-density", fn);
+  return () => {
+    window.removeEventListener("storage", fn);
+    window.removeEventListener("queue-density", fn);
+  };
+}
 export default function QueuingClient() {
+  const appearance = useAppearance();
+  const primary = { emerald: "#047857", ocean: "#0369a1", violet: "#7c3aed" }[
+    appearance.color
+  ];
   const { state, actions } = useQueuingState();
-  const { sessionStartTime, sessionEndTime, sessionStatus, currentTime, courts, players, history, queue, autoAssignQueue, courtHistory, isLoaded } = state;
-
-  // Freeze time if session is ended to stop idle timers
-  const effectiveTime = (sessionStatus === 'ended' && sessionEndTime) ? sessionEndTime : currentTime;
-  // Initialize to true to match server rendering and prevent hydration mismatch
-  const [isOnline, setIsOnline] = useState<boolean>(true);
-  
+  const [paymentsOpen, setPaymentsOpen] = useState(false);
+  const [paymentPlayer, setPaymentPlayer] = useState<string | undefined>();
+  const billingRows = calculateBilling(state).rows;
+  const openPayments = (id?: string) => {
+    setPaymentPlayer(id);
+    setPaymentsOpen(true);
+  };
+  const {
+    sessionStartTime,
+    sessionEndTime,
+    sessionStatus,
+    courts,
+    players,
+    queue,
+    history,
+    courtHistory,
+    isLoaded,
+    currentTime,
+  } = state;
+  const density = useSyncExternalStore(
+    subscribeDensity,
+    readDensity,
+    () => "compact" as Density,
+  );
+  const [densityFallback, setDensityFallback] = useState<Density | null>(null);
+  const activeDensity = densityFallback ?? density;
+  const [view, setView] = useState<View>("players");
+  const [queueMinimized, setQueueMinimized] = useState(true);
+  const [tabletView, setTabletView] = useState<"queue" | "courts">("queue");
+  const scroll = useRef<Record<View, number>>({
+    courts: 0,
+    queue: 0,
+    players: 0,
+  });
+  const sectionRefs = useRef<Record<View, HTMLElement | null>>({
+    courts: null,
+    queue: null,
+    players: null,
+  });
+  const workspaceRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    // Function to check actual connectivity by bypassing Service Worker (using HEAD)
-    const checkConnectivity = async () => {
-      // If browser says offline, believe it immediately
-      if (!navigator.onLine) {
-        setIsOnline(false);
-        return;
-      }
-      
-      try {
-        // We use HEAD method because our SW only handles GET, so this hits the network
-        // We use a timestamp to prevent browser caching
-        // Add a 2-second timeout to fail fast if network is hanging
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000);
-        
-        // Use a dedicated API endpoint to verify full stack connectivity
-        // method: 'GET' is standard, but we use no-store to bypass caching
-        const res = await fetch(`/api/ping?t=${Date.now()}`, { 
-          method: 'GET', 
-          cache: 'no-store',
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (!res.ok) throw new Error('Ping failed');
-        
-        setIsOnline(true);
-      } catch (error) {
-        // Only set offline if it's not an abort (though abort here means timeout, so actually yes)
-        // console.log('Connectivity check failed:', error);
-        setIsOnline(false);
-      }
-    };
-
-    const onOnline = () => {
-      setIsOnline(true);
-      checkConnectivity();
-    };
-    
-    const onOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', onOnline);
-    window.addEventListener('offline', onOffline);
-    
-    // Check immediately on mount
-    checkConnectivity();
-
-    // Poll every 3 seconds
-    const interval = setInterval(checkConnectivity, 3000);
-
-    return () => {
-      window.removeEventListener('online', onOnline);
-      window.removeEventListener('offline', onOffline);
-      clearInterval(interval);
-    };
+    const workspace = workspaceRef.current;
+    const header = workspace?.querySelector("header");
+    if (!workspace || !header) return;
+    const measure = () =>
+      workspace.style.setProperty(
+        "--session-header-height",
+        `${header.getBoundingClientRect().height}px`,
+      );
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    return () => observer.disconnect();
   }, []);
-  
-  // Programmatic SW & cache reset: visit /queuing?sw=refresh
   useEffect(() => {
-    try {
-      const url = new URL(window.location.href);
-      const isRefresh = url.searchParams.get('sw') === 'refresh';
-
-      if (isRefresh) {
-        // Cleanup mode: Unregister all SWs and clear caches
-        Promise.resolve()
-          .then(async () => {
-            console.log('🧹 Starting cleanup...');
-            if ('serviceWorker' in navigator) {
-              const regs = await navigator.serviceWorker.getRegistrations();
-              console.log('Found registrations:', regs);
-              for (const reg of regs) {
-                const unregResult = await reg.unregister();
-                console.log(`Unregistered ${reg.scope}: ${unregResult}`);
-              }
-              console.log('✅ Service Workers unregistered');
-            }
-          })
-          .then(async () => {
-            if ('caches' in window) {
-              const keys = await caches.keys();
-              await Promise.all(keys.map(k => caches.delete(k)));
-              console.log('✅ Caches cleared');
-            }
-          })
-          .finally(() => {
-            console.log('🔄 Reloading...');
-            url.searchParams.delete('sw');
-            window.location.replace(url.toString());
-          });
-      } else {
-        // Normal mode: Register Manual Service Worker
-        if ('serviceWorker' in navigator && window.location.protocol.includes('http')) {
-          const newSwUrl = '/badminton-sw.js';
-          
-          navigator.serviceWorker.getRegistrations().then(async (regs) => {
-            // Unregister ANY worker that is not the new one
-            const unregisterPromises = regs.map(reg => {
-              if (!reg.active?.scriptURL.endsWith(newSwUrl)) {
-                console.log('Unregistering old SW:', reg.scope);
-                return reg.unregister();
-              }
-              return Promise.resolve(true);
-            });
-
-            await Promise.all(unregisterPromises);
-
-            // Register the new one
-            try {
-              const reg = await navigator.serviceWorker.register(newSwUrl);
-              console.log('✅ Service Worker registered:', reg.scope);
-            } catch (err) {
-              console.error('❌ SW Register fail:', err);
-            }
-          });
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);
-  const [isAddCourtOpen, setIsAddCourtOpen] = useState(false);
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
-  const [isSummaryOpen, setIsSummaryOpen] = useState(false);
-  const [finishingCourtId, setFinishingCourtId] = useState<string | null>(null);
-  const [stoppingCourtId, setStoppingCourtId] = useState<string | null>(null);
-  const [transferringCourtId, setTransferringCourtId] = useState<string | null>(null);
-  const [viewingPlayerId, setViewingPlayerId] = useState<string | null>(null);
-  const [addPlayerMode, setAddPlayerMode] = useState<'close' | 'keep'>('close');
-  const [isPlayersDbOpen, setIsPlayersDbOpen] = useState(false);
-  const [isFabOpen, setIsFabOpen] = useState(false);
-
+    const section = sectionRefs.current.queue;
+    const heading = section?.firstElementChild;
+    if (!section || !heading) return;
+    const measure = () =>
+      section.style.setProperty(
+        "--queue-heading-height",
+        `${heading.getBoundingClientRect().height}px`,
+      );
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(heading);
+    return () => observer.disconnect();
+  }, [isLoaded]);
+  const [online, setOnline] = useState(true);
+  const [modal, setModal] = useState<
+    | "player"
+    | "court"
+    | "database"
+    | "history"
+    | "summary"
+    | "help"
+    | "tour"
+    | null
+  >(null);
+  const dialogMatchTime = useRef<number | null>(null);
+  const [finishId, setFinishId] = useState<string | null>(null);
+  const [stopId, setStopId] = useState<string | null>(null);
+  const [transferId, setTransferId] = useState<string | null>(null);
+  const [playerId, setPlayerId] = useState<string | null>(null);
+  const [assignId, setAssignId] = useState<string | null>(null);
+  const [addPlayerMode, setAddPlayerMode] = useState<"close" | "keep">("close");
   const [addPlayerForm] = Form.useForm();
   const [addCourtForm] = Form.useForm();
-  const [finishMatchForm] = Form.useForm();
-  const [stopMatchForm] = Form.useForm();
-
-  const screens = Grid.useBreakpoint();
-  const { isCourtsSingleColumn } = useCustomBreakpoints();
-  
-  // Mobile layout logic matches the original file
-  const isMobileLayout = (screens.xs || screens.sm) && !screens.md; 
-
-  if (!isLoaded) return null;
-
-  const handleAddPlayer = (values: { name: string; level: PlayerLevel; gender: Gender }) => {
-    const res = actions.addPlayer(values);
-    if (!res.ok) {
-      message.error(res.error || 'Player exists in database');
+  const [finishForm] = Form.useForm();
+  const [stopForm] = Form.useForm();
+  const { confirm, holder: confirmationHolder } = useConfirmation();
+  const [toast, contextHolder] = message.useMessage();
+  const effectiveTime =
+    sessionStatus === "ended" ? (sessionEndTime ?? currentTime) : currentTime;
+  const disabled = !isLoaded || sessionStatus === "ended";
+  const report = async (promise: Promise<ActionResult>) => {
+    const result = await promise;
+    if (!result.ok) toast.error(result.error);
+    return result;
+  };
+  const playerName = (id: string) =>
+    players.find((p) => p.id === id)?.name ?? "this player";
+  const courtName = (id: string) =>
+    courts.find((c) => c.id === id)?.name ?? "this court";
+  const toggleSelection = (courtId: string, playerId: string) => {
+    const currentCourt = courts.find((c) => c.players.includes(playerId));
+    if (currentCourt)
+      return confirm(
+        currentCourt.id === courtId
+          ? `Remove ${playerName(playerId)} from ${courtName(courtId)}?`
+          : `Move ${playerName(playerId)} to ${courtName(courtId)}?`,
+        `This will remove their assignment on ${currentCourt.name}.`,
+        currentCourt.id === courtId ? "Remove player" : "Move player",
+        () => report(actions.togglePlayerSelection(courtId, playerId)),
+      );
+    return report(actions.togglePlayerSelection(courtId, playerId));
+  };
+  const navigate = (next: View) => {
+    scroll.current[view] = window.scrollY;
+    setView(next);
+    if (next !== "players") setTabletView(next);
+    requestAnimationFrame(() => {
+      if (window.innerWidth < 768)
+        window.scrollTo({ top: scroll.current[next] });
+      else
+        sectionRefs.current[next]?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+    });
+  };
+  useEffect(() => {
+    document.body.dataset.queueDensity = activeDensity;
+    return () => {
+      delete document.body.dataset.queueDensity;
+    };
+  }, [activeDensity]);
+  useEffect(() => {
+    let cancelled = false;
+    let controller: AbortController | undefined;
+    const check = async () => {
+      if (!navigator.onLine) {
+        setOnline(false);
+        return;
+      }
+      controller?.abort();
+      controller = new AbortController();
+      const timeout = window.setTimeout(() => controller?.abort(), 3000);
+      try {
+        const response = await fetch("/api/ping", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!cancelled) setOnline(response.ok);
+      } catch {
+        if (!cancelled) setOnline(false);
+      } finally {
+        clearTimeout(timeout);
+      }
+    };
+    const offline = () => setOnline(false);
+    void check();
+    window.addEventListener("online", check);
+    window.addEventListener("offline", offline);
+    const timer = setInterval(check, 15000);
+    return () => {
+      cancelled = true;
+      controller?.abort();
+      clearInterval(timer);
+      window.removeEventListener("online", check);
+      window.removeEventListener("offline", offline);
+    };
+  }, []);
+  useEffect(() => {
+    if (
+      !("serviceWorker" in navigator) ||
+      process.env.NODE_ENV !== "production"
+    )
       return;
+    const setup = async () => {
+      const url = new URL(location.href);
+      if (url.searchParams.get("sw") === "refresh") {
+        for (const reg of await navigator.serviceWorker.getRegistrations())
+          if (reg.active?.scriptURL.endsWith("/badminton-sw.js"))
+            await reg.unregister();
+        for (const key of await caches.keys())
+          if (key.startsWith("badminton-queue-")) await caches.delete(key);
+        url.searchParams.delete("sw");
+        location.replace(url);
+        return;
+      }
+      await navigator.serviceWorker.register("/badminton-sw.js");
+    };
+    void setup().catch(() => {
+      toast.warning(
+        "Offline files could not be updated. Your saved session is unaffected.",
+      );
+    });
+  }, [toast]);
+  const close = () => setModal(null);
+  const assignedCourt = courts.find((c) => c.id === assignId);
+  const saveDensity = (value: Density) => {
+    try {
+      localStorage.setItem(densityKey, value);
+      setDensityFallback(null);
+      window.dispatchEvent(new Event("queue-density"));
+    } catch {
+      setDensityFallback(value);
+      toast.warning(
+        "Density changed for this visit. Browser preferences could not be saved.",
+      );
     }
-    addPlayerForm.resetFields(['name']);
-    if (addPlayerMode === 'close') {
-      setIsAddPlayerOpen(false);
-    }
   };
-
-  const handleAddCourt = (values: { name: string }) => {
-    actions.addCourt(values.name);
-    addCourtForm.resetFields();
-    setIsAddCourtOpen(false);
-  };
-
-  const handleFinishMatch = (values: { team1Score?: number; team2Score?: number; winningTeam?: number }) => {
-    if (finishingCourtId) {
-      actions.finishMatch(finishingCourtId, values);
-      finishMatchForm.resetFields();
-      setFinishingCourtId(null);
-    }
-  };
-
-  const handleStopMatch = (values: { reason: string }) => {
-    if (stoppingCourtId) {
-      actions.stopMatch(stoppingCourtId, values.reason);
-      stopMatchForm.resetFields();
-      setStoppingCourtId(null);
-    }
-  };
-
-  const handleTransferMatch = (targetCourtId: string) => {
-    if (transferringCourtId) {
-      actions.transferMatch(transferringCourtId, targetCourtId);
-      setTransferringCourtId(null);
-    }
-  };
-
-  const handleStopSession = () => {
-    actions.stopSession();
-    setIsSummaryOpen(true);
-  };
-
-  const viewingPlayer = players.find(p => p.id === viewingPlayerId);
-  const finishingCourt = courts.find(c => c.id === finishingCourtId);
-  const transferringCourt = courts.find(c => c.id === transferringCourtId);
-
-  const hasActiveMatches = courts.some(court => court.status === 'active');
-
   return (
-    <Layout className={styles.layout}>
-      <QueuingHeader 
-        sessionStartTime={sessionStartTime}
-        sessionEndTime={sessionEndTime}
-        sessionStatus={sessionStatus}
-        currentTime={effectiveTime}
-        isOffline={!isOnline}
-        onStartSession={actions.startSession}
-        onStopSession={handleStopSession}
-        onResetSession={actions.resetState}
-        onRestartSession={actions.restartSession}
-        onOpenHistory={() => setIsHistoryOpen(true)}
-        onOpenSummary={() => setIsSummaryOpen(true)}
-        onOpenInstructions={() => setIsInstructionsOpen(true)}
-        onPopulateDummy={() => actions.populateDummyPlayers(['Beginner', 'Intermediate', 'Advanced', 'Intermediate +', 'Advanced +'])}
-        onOpenPlayersDb={() => setIsPlayersDbOpen(true)}
-        hasActiveMatches={hasActiveMatches}
-        onExportSession={() => {
-          if (sessionStatus === 'active') {
-            alert('Cannot export during an active session.');
-            return;
-          }
-          actions.exportSession();
-        }}
-        onImportSession={(content: string) => {
-          const res = actions.importSession(content);
-          if (!res.ok && res.error) {
-            alert(res.error);
-            return;
-          }
-          setIsHistoryOpen(false);
-          setIsSummaryOpen(false);
-        }}
-      />
-      
-      <Content className={styles.content}>
-        {isMobileLayout ? (
-          <div className={styles.mobileContentWrapper}>
-            <Row gutter={[16, 16]}>
-              {courts.map(court => (
-                <Col span={24} key={court.id}>
-                  <CourtCard 
-                    court={court}
-                    players={players}
-                    currentTime={effectiveTime}
-                    sessionStartTime={sessionStatus === 'active' ? sessionStartTime : null}
-                    onUpdateName={actions.updateCourtName}
-                    onRemove={actions.removeCourt}
-                    onStartMatch={actions.startMatch}
-                    onFinishMatch={(id) => setFinishingCourtId(id)}
-                    onStopMatch={(id) => setStoppingCourtId(id)}
-                    onTransfer={(id) => setTransferringCourtId(id)}
-                    onTogglePlayer={actions.togglePlayerSelection}
-                    onClearCourt={actions.clearCourt}
-                  />
-                </Col>
-              ))}
-            </Row>
-            <PlayerPanel 
-              players={players}
-              courts={courts}
-              sessionStartTime={sessionStartTime}
-              currentTime={effectiveTime}
-              onToggleSelection={actions.togglePlayerSelection}
-              onViewPlayer={setViewingPlayerId}
-              onRemovePlayer={actions.removePlayer}
-              onToggleActive={actions.togglePlayerActive}
-              isMobile={true}
-              queue={queue}
-              autoAssignQueue={autoAssignQueue}
-              onSetAutoAssignQueue={actions.setAutoAssignQueue}
-              onAssignQueueToCourt={actions.assignQueueToCourt}
-              onRemoveQueueItem={actions.removeQueueItem}
-              onMoveQueueItem={actions.moveQueueItem}
-              onRemovePlayerFromQueue={actions.removePlayerFromQueue}
-              onRemovePlayersFromQueue={actions.removePlayersFromQueue}
-              onCreateQueue={actions.createQueueItem}
-              onAddPlayerToQueue={actions.addPlayerToQueueItem}
-            />
-          </div>
-        ) : (
-          <Row gutter={[24, 24]}>
-            <Col xs={24} md={12} lg={12}>
-              <Row gutter={[16, 16]}>
-                {courts.map(court => (
-                  <Col span={isCourtsSingleColumn ? 24 : 12} key={court.id}>
-                    <CourtCard 
-                      key={court.id}
-                      court={court}
-                      players={players}
-                      currentTime={effectiveTime}
-                      sessionStartTime={sessionStatus === 'active' ? sessionStartTime : null}
-                      onUpdateName={actions.updateCourtName}
-                      onRemove={actions.removeCourt}
-                      onStartMatch={actions.startMatch}
-                      onFinishMatch={(id) => setFinishingCourtId(id)}
-                      onStopMatch={(id) => setStoppingCourtId(id)}
-                      onTransfer={(id) => setTransferringCourtId(id)}
-                      onTogglePlayer={actions.togglePlayerSelection}
-                    onClearCourt={actions.clearCourt}
-                    />
-                  </Col>
-                ))}
-              </Row>
-            </Col>
-            <Col xs={24} md={12} lg={12}>
-              <PlayerPanel 
-                players={players}
-                courts={courts}
-                sessionStartTime={sessionStartTime}
-                currentTime={effectiveTime}
-                onToggleSelection={actions.togglePlayerSelection}
-                onViewPlayer={setViewingPlayerId}
-                onRemovePlayer={actions.removePlayer}
-                onToggleActive={actions.togglePlayerActive}
-                queue={queue}
-                autoAssignQueue={autoAssignQueue}
-                onSetAutoAssignQueue={actions.setAutoAssignQueue}
-                onAssignQueueToCourt={actions.assignQueueToCourt}
-                onRemoveQueueItem={actions.removeQueueItem}
-                onMoveQueueItem={actions.moveQueueItem}
-                onRemovePlayerFromQueue={actions.removePlayerFromQueue}
-                onRemovePlayersFromQueue={actions.removePlayersFromQueue}
-                onCreateQueue={actions.createQueueItem}
-                onAddPlayerToQueue={actions.addPlayerToQueueItem}
+    <ConfigProvider
+      theme={{
+        cssVar: { prefix: "ant" },
+        algorithm: appearance.dark
+          ? theme.darkAlgorithm
+          : theme.defaultAlgorithm,
+        token: {
+          colorPrimary: appearance.dark
+            ? { emerald: "#34d399", ocean: "#38bdf8", violet: "#a78bfa" }[
+                appearance.color
+              ]
+            : primary,
+          colorInfo: primary,
+          colorText: appearance.dark ? "#e6edf3" : "#172b26",
+          colorTextSecondary: appearance.dark ? "#a6b4c2" : "#5e706a",
+          colorBorder: appearance.dark ? "#344352" : "#dce5e0",
+          colorBgLayout: appearance.dark ? "#101820" : "#f5f7f6",
+          borderRadius: 8,
+          fontSize: activeDensity === "compact" ? 14 : 16,
+          controlHeight: activeDensity === "compact" ? 32 : 40,
+        },
+        components: {
+          Card: { bodyPadding: activeDensity === "compact" ? 12 : 20 },
+          Modal: {
+            paddingContentHorizontalLG: activeDensity === "compact" ? 20 : 28,
+          },
+        },
+      }}
+    >
+      {contextHolder}
+      {confirmationHolder}
+      <div
+        className={styles.layout}
+        ref={workspaceRef}
+        data-theme={appearance.color}
+        data-mode={appearance.dark ? "dark" : "light"}
+        data-density={activeDensity}
+        data-view={view}
+        data-tablet-view={tabletView}
+      >
+        <QueuingHeader
+          appearance={appearance}
+          playerCount={players.length}
+          courtCount={courts.length}
+          queueCount={queue.length}
+          sessionStartTime={sessionStartTime}
+          sessionEndTime={sessionEndTime}
+          sessionStatus={sessionStatus}
+          currentTime={effectiveTime}
+          isOffline={!online}
+          saveStatus={state.saveStatus}
+          disabled={!isLoaded}
+          onStartSession={() => report(actions.startSession())}
+          onStopSession={async () => {
+            const result = await report(actions.stopSession());
+            if (result.ok) setModal("summary");
+            return result;
+          }}
+          onResetSession={() => report(actions.resetState())}
+          onRestartSession={() => report(actions.restartSession())}
+          onOpenPayments={() => openPayments()}
+          onOpenHistory={() => setModal("history")}
+          onOpenSummary={() => setModal("summary")}
+          onPopulateDummy={() => {
+            void report(
+              actions.populateDummyPlayers([
+                "Beginner",
+                "Intermediate",
+                "Advanced",
+              ]),
+            );
+          }}
+          onOpenInstructions={() => setModal("help")}
+          onStartTour={() => setModal("tour")}
+          onExportSession={actions.exportSession}
+          onImportSession={async (text) => {
+            try {
+              parseSession(JSON.parse(text));
+            } catch (error) {
+              const message = errorText(error);
+              toast.error(message);
+              return { ok: false, error: message };
+            }
+            const result = await confirm(
+              "Replace the current session?",
+              "Importing replaces the current players, courts, queue, results, session statistics, expenses, and payments. Export the current session first if you need a copy.",
+              "Replace session",
+              () => report(actions.importSession(text)),
+            );
+            if (result.ok) toast.success("Session imported");
+            return result;
+          }}
+        />
+        <main className={styles.content}>
+          <div className={styles.pageHeading}>
+            <div>
+              <p>
+                {players.length} players <span>·</span>{" "}
+                {courts.filter((c) => c.status === "active").length}/
+                {courts.length} courts playing <span>·</span>{" "}
+                {history.filter((h) => !h.isStopped).length} matches finished
+              </p>
+            </div>
+            <div className={styles.densityControl}>
+              <span>Density</span>
+              <Segmented
+                aria-label="Display density"
+                value={activeDensity}
+                onChange={saveDensity}
+                options={[
+                  { label: "Compact", value: "compact" },
+                  { label: "Comfortable", value: "comfortable" },
+                ]}
               />
-            </Col>
-          </Row>
-        )}
-      </Content>
-
-      {(sessionStatus === 'active' || sessionStatus === 'idle') && (
-        <>
-          {isFabOpen && (
-            <div 
-              className={styles.fabOverlay} 
-              onClick={() => setIsFabOpen(false)} 
+            </div>
+          </div>
+          {state.storageError && (
+            <Alert
+              type="error"
+              showIcon
+              title="Changes could not be saved"
+              description={state.storageError}
+              action={
+                <Button
+                  onClick={() => {
+                    void actions.retryStorage();
+                  }}
+                >
+                  Retry loading
+                </Button>
+              }
             />
           )}
-          <div className={styles.fabContainer}>
-            {isFabOpen && (
-              <div className={styles.fabItems}>
-                <div className={styles.fabItem}>
-                  <span className={styles.fabLabel}>
-                    Add Player
-                  </span>
-                  <FloatButton 
-                    icon={<UserAddOutlined />} 
-                    onClick={() => {
-                      setIsAddPlayerOpen(true);
-                      setIsFabOpen(false);
-                    }} 
-                    className={styles.staticButton}
+          {!isLoaded ? (
+            <div className={styles.loading}>
+              <Spin />
+              <p>Loading your saved session…</p>
+            </div>
+          ) : (
+            <>
+              {sessionStatus === "ended" && (
+                <Alert
+                  type="info"
+                  title="Session complete"
+                  description="View your summary or use Session → New session to keep playing with this roster."
+                />
+              )}
+              <div className={styles.dashboard}>
+                <section
+                  className={`${styles.section} ${styles.playersSection}`}
+                  ref={(el) => {
+                    sectionRefs.current.players = el;
+                  }}
+                >
+                  <PlayerPanel
+                    header={
+                      <div className={styles.sectionHeading}>
+                        <div>
+                          <h2>
+                            Players <span>{players.length}</span>
+                          </h2>
+                          <p>
+                            {
+                              players.filter(
+                                (p) =>
+                                  isCheckedIn(p) && p.isActive && !p.isPlaying,
+                              ).length
+                            }{" "}
+                            waiting ·{" "}
+                            {
+                              players.filter(
+                                (p) => isCheckedIn(p) && !p.isActive,
+                              ).length
+                            }{" "}
+                            away · {players.filter(isCheckedIn).length}/
+                            {players.length} present ·{" "}
+                            {players.filter((p) => !isCheckedIn(p)).length} not
+                            arrived
+                          </p>
+                        </div>
+                        <div className={styles.inline}>
+                          <Button
+                            disabled={disabled}
+                            onClick={() => setModal("database")}
+                          >
+                            Player Database
+                          </Button>
+                          <Button
+                            type="primary"
+                            disabled={disabled}
+                            icon={<PlusOutlined aria-hidden="true" />}
+                            onClick={() => setModal("player")}
+                          >
+                            Add Player
+                          </Button>
+                        </div>
+                      </div>
+                    }
+                    paymentTags={Object.fromEntries(
+                      billingRows
+                        .filter((row) => row.arrangement || row.receipts.length)
+                        .map((row) => [
+                          row.id,
+                          <PaymentTag
+                            key={row.id}
+                            row={row}
+                            finalized={!!state.billing.finalized}
+                          />,
+                        ]),
+                    )}
+                    players={players}
+                    courts={courts}
+                    queue={queue}
+                    onCheckIn={(id) => report(actions.checkInPlayer(id))}
+                    onUndoCheckIn={(id) =>
+                      confirm(
+                        `Undo check-in for ${playerName(id)}?`,
+                        "This marks the player as not arrived and removes any pending court or queue assignments. Match history is kept.",
+                        "Undo check-in",
+                        () => report(actions.undoCheckIn(id)),
+                      )
+                    }
+                    currentTime={effectiveTime}
+                    sessionStartTime={sessionStartTime}
+                    disabled={disabled}
+                    onToggleSelection={(c, p) => toggleSelection(c, p)}
+                    onViewPlayer={setPlayerId}
+                    onRemovePlayer={(id) =>
+                      confirm(
+                        `Remove ${playerName(id)} from this session?`,
+                        "This removes their pending court and queue assignments. Match history and the reusable player database are kept.",
+                        "Remove player",
+                        () => report(actions.removePlayer(id)),
+                      )
+                    }
+                    onToggleActive={(id) =>
+                      players.find((p) => p.id === id)?.isActive &&
+                      (courts.some((c) => c.players.includes(id)) ||
+                        queue.some((q) =>
+                          [...q.team1, ...q.team2].includes(id),
+                        ))
+                        ? confirm(
+                            `Mark ${playerName(id)} away?`,
+                            "Their pending court and queue assignments will be removed.",
+                            "Mark away",
+                            () => report(actions.togglePlayerActive(id)),
+                          )
+                        : report(actions.togglePlayerActive(id))
+                    }
+                    onCreateQueue={() => report(actions.createQueueItem())}
+                    onAddPlayerToQueue={(q, p) =>
+                      report(actions.addPlayerToQueueItem(q, p))
+                    }
                   />
-                </div>
-                <div className={`${styles.fabItem} ${styles.delay1}`}>
-                  <span className={styles.fabLabel}>
-                    Add Court
-                  </span>
-                  <FloatButton 
-                    icon={<AppstoreAddOutlined />} 
-                    onClick={() => {
-                      setIsAddCourtOpen(true);
-                      setIsFabOpen(false);
-                    }} 
-                    className={styles.staticButton}
-                  />
-                </div>
-                <div className={`${styles.fabItem} ${styles.delay2}`}>
-                  <span className={styles.fabLabel}>
-                    Add from Players DB
-                  </span>
-                  <FloatButton 
-                    icon={<DatabaseOutlined />} 
-                    onClick={() => {
-                      setIsPlayersDbOpen(true);
-                      setIsFabOpen(false);
-                    }} 
-                    className={styles.staticButton}
-                  />
-                </div>
+                </section>
+                <aside
+                  className={styles.sidebar}
+                  aria-label="Queue and courts"
+                  data-has-queue={queue.length > 0}
+                  data-queue-minimized={queueMinimized}
+                >
+                  <div className={styles.tabletTabs}>
+                    <Segmented
+                      aria-label="Session panel"
+                      value={tabletView}
+                      onChange={setTabletView}
+                      options={[
+                        { label: `Queue (${queue.length})`, value: "queue" },
+                        {
+                          label: `Courts (${courts.length})`,
+                          value: "courts",
+                        },
+                      ]}
+                    />
+                  </div>
+                  <section
+                    className={`${styles.section} ${styles.queueSection}`}
+                    ref={(el) => {
+                      sectionRefs.current.queue = el;
+                    }}
+                  >
+                    <div className={styles.sectionHeading}>
+                      <div>
+                        <h2>
+                          Up next <span>{queue.length}</span>
+                        </h2>
+                        <p>Line up the next good game.</p>
+                      </div>
+                      <div className={styles.inline}>
+                        {queue.length > 0 && (
+                          <Button
+                            aria-expanded={!queueMinimized}
+                            aria-controls="up-next-content"
+                            onClick={() => setQueueMinimized((value) => !value)}
+                          >
+                            {queueMinimized ? "Expand" : "Minimize"}
+                          </Button>
+                        )}
+                        <Button
+                          disabled={disabled}
+                          icon={<PlusOutlined aria-hidden="true" />}
+                          onClick={async () => {
+                            setQueueMinimized(false);
+                            if ((await report(actions.createQueueItem())).ok)
+                              toast.success(
+                                "Match created. Add players from the roster.",
+                              );
+                          }}
+                        >
+                          Create Match
+                        </Button>
+                      </div>
+                    </div>
+                    <div id="up-next-content">
+                      <QueueTab
+                        minimized={queueMinimized}
+                        queue={queue}
+                        players={players}
+                        courts={courts}
+                        disabled={disabled}
+                        onAssignToCourt={(q, c) =>
+                          report(actions.assignQueueToCourt(q, c))
+                        }
+                        onRemoveQueueItem={(id) =>
+                          confirm(
+                            "Remove this queued match?",
+                            "The match and its pending team assignments will be removed. Players remain in the roster.",
+                            "Remove match",
+                            () => report(actions.removeQueueItem(id)),
+                          )
+                        }
+                        onMoveQueueItem={(f, t) =>
+                          report(actions.moveQueueItem(f, t))
+                        }
+                        onRemovePlayerFromQueue={(q, p) =>
+                          confirm(
+                            `Remove ${playerName(p)} from this queued match?`,
+                            "The player will remain in the session roster.",
+                            "Remove player",
+                            () => report(actions.removePlayerFromQueue(q, p)),
+                          )
+                        }
+                        onRemovePlayersFromQueue={(id) =>
+                          confirm(
+                            "Clear this queued match?",
+                            "Both teams will be emptied. The match stays in the queue.",
+                            "Clear players",
+                            () => report(actions.removePlayersFromQueue(id)),
+                          )
+                        }
+                        onAddPlayers={() => navigate("players")}
+                      />
+                    </div>
+                  </section>
+                  <section
+                    className={`${styles.section} ${styles.courtsSection}`}
+                    ref={(el) => {
+                      sectionRefs.current.courts = el;
+                    }}
+                  >
+                    <div className={styles.sectionHeading}>
+                      <div>
+                        <h2>
+                          Courts <span>{courts.length}</span>
+                        </h2>
+                        <p>The action, at a glance.</p>
+                      </div>
+                      <Button
+                        disabled={disabled}
+                        icon={<PlusOutlined aria-hidden="true" />}
+                        onClick={() => setModal("court")}
+                      >
+                        Add Court
+                      </Button>
+                    </div>
+                    <div className={styles.courtsGrid}>
+                      {courts.map((court) => (
+                        <CourtCard
+                          key={court.id}
+                          court={court}
+                          players={players}
+                          currentTime={effectiveTime}
+                          sessionStartTime={
+                            sessionStatus === "active" ? sessionStartTime : null
+                          }
+                          disabled={disabled}
+                          onUpdateName={(id, name) =>
+                            report(actions.updateCourtName(id, name))
+                          }
+                          onRemove={(id) =>
+                            confirm(
+                              `Remove ${courtName(id)}?`,
+                              "Players assigned to this court will return to the roster. Court history is kept.",
+                              "Remove court",
+                              () => report(actions.removeCourt(id)),
+                            )
+                          }
+                          onStartMatch={(id) => report(actions.startMatch(id))}
+                          onFinishMatch={(id) => {
+                            dialogMatchTime.current = court.startTime;
+                            setFinishId(id);
+                          }}
+                          onStopMatch={(id) => {
+                            dialogMatchTime.current = court.startTime;
+                            setStopId(id);
+                          }}
+                          onTransfer={(id) => {
+                            dialogMatchTime.current = court.startTime;
+                            setTransferId(id);
+                          }}
+                          onTogglePlayer={(c, p) => toggleSelection(c, p)}
+                          onClearCourt={(id) =>
+                            confirm(
+                              `Clear players from ${courtName(id)}?`,
+                              "All pending player assignments on this court will be removed.",
+                              "Clear court",
+                              () => report(actions.clearCourt(id)),
+                            )
+                          }
+                          onAssignPlayers={setAssignId}
+                        />
+                      ))}
+                    </div>
+                    {!courts.length && (
+                      <Empty
+                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        description="Add a court to set up your first match."
+                      />
+                    )}
+                  </section>
+                </aside>
               </div>
-            )}
-            <FloatButton 
-              icon={isFabOpen ? <CloseOutlined /> : <PlusOutlined />} 
-              type="primary"
-              onClick={() => setIsFabOpen(!isFabOpen)}
-              className={styles.staticButton}
-            />
-          </div>
-        </>
-      )}
-
-      <AddPlayerModal
-        visible={isAddPlayerOpen}
-        onCancel={() => setIsAddPlayerOpen(false)}
-        onAdd={handleAddPlayer}
-        form={addPlayerForm}
-        mode={addPlayerMode}
-        setMode={setAddPlayerMode}
-      />
-
-      <AddCourtModal
-        visible={isAddCourtOpen}
-        onCancel={() => setIsAddCourtOpen(false)}
-        onCreate={handleAddCourt}
-        form={addCourtForm}
-      />
-
-      <FinishMatchModal
-        visible={!!finishingCourtId}
-        onCancel={() => setFinishingCourtId(null)}
-        onFinish={handleFinishMatch}
-        form={finishMatchForm}
-        court={finishingCourt}
-        players={players}
-      />
-
-      <StopMatchModal
-        visible={!!stoppingCourtId}
-        onCancel={() => setStoppingCourtId(null)}
-        onStop={handleStopMatch}
-        form={stopMatchForm}
-      />
-
-      <TransferCourtModal
-        visible={!!transferringCourtId}
-        onCancel={() => setTransferringCourtId(null)}
-        onTransfer={handleTransferMatch}
-        courts={courts}
-        currentCourt={transferringCourt}
-      />
-
-      <HistoryModal
-        visible={isHistoryOpen}
-        onCancel={() => setIsHistoryOpen(false)}
-        history={history}
-      />
-      
-      <SessionSummaryModal
-        visible={isSummaryOpen}
-        onClose={() => setIsSummaryOpen(false)}
-        sessionStartTime={sessionStartTime}
-        sessionEndTime={sessionEndTime || (sessionStatus === 'active' ? currentTime : null)}
-        currentTime={effectiveTime}
-        players={players}
-        courts={courts}
-        history={history}
-        courtHistory={courtHistory}
-      />
-      
-      <InstructionsModal
-        visible={isInstructionsOpen}
-        onClose={() => setIsInstructionsOpen(false)}
-      />
-
-      <PlayerDetailsModal
-        visible={!!viewingPlayerId}
-        onCancel={() => setViewingPlayerId(null)}
-        player={viewingPlayer}
-        players={players}
-        history={history}
-        onUpdateLevel={actions.updatePlayerLevel}
-        onUpdateGender={actions.updatePlayerGender}
-      />
-      
-      <PlayersDatabaseModal
-        visible={isPlayersDbOpen}
-        onClose={() => setIsPlayersDbOpen(false)}
-        existingPlayers={players.map(p => p.name)}
-        onAddToSession={(list) => {
-          let added = 0;
-          for (const item of list) {
-            if (players.some(p => p.name.trim().toLowerCase() === item.name.trim().toLowerCase())) {
-              continue;
+            </>
+          )}
+        </main>
+        <nav className={styles.mobileNav} aria-label="Session views">
+          {(
+            [
+              {
+                key: "players",
+                label: "Players",
+                count: players.length,
+                icon: <TeamOutlined />,
+              },
+              {
+                key: "queue",
+                label: "Queue",
+                count: queue.length,
+                icon: <OrderedListOutlined />,
+              },
+              {
+                key: "courts",
+                label: "Courts",
+                count: courts.length,
+                icon: <AppstoreOutlined />,
+              },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.key}
+              aria-current={view === tab.key ? "page" : undefined}
+              onClick={() => navigate(tab.key)}
+            >
+              {tab.icon}
+              <span>
+                {tab.label} <b>{tab.count}</b>
+              </span>
+            </button>
+          ))}
+        </nav>
+        <AddPlayerModal
+          visible={modal === "player"}
+          onCancel={close}
+          form={addPlayerForm}
+          mode={addPlayerMode}
+          setMode={setAddPlayerMode}
+          onAdd={async (values: {
+            name: string;
+            level: PlayerLevel;
+            gender: Gender;
+          }) => {
+            if ((await report(actions.addPlayer(values))).ok) {
+              addPlayerForm.resetFields(["name"]);
+              if (addPlayerMode === "close") close();
+              toast.success(`${values.name} added`);
             }
-            const res = actions.addPlayer({ name: item.name, gender: item.gender, level: item.level });
-            if (res.ok) added++;
+          }}
+        />
+        <AddCourtModal
+          visible={modal === "court"}
+          onCancel={close}
+          form={addCourtForm}
+          onCreate={async (values) => {
+            if ((await report(actions.addCourt(values.name))).ok) {
+              addCourtForm.resetFields();
+              close();
+            }
+          }}
+        />
+        <FinishMatchModal
+          visible={!!finishId}
+          onCancel={() => setFinishId(null)}
+          form={finishForm}
+          court={courts.find((c) => c.id === finishId)}
+          players={players}
+          onFinish={async (values) => {
+            if (
+              finishId &&
+              (
+                await report(
+                  actions.finishMatch(
+                    finishId,
+                    values,
+                    dialogMatchTime.current,
+                  ),
+                )
+              ).ok
+            ) {
+              finishForm.resetFields();
+              setFinishId(null);
+              toast.success("Match saved");
+            }
+          }}
+        />
+        <StopMatchModal
+          visible={!!stopId}
+          onCancel={() => setStopId(null)}
+          form={stopForm}
+          onStop={async (values) => {
+            if (
+              stopId &&
+              (
+                await report(
+                  actions.stopMatch(
+                    stopId,
+                    values.reason?.trim() ?? "",
+                    dialogMatchTime.current,
+                  ),
+                )
+              ).ok
+            ) {
+              stopForm.resetFields();
+              setStopId(null);
+            }
+          }}
+        />
+        <TransferCourtModal
+          visible={!!transferId}
+          onCancel={() => setTransferId(null)}
+          courts={courts}
+          currentCourt={courts.find((c) => c.id === transferId)}
+          onTransfer={async (target) => {
+            if (!transferId)
+              return { ok: false, error: "Select a court first" };
+            const result = await report(
+              actions.transferMatch(
+                transferId,
+                target,
+                dialogMatchTime.current,
+              ),
+            );
+            if (result.ok) setTransferId(null);
+            return result;
+          }}
+        />
+        <HistoryModal
+          visible={modal === "history"}
+          onCancel={close}
+          history={history}
+        />
+        <SessionSummaryModal
+          onOpenPayments={
+            sessionStatus === "ended"
+              ? () => {
+                  setModal(null);
+                  openPayments();
+                }
+              : undefined
           }
-          if (added === 0) {
-            message.info('No new players added to session');
-          } else {
-            message.success(`Added ${added} player(s) to session`);
+          visible={modal === "summary"}
+          onClose={close}
+          sessionStartTime={sessionStartTime}
+          sessionEndTime={
+            sessionEndTime ?? (sessionStatus === "active" ? currentTime : null)
           }
-        }}
-      />
-    </Layout>
+          currentTime={effectiveTime}
+          players={players}
+          courts={courts}
+          history={history}
+          courtHistory={courtHistory}
+        />
+        {paymentsOpen && (
+          <PaymentsPanel
+            key={paymentPlayer ?? "all"}
+            session={state}
+            actions={actions}
+            open
+            close={() => setPaymentsOpen(false)}
+            playerFilter={paymentPlayer}
+          />
+        )}
+        <InstructionsModal visible={modal === "help"} onClose={close} />
+        <PlayerDetailsModal
+          onOpenPayments={(id) => {
+            setPlayerId(null);
+            openPayments(id);
+          }}
+          visible={!!playerId}
+          onCancel={() => setPlayerId(null)}
+          player={players.find((p) => p.id === playerId)}
+          players={players}
+          history={history}
+          onUpdateLevel={(id, level) => {
+            void report(actions.updatePlayerLevel(id, level));
+          }}
+          onUpdateGender={(id, gender) => {
+            void report(actions.updatePlayerGender(id, gender));
+          }}
+        />
+        <PlayersDatabaseModal
+          visible={modal === "database"}
+          onClose={close}
+          existingPlayers={players.map((p) => p.name)}
+          onAddToSession={async (list) => {
+            let count = 0;
+            let success = true;
+            for (const values of list) {
+              if (
+                players.some(
+                  (p) => p.name.toLowerCase() === values.name.toLowerCase(),
+                )
+              )
+                continue;
+              if ((await report(actions.addPlayer(values))).ok) count++;
+              else success = false;
+            }
+            if (count) toast.success(`Added ${count} players`);
+            return success;
+          }}
+        />
+        <Modal
+          title={`Assign players · ${assignedCourt?.name ?? "Court"}`}
+          open={!!assignId}
+          onCancel={() => setAssignId(null)}
+          footer={
+            <Button type="primary" onClick={() => setAssignId(null)}>
+              Done
+            </Button>
+          }
+        >
+          <p>
+            Select available players. Each match needs two players on each team.
+          </p>
+          <Select
+            aria-label="Choose player for court"
+            style={{ width: "100%" }}
+            showSearch
+            optionFilterProp="label"
+            value={null}
+            placeholder="Choose an available player"
+            disabled={
+              !assignedCourt?.players.includes(null) ||
+              assignedCourt.status !== "idle"
+            }
+            options={players
+              .filter(
+                (p) =>
+                  isCheckedIn(p) &&
+                  p.isActive &&
+                  !p.isPlaying &&
+                  !courts.some((c) => c.players.includes(p.id)) &&
+                  !queue.some((q) => [...q.team1, ...q.team2].includes(p.id)),
+              )
+              .map((p) => ({ value: p.id, label: `${p.name} · ${p.level}` }))}
+            onChange={async (id) => {
+              if (assignId && id)
+                await report(actions.togglePlayerSelection(assignId, id));
+            }}
+          />
+          <p>{assignedCourt?.players.filter(Boolean).length ?? 0}/4 assigned</p>
+        </Modal>
+        <Modal
+          title="A quick courtside guide"
+          open={modal === "tour"}
+          onCancel={close}
+          footer={
+            <Button type="primary" onClick={close}>
+              Got it
+            </Button>
+          }
+        >
+          <Steps
+            direction="vertical"
+            items={[
+              {
+                title: "Set up",
+                description:
+                  "Add your courts and players, then start the session.",
+              },
+              {
+                title: "Line up matches",
+                description:
+                  "Create a match in Up next. Use Queue on each player to add them, then assign the match to an empty court.",
+              },
+              {
+                title: "Play and record",
+                description:
+                  "Start a ready court. Finish with a winner and optional scores, or stop an interrupted match.",
+              },
+              {
+                title: "Wrap up",
+                description:
+                  "Finish all running matches, stop the session, and review or export your results.",
+              },
+            ]}
+          />
+        </Modal>
+      </div>
+    </ConfigProvider>
   );
 }

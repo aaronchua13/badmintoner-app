@@ -1,19 +1,35 @@
-import { useState, useMemo } from 'react';
-import { Player, PlayerLevel, LEVEL_VALUE } from '../types';
+import { useState, useMemo } from "react";
+import { Player, PlayerLevel, LEVEL_VALUE, isCheckedIn } from "../types";
 
-export const usePlayerFilters = (players: Player[], sessionStartTime: number | null, currentTime: number) => {
-  const [playerTab, setPlayerTab] = useState<'all' | 'active' | 'inactive' | 'queue'>('all');
+export const usePlayerFilters = (
+  players: Player[],
+  sessionStartTime: number | null,
+  currentTime: number,
+) => {
+  const [playerTab, setPlayerTab] = useState<
+    "all" | "active" | "inactive" | "queue"
+  >("all");
   const [levelFilter, setLevelFilter] = useState<PlayerLevel[]>([]);
-  const [genderFilter, setGenderFilter] = useState<'All' | 'Male' | 'Female'>('All');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortConfig, setSortConfig] = useState<{ field: string; direction: 'asc' | 'desc' }>({ field: 'idle_time', direction: 'desc' });
-  const [playerViewMode, setPlayerViewMode] = useState<'list' | 'grid'>('list');
+  const [genderFilter, setGenderFilter] = useState<"All" | "Male" | "Female">(
+    "All",
+  );
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortConfig, setSortConfig] = useState<{
+    field: string;
+    direction: "asc" | "desc";
+  }>({ field: "idle_time", direction: "desc" });
+  const [playerViewMode, setPlayerViewMode] = useState<"list" | "grid">("list");
 
   const baseFilteredPlayers = useMemo(() => {
-    return players.filter(p => {
-      if (levelFilter.length > 0 && !levelFilter.includes(p.level)) return false;
-      if (genderFilter !== 'All' && p.gender !== genderFilter) return false;
-      if (searchQuery && !p.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    return players.filter((p) => {
+      if (levelFilter.length > 0 && !levelFilter.includes(p.level))
+        return false;
+      if (genderFilter !== "All" && p.gender !== genderFilter) return false;
+      if (
+        searchQuery &&
+        !p.name.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+        return false;
       return true;
     });
   }, [players, levelFilter, genderFilter, searchQuery]);
@@ -24,40 +40,68 @@ export const usePlayerFilters = (players: Player[], sessionStartTime: number | n
       let valB: number | string = 0;
 
       switch (sortConfig.field) {
-        case 'level':
+        case "level":
           valA = LEVEL_VALUE[a.level] || 0;
           valB = LEVEL_VALUE[b.level] || 0;
           break;
-        case 'idle_time':
+        case "idle_time":
           if (sessionStartTime === null) {
-             valA = 0;
-             valB = 0;
+            valA = 0;
+            valB = 0;
           } else {
-             valA = a.isPlaying ? -1 : (currentTime - Math.max(a.lastMatchEndTime, sessionStartTime));
-             valB = b.isPlaying ? -1 : (currentTime - Math.max(b.lastMatchEndTime, sessionStartTime));
+            valA = !isCheckedIn(a)
+              ? -2
+              : a.isPlaying
+                ? -1
+                : currentTime -
+                  Math.max(
+                    a.lastMatchEndTime,
+                    a.checkedInAt ?? a.joinedAt,
+                    sessionStartTime,
+                  );
+            valB = !isCheckedIn(b)
+              ? -2
+              : b.isPlaying
+                ? -1
+                : currentTime -
+                  Math.max(
+                    b.lastMatchEndTime,
+                    b.checkedInAt ?? b.joinedAt,
+                    sessionStartTime,
+                  );
           }
           break;
-        case 'total_idle':
-           const getCurrentIdle = (p: Player) => {
-              if (sessionStartTime === null) return 0;
-              return (p.isPlaying || p.gamesPlayed === 0) ? 0 : Math.floor((currentTime - Math.max(p.lastMatchEndTime, sessionStartTime))/1000);
-           }
-           valA = a.totalIdleTime + getCurrentIdle(a);
-           valB = b.totalIdleTime + getCurrentIdle(b);
-           break;
-        case 'games':
+        case "total_idle":
+          const getCurrentIdle = (p: Player) => {
+            if (sessionStartTime === null) return 0;
+            return !isCheckedIn(p) || p.isPlaying || p.gamesPlayed === 0
+              ? 0
+              : Math.floor(
+                  (currentTime -
+                    Math.max(
+                      p.lastMatchEndTime,
+                      p.checkedInAt ?? p.joinedAt,
+                      sessionStartTime,
+                    )) /
+                    1000,
+                );
+          };
+          valA = a.totalIdleTime + getCurrentIdle(a);
+          valB = b.totalIdleTime + getCurrentIdle(b);
+          break;
+        case "games":
           valA = a.gamesPlayed;
           valB = b.gamesPlayed;
           break;
-        case 'gender':
+        case "gender":
           valA = a.gender;
           valB = b.gender;
           break;
-        case 'wins':
+        case "wins":
           valA = a.wins;
           valB = b.wins;
           break;
-        case 'losses':
+        case "losses":
           valA = a.losses;
           valB = b.losses;
           break;
@@ -66,30 +110,42 @@ export const usePlayerFilters = (players: Player[], sessionStartTime: number | n
       }
 
       if (valA === valB) {
-         return a.lastMatchEndTime - b.lastMatchEndTime;
+        return a.lastMatchEndTime - b.lastMatchEndTime;
       }
-      
+
       const compare = valA > valB ? 1 : -1;
-      return sortConfig.direction === 'asc' ? compare : -compare;
+      return sortConfig.direction === "asc" ? compare : -compare;
     });
   }, [baseFilteredPlayers, sortConfig, sessionStartTime, currentTime]);
 
-  const activePlayers = useMemo(() => sortedPlayers.filter(p => p.isPlaying), [sortedPlayers]);
-  const inactivePlayers = useMemo(() => sortedPlayers.filter(p => !p.isPlaying), [sortedPlayers]);
+  const activePlayers = useMemo(
+    () => sortedPlayers.filter((p) => p.isPlaying),
+    [sortedPlayers],
+  );
+  const inactivePlayers = useMemo(
+    () => sortedPlayers.filter((p) => !p.isPlaying),
+    [sortedPlayers],
+  );
 
   return {
-    playerTab, setPlayerTab,
-    levelFilter, setLevelFilter,
-    genderFilter, setGenderFilter,
-    searchQuery, setSearchQuery,
-    sortConfig, setSortConfig,
-    playerViewMode, setPlayerViewMode,
+    playerTab,
+    setPlayerTab,
+    levelFilter,
+    setLevelFilter,
+    genderFilter,
+    setGenderFilter,
+    searchQuery,
+    setSearchQuery,
+    sortConfig,
+    setSortConfig,
+    playerViewMode,
+    setPlayerViewMode,
     allPlayers: sortedPlayers,
     activePlayers,
     inactivePlayers,
     // Raw counts for badges (unfiltered)
-    activeCount: players.filter(p => p.isPlaying).length,
-    inactiveCount: players.filter(p => !p.isPlaying).length,
-    totalCount: players.length
+    activeCount: players.filter((p) => p.isPlaying).length,
+    inactiveCount: players.filter((p) => !p.isPlaying).length,
+    totalCount: players.length,
   };
 };

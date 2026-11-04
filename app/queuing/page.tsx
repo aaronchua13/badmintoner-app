@@ -1,4 +1,6 @@
-import { Metadata } from 'next';
+import { Metadata, Viewport } from 'next';
+
+export const viewport: Viewport = { width: 'device-width', initialScale: 1, maximumScale: 5, userScalable: true, themeColor: '#047857' };
 import QueuingClient from './QueuingClient';
 
 export const metadata: Metadata = {
