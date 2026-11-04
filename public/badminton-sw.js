@@ -1,67 +1,114 @@
-const CACHE_NAME = 'badminton-queue-v1';
-const URLS_TO_CACHE = [
-  '/queuing',
-  '/manifest.json',
-  '/file.svg',
-  '/globe.svg',
-  '/next.svg',
-  '/vercel.svg',
-  '/window.svg'
-];
-
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      // Force cache /queuing and assets
-      return cache.addAll(URLS_TO_CACHE);
-    })
+const CACHE_PREFIX = "badminton-queue-";
+const SHELL_CACHE = `${CACHE_PREFIX}shell-v3`;
+const ASSET_CACHE = `${CACHE_PREFIX}assets-v3`;
+const MAX_ASSETS = 160;
+const isAsset = (url) =>
+  url.origin === self.location.origin &&
+  url.pathname.startsWith("/_next/static/");
+const isRsc = (request) =>
+  request.headers.get("RSC") === "1" ||
+  new URL(request.url).searchParams.has("_rsc");
+async function saveAsset(request, response) {
+  if (
+    !response.ok ||
+    response.type === "opaque" ||
+    response.headers.get("content-type")?.includes("text/html")
+  )
+    return;
+  const cache = await caches.open(ASSET_CACHE);
+  await cache.put(request, response.clone());
+  const keys = await cache.keys();
+  await Promise.all(
+    keys
+      .slice(0, Math.max(0, keys.length - MAX_ASSETS))
+      .map((key) => cache.delete(key)),
   );
-  // Force activation immediately
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
+}
+async function cacheShell(response) {
+  if (
+    !response.ok ||
+    !response.headers.get("content-type")?.includes("text/html")
+  )
+    return;
+  const html = await response.clone().text();
+  const urls = [...html.matchAll(/(?:src|href)="([^"]+)"/g)]
+    .map(
+      (match) =>
+        new URL(match[1].replaceAll("&amp;", "&"), self.location.origin),
+    )
+    .filter(isAsset);
+  // Cache critical resources before replacing the shell so an incomplete update stays recoverable.
+  await Promise.all(
+    [...new Set(urls.map((url) => url.href))].map(async (url) => {
+      const result = await fetch(url);
+      if (!result.ok) throw new Error("Missing shell asset");
+      await saveAsset(url, result);
+    }),
   );
-  // Take control of all clients immediately
-  self.clients.claim();
+  await (await caches.open(SHELL_CACHE)).put("/queuing", response);
+}
+self.addEventListener("install", (event) => {
+  event.waitUntil(cacheShellFromNetwork().then(() => self.skipWaiting()));
 });
-
-self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-  
-  // Only handle GET requests
-  if (event.request.method !== 'GET') return;
-
-  // Strategy: Stale-While-Revalidate for /queuing and same-origin assets
-  // This ensures offline works (stale) but updates happen in background
-  if (url.origin === self.location.origin) {
+async function cacheShellFromNetwork() {
+  await cacheShell(await fetch("/queuing", { cache: "reload" }));
+}
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    (async () => {
+      for (const name of await caches.keys())
+        if (
+          name.startsWith(CACHE_PREFIX) &&
+          name !== SHELL_CACHE &&
+          name !== ASSET_CACHE
+        )
+          await caches.delete(name);
+      await self.clients.claim();
+    })(),
+  );
+});
+self.addEventListener("fetch", (event) => {
+  const request = event.request;
+  const url = new URL(request.url);
+  if (
+    request.method !== "GET" ||
+    url.origin !== self.location.origin ||
+    isRsc(request)
+  )
+    return;
+  if (request.mode === "navigate" && url.pathname === "/queuing") {
     event.respondWith(
-      caches.open(CACHE_NAME).then((cache) => {
-        return cache.match(event.request).then((cachedResponse) => {
-          const fetchPromise = fetch(event.request).then((networkResponse) => {
-            // Update cache with new response
-            if (networkResponse.ok) {
-              cache.put(event.request, networkResponse.clone());
-            }
-            return networkResponse;
-          }).catch(() => {
-            // Network failed, nothing to do (we rely on cache)
-          });
-
-          // Return cached response immediately if available, else wait for network
-          return cachedResponse || fetchPromise;
-        });
-      })
+      (async () => {
+        try {
+          const response = await fetch(request);
+          if (response.ok)
+            event.waitUntil(cacheShell(response.clone()).catch(() => {}));
+          return response;
+        } catch {
+          return (
+            (await (await caches.open(SHELL_CACHE)).match("/queuing")) ??
+            new Response(
+              "Open the queuing page online once to enable offline use.",
+              { status: 503, headers: { "Content-Type": "text/plain" } },
+            )
+          );
+        }
+      })(),
+    );
+  } else if (isAsset(url)) {
+    event.respondWith(
+      (async () => {
+        const client = event.clientId
+          ? await self.clients.get(event.clientId)
+          : null;
+        if (client && new URL(client.url).pathname !== "/queuing")
+          return fetch(request);
+        const cached = await (await caches.open(ASSET_CACHE)).match(request);
+        if (cached) return cached;
+        const response = await fetch(request);
+        event.waitUntil(saveAsset(request, response.clone()).catch(() => {}));
+        return response;
+      })(),
     );
   }
 });

@@ -1,32 +1,37 @@
-import React from 'react';
-import { Card, Typography, Tag, Button, Grid, Tooltip } from 'antd';
-import { EditOutlined, ClockCircleOutlined, DeleteOutlined, StopOutlined, CloseOutlined, SwapOutlined } from '@ant-design/icons';
-import { Court, Player } from '../types';
-import LevelTag from './LevelTag';
-import { formatMatchTime, getMatchOdds } from '../utils';
-
-const { Text } = Typography;
-
-interface CourtCardProps {
+import React, { useState } from "react";
+import { Button, Dropdown, Input, Modal, Tag } from "antd";
+import {
+  MoreOutlined,
+  CloseOutlined,
+  CaretRightFilled,
+  CheckOutlined,
+} from "@ant-design/icons";
+import { Court, Player } from "../types";
+import { ActionResult } from "../state/model";
+import { formatMatchTime, getMatchOdds } from "../utils";
+import styles from "../QueuingClient.module.css";
+interface Props {
   court: Court;
   players: Player[];
   currentTime: number;
   sessionStartTime: number | null;
-  onUpdateName: (id: string, name: string) => void;
-  onRemove: (id: string) => void;
-  onStartMatch: (id: string) => void;
+  disabled?: boolean;
+  onUpdateName: (id: string, name: string) => Promise<ActionResult>;
+  onRemove: (id: string) => Promise<ActionResult>;
+  onStartMatch: (id: string) => Promise<ActionResult>;
   onFinishMatch: (id: string) => void;
   onStopMatch: (id: string) => void;
   onTransfer: (id: string) => void;
-  onTogglePlayer: (courtId: string, playerId: string) => void;
-  onClearCourt: (id: string) => void;
+  onTogglePlayer: (court: string, player: string) => Promise<ActionResult>;
+  onClearCourt: (id: string) => Promise<ActionResult>;
+  onAssignPlayers: (id: string) => void;
 }
-
-const CourtCard: React.FC<CourtCardProps> = ({
+export default function CourtCard({
   court,
   players,
   currentTime,
   sessionStartTime,
+  disabled,
   onUpdateName,
   onRemove,
   onStartMatch,
@@ -34,254 +39,186 @@ const CourtCard: React.FC<CourtCardProps> = ({
   onStopMatch,
   onTransfer,
   onTogglePlayer,
-  onClearCourt
-}) => {
-  const { md } = Grid.useBreakpoint();
-  const isMobile = !md;
-
+  onClearCourt,
+  onAssignPlayers,
+}: Props) {
+  const [renaming, setRenaming] = useState(false);
+  const [name, setName] = useState(court.name);
+  const active = court.status === "active";
+  const count = court.players.filter(Boolean).length;
+  const ready = count === 4;
+  const odds = getMatchOdds(court.players, players);
   return (
-    <Card 
-      size="small"
-      title={
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontWeight: 600 }}>
-              <Text 
-                editable={{ 
-                  onChange: (val) => onUpdateName(court.id, val),
-                  icon: <EditOutlined style={{ color: '#8c8c8c' }} />,
-                  triggerType: ['icon', 'text']
-                }}
-                style={{ fontWeight: 600, fontSize: '14px', margin: 0 }}
-              >
-                {court.name}
-              </Text>
-            </span>
-            {court.players.length >= 2 && (() => {
-              const odds = getMatchOdds(court.players, players);
-              return odds && (
-                <Tag color={odds.color === 'success' ? 'green' : odds.color === 'error' ? 'red' : 'orange'} style={{ margin: 0, fontSize: '10px', lineHeight: '16px', padding: '0 6px', border: 'none' }}>
-                  {odds.text}
-                </Tag>
-              );
-            })()}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {court.status === 'active' && (
-              <Tag color="processing" icon={<ClockCircleOutlined />} style={{ margin: 0 }}>
-                {court.startTime ? formatMatchTime(Math.floor((currentTime - court.startTime)/1000)) : '00:00'}
-              </Tag>
-            )}
-            <Button 
-              type="text" 
-              size="small"
-              icon={<CloseOutlined />} 
-              onClick={() => onClearCourt(court.id)}
-              disabled={court.status === 'active' || court.players.every(p => p === null)}
-            />
-            <Button 
-              type="text" 
-              danger 
-              size="small"
-              icon={<DeleteOutlined />} 
-              onClick={() => onRemove(court.id)}
-              disabled={court.status === 'active'}
-            />
-          </div>
-        </div>
-      }
-      style={{ 
-        borderTop: `4px solid ${court.status === 'active' ? '#52c41a' : '#d9d9d9'}`,
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        width: '100%'
-      }}
-      styles={{ 
-        body: { 
-          flex: 1, 
-          display: 'flex', 
-          flexDirection: 'column', 
-          padding: '4px' 
-        } 
-      }}
+    <article
+      className={`${styles.courtCard} ${active ? styles.liveCourt : ""}`}
+      aria-label={court.name}
     >
-      {court.status === 'active' ? (
-        // Active Match View
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
-          <div style={{ marginBottom: 2 }}>
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: isMobile ? 4 : 8 }}>
-              {/* Team 1 */}
-              <div style={{ textAlign: 'right', flex: 1 }}>
-                {court.players.slice(0, Math.ceil(court.players.length/2)).map(pid => {
-                  const p = players.find(x => x.id === pid);
-                  return (
-                    <div key={pid} style={{ fontWeight: 600, marginBottom: 2, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-                      <span style={{ fontSize: isMobile ? '11px' : '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: isMobile ? '80px' : '120px' }}>{p?.name}</span>
-                      {p && <LevelTag level={p.level} style={{ transform: isMobile ? 'scale(0.8)' : 'scale(0.9)' }} />}
-                    </div>
-                  );
-                })}
-              </div>
-              
-              <div style={{ fontSize: '10px', color: '#999', fontWeight: 'bold', padding: '0 2px' }}>VS</div>
-              
-              {/* Team 2 */}
-              <div style={{ textAlign: 'left', flex: 1 }}>
-                {court.players.slice(Math.ceil(court.players.length/2)).map(pid => {
-                  const p = players.find(x => x.id === pid);
-                  return (
-                    <div key={pid} style={{ fontWeight: 600, marginBottom: 2, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 4 }}>
-                      {p && <LevelTag level={p.level} style={{ transform: isMobile ? 'scale(0.8)' : 'scale(0.9)' }} />}
-                      <span style={{ fontSize: isMobile ? '11px' : '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: isMobile ? '80px' : '120px' }}>{p?.name}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 4 }}>
-            <Button size="small" block icon={<SwapOutlined />} onClick={() => onTransfer(court.id)}>
-              Transfer
-            </Button>
-            <Button type="primary" size="small" block onClick={() => onFinishMatch(court.id)}>
-              Finish
-            </Button>
-            <Button danger size="small" block icon={<StopOutlined />} onClick={() => onStopMatch(court.id)}>
-              Stop
-            </Button>
-          </div>
+      <div className={styles.cardHeading}>
+        <div>
+          <span className={styles.eyebrow}>COURT</span>
+          <h3>{court.name}</h3>
         </div>
-      ) : (
-        // Idle / Setup View
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          <div style={{ flex: 1, marginBottom: 2 }}>
-            <div style={{ display: 'flex', gap: 4, marginBottom: 2 }}>
-               {/* Team 1 */}
-               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                 <Text type="secondary" style={{ fontSize: '9px', textAlign: 'center', marginBottom: -2 }}>Team 1</Text>
-                 {[0, 1].map(i => {
-                    const pid = court.players[i];
-                    const p = pid ? players.find(x => x.id === pid) : null;
-
-                    return (
-                       <div key={i} 
-                          style={{ 
-                             height: 22,
-                             background: p ? '#fff' : '#fafafa',
-                             border: p ? '1px solid #d9d9d9' : '1px dashed #d9d9d9',
-                             borderRadius: 4,
-                             display: 'flex',
-                             alignItems: 'center',
-                             padding: '0 4px',
-                             justifyContent: 'space-between',
-                             transition: 'all 0.2s'
-                          }}>
-                          {p ? (
-                            <>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden', flex: 1 }}>
-                                 <Text strong style={{ fontSize: '11px' }} ellipsis>{p.name}</Text>
-                              </div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                 <LevelTag level={p.level} style={{ transform: 'scale(0.7)', marginRight: -4 }} />
-                                 <CloseOutlined 
-                                    onClick={(e) => {
-                                       e.stopPropagation();
-                                       if (pid) onTogglePlayer(court.id, pid);
-                                    }}
-                                    style={{ fontSize: '9px', color: '#999', cursor: 'pointer', padding: 2 }}
-                                 />
-                              </div>
-                            </>
-                          ) : (
-                            <div style={{ width: '100%', textAlign: 'center' }}>
-                              <Text type="secondary" style={{ fontSize: '9px', color: '#d9d9d9' }}>
-                                 Empty
-                              </Text>
-                            </div>
-                          )}
-                       </div>
-                    );
-                 })}
-               </div>
-
-               {/* VS */}
-               <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', width: 12 }}>
-                  <div style={{ flex: 1, width: 1, background: '#f0f0f0' }} />
-                  <span style={{ fontSize: '9px', color: '#ccc', margin: '2px 0', fontWeight: 'bold' }}>VS</span>
-                  <div style={{ flex: 1, width: 1, background: '#f0f0f0' }} />
-               </div>
-
-               {/* Team 2 */}
-               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                 <Text type="secondary" style={{ fontSize: '9px', textAlign: 'center', marginBottom: -2 }}>Team 2</Text>
-                 {[2, 3].map(i => {
-                    const pid = court.players[i];
-                    const p = pid ? players.find(x => x.id === pid) : null;
-
-                    return (
-                       <div key={i} 
-                          style={{ 
-                             height: 22,
-                             background: p ? '#fff' : '#fafafa',
-                             border: p ? '1px solid #d9d9d9' : '1px dashed #d9d9d9',
-                             borderRadius: 4,
-                             display: 'flex',
-                             alignItems: 'center',
-                             padding: '0 4px',
-                             justifyContent: 'space-between',
-                             transition: 'all 0.2s'
-                          }}>
-                          {p ? (
-                            <>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden', flex: 1 }}>
-                                 <Text strong style={{ fontSize: '11px' }} ellipsis>{p.name}</Text>
-                              </div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                 <LevelTag level={p.level} style={{ transform: 'scale(0.7)', marginRight: -4 }} />
-                                 <CloseOutlined 
-                                    onClick={(e) => {
-                                       e.stopPropagation();
-                                       if (pid) onTogglePlayer(court.id, pid);
-                                    }}
-                                    style={{ fontSize: '9px', color: '#999', cursor: 'pointer', padding: 2 }}
-                                 />
-                              </div>
-                            </>
-                          ) : (
-                            <div style={{ width: '100%', textAlign: 'center' }}>
-                              <Text type="secondary" style={{ fontSize: '9px', color: '#d9d9d9' }}>
-                                 Empty
-                              </Text>
-                            </div>
-                          )}
-                       </div>
-                    );
-                 })}
-               </div>
-            </div>
-          </div>
-          <Tooltip title={
-            !sessionStartTime ? 'Start Session First' :
-            court.players.filter(Boolean).length !== 4 ? 'Strictly 2 vs 2 (Need 4 players)' :
-            undefined
-          }>
-            <div style={{ width: '100%' }}>
-              <Button 
-                type="primary" 
-                block 
-                size="small"
-                disabled={court.players.filter(Boolean).length !== 4 || !sessionStartTime}
-                onClick={() => onStartMatch(court.id)}
-              >
-                {sessionStartTime ? 'Start Match' : 'Start Session First'}
-              </Button>
-            </div>
-          </Tooltip>
+        <div className={styles.inline}>
+          <Tag
+            color={active ? "green" : ready ? "orange" : "default"}
+            icon={ready && !active ? <CaretRightFilled aria-hidden="true" /> : undefined}
+          >
+            {active ? "Playing" : ready ? "Ready" : "Needs players"}
+          </Tag>
+          <Dropdown
+            trigger={["click"]}
+            menu={{
+              items: [
+                {
+                  key: "rename",
+                  label: "Rename court",
+                  disabled,
+                  onClick: () => {
+                    setName(court.name);
+                    setRenaming(true);
+                  },
+                },
+                {
+                  key: "transfer",
+                  label: "Transfer players / match",
+                  disabled: disabled || !count,
+                  onClick: () => onTransfer(court.id),
+                },
+                {
+                  key: "clear",
+                  label: "Clear players",
+                  disabled: disabled || active || !count,
+                  onClick: () => {
+                    void onClearCourt(court.id);
+                  },
+                },
+                {
+                  key: "stop",
+                  label: "Stop match",
+                  danger: true,
+                  disabled: !active,
+                  onClick: () => onStopMatch(court.id),
+                },
+                {
+                  key: "remove",
+                  label: "Remove court",
+                  danger: true,
+                  disabled: disabled || active,
+                  onClick: () => {
+                    void onRemove(court.id);
+                  },
+                },
+              ],
+            }}
+          >
+            <Button
+              type="text"
+              aria-label={`Options for ${court.name}`}
+              icon={<MoreOutlined />}
+            />
+          </Dropdown>
         </div>
-      )}
-    </Card>
+      </div>
+      <div className={styles.teams}>
+        {[0, 1].map((team) => (
+          <div className={styles.team} key={team}>
+            <span className={styles.eyebrow}>TEAM {team + 1}</span>
+            {[0, 1].map((slot) => {
+              const id = court.players[team * 2 + slot];
+              const p = players.find((p) => p.id === id);
+              return (
+                <div className={styles.courtPlayer} key={slot}>
+                  {p ? (
+                    <>
+                      <span className={styles.playerInitial}>
+                        {p.name.charAt(0).toUpperCase()}
+                      </span>
+                      <div className={styles.playerIdentity}>
+                        <strong title={p.name}>{p.name}</strong>
+                        <small>{p.level}</small>
+                      </div>
+                      {!active && (
+                        <Button
+                          type="text"
+                          disabled={disabled}
+                          aria-label={`Remove ${p.name} from ${court.name}`}
+                          icon={<CloseOutlined />}
+                          onClick={() => {
+                            void onTogglePlayer(court.id, p.id);
+                          }}
+                        />
+                      )}
+                    </>
+                  ) : (
+                    <button
+                      className={styles.emptySlot}
+                      disabled={disabled}
+                      onClick={() => onAssignPlayers(court.id)}
+                    >
+                      + Add player
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      <div className={styles.courtFooter}>
+        <span className={active ? styles.timer : styles.muted}>
+          {active
+            ? formatMatchTime(
+                Math.max(
+                  0,
+                  Math.floor(
+                    (currentTime - (court.startTime ?? currentTime)) / 1000,
+                  ),
+                ),
+              )
+            : ready
+              ? (odds?.text ?? "Four players ready")
+              : `${count}/4 assigned`}
+        </span>
+        {active ? (
+          <Button
+            type="primary"
+            icon={<CheckOutlined aria-hidden="true" />}
+            onClick={() => onFinishMatch(court.id)}
+          >
+            Finish Match
+          </Button>
+        ) : ready ? (
+          <Button
+            color="orange"
+            variant="solid"
+            disabled={disabled || sessionStartTime === null}
+            icon={<CaretRightFilled aria-hidden="true" />}
+            onClick={() => {
+              void onStartMatch(court.id);
+            }}
+          >
+            {sessionStartTime === null ? "Start session first" : "Start Match"}
+          </Button>
+        ) : (
+          <Button disabled={disabled} onClick={() => onAssignPlayers(court.id)}>
+            Assign Players
+          </Button>
+        )}
+      </div>
+      <Modal
+        title="Rename court"
+        open={renaming}
+        onCancel={() => setRenaming(false)}
+        onOk={async () => {
+          if ((await onUpdateName(court.id, name)).ok) setRenaming(false);
+        }}
+      >
+        <Input
+          aria-label="Court name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </Modal>
+    </article>
   );
-};
-
-export default CourtCard;
+}

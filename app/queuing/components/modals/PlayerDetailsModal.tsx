@@ -1,11 +1,12 @@
 import React from 'react';
-import { Modal, Descriptions, Select, Radio, Space, Tabs, Statistic, Row, Col, Tag, Empty, Button } from 'antd';
+import { Button, Modal, Descriptions, Select, Radio, Space, Tabs, Statistic, Row, Col, Tag, Empty } from 'antd';
 import { ManOutlined, WomanOutlined, TrophyOutlined, FireOutlined } from '@ant-design/icons';
 import { Player, PlayerLevel, LEVEL_COLORS, MatchHistory } from '../../types';
 import { formatDuration } from '../../utils';
 import LevelTag from '../LevelTag';
 
 interface PlayerDetailsModalProps {
+  onOpenPayments: (id: string) => void;
   visible: boolean;
   onCancel: () => void;
   player: Player | undefined;
@@ -16,6 +17,7 @@ interface PlayerDetailsModalProps {
 }
 
 const PlayerDetailsModal: React.FC<PlayerDetailsModalProps> = ({
+  onOpenPayments,
   visible,
   onCancel,
   player,
@@ -42,6 +44,7 @@ const PlayerDetailsModal: React.FC<PlayerDetailsModalProps> = ({
       footer={null}
       width={600}
     >
+      <Button onClick={() => onOpenPayments(player.id)} style={{ marginBottom: 16 }}>Payments</Button>
       <Tabs
         defaultActiveKey="overview"
         items={[
@@ -155,7 +158,7 @@ const PlayerDetailsModal: React.FC<PlayerDetailsModalProps> = ({
                             </span>
                             <Tag style={{ margin: 0 }}>{formatDuration(item.duration)}</Tag>
                           </div>
-                          <div style={{ fontSize: '12px', color: '#666' }}>
+                          <div style={{ fontSize: '12px', color: "var(--ant-color-text-secondary)" }}>
                             <div style={{ marginBottom: 2 }}>
                               <span style={{ fontWeight: 500 }}>Team 1:</span> {item.players.filter(p => p.team === 1).map(p => p.name).join(', ')}
                             </div>

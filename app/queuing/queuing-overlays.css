@@ -1,0 +1,52 @@
+body[data-queue-density="compact"] {
+  --queue-dialog-pad: 20px;
+  --queue-dialog-size: 14px;
+}
+body[data-queue-density="comfortable"] {
+  --queue-dialog-pad: 28px;
+  --queue-dialog-size: 16px;
+}
+body[data-queue-density] .ant-modal-container {
+  padding: var(--queue-dialog-pad);
+  font-size: var(--queue-dialog-size);
+}
+body[data-queue-density] .ant-modal-body {
+  font-size: var(--queue-dialog-size);
+}
+body[data-queue-density] .ant-modal :focus-visible {
+  outline: 3px solid #059669;
+  outline-offset: 2px;
+}
+@media (pointer: coarse) {
+  body[data-queue-density] .ant-modal .ant-btn,
+  body[data-queue-density] .ant-modal .ant-input,
+  body[data-queue-density] .ant-modal .ant-select-selector,
+  body[data-queue-density] .ant-dropdown-menu-item,
+  body[data-queue-density] .ant-modal .ant-radio-button-wrapper,
+  body[data-queue-density] .ant-modal .ant-radio-wrapper {
+    min-height: 44px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  body[data-queue-density] .ant-modal * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@media (pointer: coarse) {
+  body[data-queue-density] .ant-popover .ant-btn,
+  body[data-queue-density] .ant-popover .ant-select,
+  body[data-queue-density] .ant-popover .ant-select-selector {
+    min-height: 44px;
+  }
+}
+
+/* The shared footer sits outside the session's ConfigProvider. */
+body:has([data-theme][data-mode="dark"]) .ant-layout-footer {
+  background: #101820 !important;
+  border-top: 1px solid #344352;
+}
+body:has([data-theme][data-mode="dark"]) .ant-layout-footer .ant-typography {
+  color: #a6b4c2;
+}
