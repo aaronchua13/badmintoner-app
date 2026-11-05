@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo } from "react";
-import { Button, Input, Select, Segmented, Popover } from "antd";
+import { Button, Input, Select, Segmented, Popover, Modal, Form } from "antd";
 import {
   SearchOutlined,
   SortAscendingOutlined,
@@ -30,6 +30,7 @@ interface Props {
   frozenTime: number | null;
   disabled: boolean;
   onToggleSelection: (court: string, player: string) => Promise<ActionResult>;
+  onRenamePlayer: (id: string, name: string) => Promise<ActionResult>;
   onViewPlayer: (id: string) => void;
   onRemovePlayer: (id: string) => Promise<ActionResult>;
   onToggleActive: (id: string) => Promise<ActionResult>;
@@ -39,6 +40,8 @@ interface Props {
   onAddPlayerToQueue: (queue: string, player: string) => Promise<ActionResult>;
 }
 export default function PlayerPanel(p: Props) {
+  const [renameId, setRenameId] = useState<string | null>(null);
+  const [renameForm] = Form.useForm<{ name: string }>();
   const { clockRef, ...f } = usePlayerFilters(p.players, p.sessionStartTime, p.frozenTime);
   const focusSearchAfterClose = useRef(false);
   const searchRef = useRef<InputRef>(null);
@@ -192,6 +195,10 @@ export default function PlayerPanel(p: Props) {
       </div>
       <PlayerList
         {...p}
+        onRenamePlayer={(id) => {
+          renameForm.setFieldsValue({ name: p.players.find((player) => player.id === id)?.name ?? "" });
+          setRenameId(id);
+        }}
         sortedPlayers={filtered}
         playerViewMode={f.playerViewMode}
         onAddToQueue={setAssignId}
@@ -204,6 +211,21 @@ export default function PlayerPanel(p: Props) {
           return result;
         }}
       />
+      <Modal
+        title="Rename player"
+        open={!!renameId}
+        onCancel={() => setRenameId(null)}
+        onOk={() => renameForm.submit()}
+        okText="Save name"
+      >
+        <Form form={renameForm} layout="vertical" onFinish={async ({ name }) => {
+          if (renameId && (await p.onRenamePlayer(renameId, name.trim())).ok) setRenameId(null);
+        }}>
+          <Form.Item name="name" label="Player name" rules={[{ required: true, whitespace: true, message: "Enter a player name" }]}>
+            <Input autoFocus maxLength={120} />
+          </Form.Item>
+        </Form>
+      </Modal>
       <AssignToQueueModal
         visible={!!assignId}
         onCancel={() => setAssignId(null)}

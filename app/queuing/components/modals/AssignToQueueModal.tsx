@@ -154,7 +154,7 @@ const AssignToQueueModal: React.FC<AssignToQueueModalProps> = ({
                             return (
                               <React.Fragment key={id}>
                                 {memberIndex > 0 && ", "}
-                                <span title={member?.level}>{member?.name ?? "Unknown player"}</span>
+                                <span className={styles.member}>{member?.name ?? "Unknown player"}{member && <LevelTag level={member.level} />}</span>
                               </React.Fragment>
                             );
                           }) : <Text type="secondary">Empty</Text>}

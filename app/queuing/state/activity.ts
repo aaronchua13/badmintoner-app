@@ -66,6 +66,7 @@ export function appendPlayerLogs(before: QueueData, after: QueueData, action: Co
       }
       if (old.isActive !== current.isActive)
         add(p, "availability", current.isActive ? "Marked available" : "Marked away");
+      if (old.name !== current.name) add(p, "profile", `Name changed: ${old.name} → ${current.name}`);
       if (old.level !== current.level) add(p, "profile", `Level changed: ${old.level} → ${current.level}`);
       if (old.gender !== current.gender) add(p, "profile", `Gender changed: ${old.gender} → ${current.gender}`);
     }

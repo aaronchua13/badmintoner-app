@@ -1154,3 +1154,25 @@ for (const width of [1024, 1180, 1366]) {
     await context.close();
   });
 }
+
+for (const width of [390, 1024]) for (const mode of ["light", "dark"]) {
+  test(`full level badges ${width}px ${mode}`, async ({ page }) => {
+    const levels = ["Beginner -", "Beginner", "Beginner +", "Intermediate -", "Intermediate", "Intermediate +", "Advanced -", "Advanced", "Advanced +"] as const;
+    const data = fixture(9);
+    data.players.forEach((p, i) => { p.level = levels[i]; });
+    await page.setViewportSize({ width, height: 844 });
+    await page.addInitScript(({ data, mode }) => {
+      localStorage.setItem("badminton_queue_data_v2", JSON.stringify({ data }));
+      localStorage.setItem("badminton_queue_appearance", JSON.stringify({ color: "emerald", mode }));
+    }, { data, mode });
+    await ready(page);
+    for (const level of levels) {
+      const badge = page.getByTestId("player-row").locator(`[data-level="${level}"]`);
+      await expect(badge).toBeVisible();
+      await expect(badge).toHaveText(level.replace(" -", " −"));
+      expect(await badge.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: `test-results/level-badges-${width}-${mode}.png` });
+  });
+}

@@ -34,6 +34,7 @@ import { useQueuingState } from "./hooks/useQueuingState";
 import PaymentsPanel, { PaymentTag } from "./components/PaymentsPanel";
 import { calculateBilling } from "./state/billing";
 import QueuingHeader from "./components/QueuingHeader";
+import LevelTag from "./components/LevelTag";
 import CourtCard from "./components/CourtCard";
 import PlayerPanel from "./components/PlayerPanel";
 import QueueTab from "./components/QueueTab";
@@ -399,11 +400,13 @@ export default function QueuingClient() {
         <main className={styles.content}>
           <div className={styles.pageHeading}>
             <div>
-              <p>
-                {players.length} players <span>·</span>{" "}
-                {courts.filter((c) => c.status === "active").length}/
-                {courts.length} courts playing <span>·</span>{" "}
-                {history.filter((h) => !h.isStopped).length} matches finished
+              <p className={styles.sessionStats}>
+                <span>{players.length} players</span>
+                <span>{courts.filter((c) => c.status === "active").length}/{courts.length} courts playing</span>
+                <span>{history.filter((h) => !h.isStopped).length} matches finished</span>
+                <span title="Completed games per player, averaged across the session roster">
+                  {players.length ? (players.reduce((total, player) => total + player.gamesPlayed, 0) / players.length).toFixed(1) : "0.0"} avg games/player
+                </span>
               </p>
             </div>
             <div className={styles.densityControl}>
@@ -518,6 +521,7 @@ export default function QueuingClient() {
                     sessionStartTime={sessionStartTime}
                     disabled={disabled}
                     onToggleSelection={(c, p) => toggleSelection(c, p)}
+                    onRenamePlayer={(id, name) => report(actions.renamePlayer(id, name))}
                     onViewPlayer={setPlayerId}
                     onRemovePlayer={(id) =>
                       confirm(
@@ -1033,7 +1037,13 @@ export default function QueuingClient() {
                 <div className={styles.queuePickerDetails}>
                 <strong>Match {index + 1} · {ids.length}/4 players</strong>
                 {[item.team1, item.team2].map((team, i) => (
-                  <p key={i}>Team {i + 1}: {team.map((id) => players.find((p) => p.id === id)?.name ?? "Unknown player").join(", ") || "Empty"}</p>
+                  <div key={i} className={styles.queuePickerTeam}>
+                    <span>Team {i + 1}:</span>
+                    {team.length ? team.map((id) => {
+                      const member = players.find((p) => p.id === id);
+                      return <span className={styles.queuePickerMember} key={id}><span>{member?.name ?? "Unknown player"}</span>{member && <LevelTag level={member.level} />}</span>;
+                    }) : "Empty"}
+                  </div>
                 ))}
                 {reason !== "Ready to assign" && <p className={styles.queuePickerReason}>{reason}</p>}
                 </div>

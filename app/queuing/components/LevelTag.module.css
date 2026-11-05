@@ -1,0 +1,46 @@
+.badge {
+  display: inline-block;
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 2px 5px;
+  border: 1px solid;
+  border-radius: 5px;
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 600;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  vertical-align: middle;
+}
+.badge[data-family="Beginner"] {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #86efac;
+}
+.badge[data-family="Intermediate"] {
+  background: #dbeafe;
+  color: #1e40af;
+  border-color: #93c5fd;
+}
+.badge[data-family="Advanced"] {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+
+/* Match the session's dark surfaces, including badges in portal dialogs. */
+:global(body:has([data-mode="dark"])) .badge[data-family="Beginner"] {
+  background: #19372c;
+  color: #86d7ac;
+  border-color: #315a46;
+}
+:global(body:has([data-mode="dark"])) .badge[data-family="Intermediate"] {
+  background: #1c3048;
+  color: #9cc4f4;
+  border-color: #354e6b;
+}
+:global(body:has([data-mode="dark"])) .badge[data-family="Advanced"] {
+  background: #3c282d;
+  color: #efa8ad;
+  border-color: #674048;
+}

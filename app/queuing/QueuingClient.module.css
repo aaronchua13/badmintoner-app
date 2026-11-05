@@ -1145,7 +1145,7 @@
 @media (min-width: 1000px) and (max-width: 1399px) {
   .rosterColumns,
   .playerRows .playerRow {
-    grid-template-columns: minmax(90px, 1fr) 82px 80px 62px 48px 60px 144px;
+    grid-template-columns: minmax(90px, 1fr) 100px 80px 62px 48px 60px 144px;
   }
   .playerRows .rowActions :global(.ant-btn) {
     font-size: 14px;
@@ -1441,7 +1441,7 @@
   }
   .rosterColumns,
   .playerRows .playerRow {
-    grid-template-columns: minmax(95px, 1fr) 75px 75px 60px 40px 58px 135px;
+    grid-template-columns: minmax(95px, 1fr) 100px 75px 60px 40px 58px 135px;
     gap: 6px;
   }
   .rosterColumns {
@@ -1452,7 +1452,7 @@
   }
   .rosterControls,
   .playerRows {
-    min-width: 600px;
+    min-width: 625px;
   }
   .rosterControls {
     top: 0;
@@ -1569,4 +1569,45 @@
     padding: 8px;
     gap: 8px;
   }
+}
+
+.pageHeading .sessionStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.pageHeading .sessionStats > span {
+  padding: 0;
+  white-space: nowrap;
+}
+.pageHeading .sessionStats > span + span::before {
+  content: "·";
+  margin-inline-end: 12px;
+}
+
+/* Full-name level badges wrap without squeezing out player names. */
+.layout[data-density="compact"] .queuePlayer > span {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+.layout[data-density="compact"] .queueLevel {
+  flex-shrink: 1;
+  min-width: 0;
+}
+.queuePickerTeam {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin-top: 4px;
+}
+.queuePickerMember {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 3px 5px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }

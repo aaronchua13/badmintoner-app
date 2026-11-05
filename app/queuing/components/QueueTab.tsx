@@ -1,3 +1,4 @@
+import LevelTag from "./LevelTag";
 import React from "react";
 import { Button, Dropdown, Tag } from "antd";
 import {
@@ -123,7 +124,7 @@ function QueueRow({
                 <span>
                   <span>{p.players.find((p) => p.id === id)?.name}</span>
                   <small className={styles.queueLevel}>
-                    {p.players.find((p) => p.id === id)?.level}
+                    {p.players.find((p) => p.id === id) && <LevelTag level={p.players.find((p) => p.id === id)!.level} />}
                     {p.players.find((p) => p.id === id)?.isPlaying && " · Playing"}
                   </small>
                 </span>

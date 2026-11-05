@@ -51,6 +51,7 @@ export type Command =
         | "removePlayersFromQueue";
       id: string;
     }
+  | { type: "renamePlayer"; id: string; name: string }
   | { type: "updateCourtName"; id: string; name: string }
   | { type: "updatePlayerLevel"; id: string; level: PlayerLevel }
   | { type: "updatePlayerGender"; id: string; gender: Gender }
@@ -417,6 +418,12 @@ export function transitionValidated(before: QueueData, action: Command, now: num
       player(action.id).isActive = !player(action.id).isActive;
       if (!player(action.id).isActive) removeAssignments(action.id);
       break;
+    case "renamePlayer": {
+      editable();
+      const values = playerInput.pick({ name: true }).parse({ name: action.name.trim() });
+      player(action.id).name = values.name;
+      break;
+    }
     case "updatePlayerLevel":
       editable();
       player(action.id).level = action.level;
