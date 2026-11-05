@@ -506,6 +506,14 @@ test("long queue, courts and roster scroll independently and the first match ass
   await expect(
     page.getByRole("textbox", { name: "Search players" }),
   ).toBeInViewport();
+  const expandedCourtHeight = (await courts.boundingBox())!.height;
+  await page.getByRole("button", { name: "Hide", exact: true }).click();
+  await expect(page.locator("#up-next-content")).toBeHidden();
+  await expect(queue.getByRole("heading", { name: /^Up next/ })).toBeVisible();
+  expect((await courts.boundingBox())!.height).toBeGreaterThan(expandedCourtHeight);
+  await queue.getByRole("button", { name: "Expand", exact: true }).click();
+  await expect(page.locator("#up-next-content")).toBeVisible();
+  await expect(page.getByRole("article", { name: /^Queued match/ })).toHaveCount(12);
   const courtHeight = (await courts.boundingBox())!.height;
   await page.getByRole("button", { name: "Minimize", exact: true }).click();
   await expect(page.locator("#up-next-content")).toBeVisible();

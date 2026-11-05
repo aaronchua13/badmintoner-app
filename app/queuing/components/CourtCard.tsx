@@ -176,14 +176,16 @@ export default function CourtCard({
           </div>
         ))}
       </div>
-      <Button disabled={disabled || !count} onClick={() => onChangeTeams(court.id)}>
-        Change teams
-      </Button>
-      {!active && count === 0 && (
-        <Button disabled={disabled} onClick={() => onAssignFromQueue(court.id)}>
-          Assign from queue
+      <div className={styles.courtActions}>
+        <Button disabled={disabled || !count} onClick={() => onChangeTeams(court.id)}>
+          Change teams
         </Button>
-      )}
+        {!active && count === 0 && (
+          <Button disabled={disabled} onClick={() => onAssignFromQueue(court.id)}>
+            Assign from queue
+          </Button>
+        )}
+      </div>
       <div className={styles.courtFooter}>
         <span className={active ? styles.timer : styles.muted}>
           {active

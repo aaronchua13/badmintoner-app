@@ -90,7 +90,7 @@ export default function PlayerList(p: Props) {
               </span>
               <span className={styles.playerIdentity}>
                 <strong title={player.name}>
-                  <span className={styles.genderIcon} role="img" aria-label={player.gender} title={player.gender}>
+                  <span className={styles.genderIcon} data-gender={player.gender} role="img" aria-label={player.gender} title={player.gender}>
                     {player.gender === "Female" ? <WomanOutlined aria-hidden="true" /> : <ManOutlined aria-hidden="true" />}
                   </span>
                   {player.name}

@@ -106,6 +106,7 @@ export default function QueuingClient() {
   const activeDensity = densityFallback ?? density;
   const [view, setView] = useState<View>("players");
   const [queueMinimized, setQueueMinimized] = useState(true);
+  const [queueHidden, setQueueHidden] = useState(false);
   const [tabletView, setTabletView] = useState<"queue" | "courts">("queue");
   const scroll = useRef<Record<View, number>>({
     courts: 0,
@@ -558,7 +559,8 @@ export default function QueuingClient() {
                   className={styles.sidebar}
                   aria-label="Queue and courts"
                   data-has-queue={queue.length > 0}
-                  data-queue-minimized={queueMinimized}
+                  data-queue-minimized={queueMinimized || queueHidden}
+                  data-queue-hidden={queueHidden}
                 >
                   <div className={styles.tabletTabs}>
                     <Segmented
@@ -588,19 +590,33 @@ export default function QueuingClient() {
                         <p>Line up the next good game.</p>
                       </div>
                       <div className={styles.inline}>
-                        {queue.length > 0 && (
+                        {(queue.length > 0 || queueHidden) && (
                           <Button
-                            aria-expanded={!queueMinimized}
+                            aria-expanded={!queueMinimized && !queueHidden}
                             aria-controls="up-next-content"
-                            onClick={() => setQueueMinimized((value) => !value)}
+                            onClick={() => {
+                              setQueueHidden(false);
+                              setQueueMinimized(queueHidden ? false : !queueMinimized);
+                            }}
                           >
-                            {queueMinimized ? "Expand" : "Minimize"}
+                            {queueHidden || queueMinimized ? "Expand" : "Minimize"}
+                          </Button>
+                        )}
+                        {queue.length > 0 && !queueHidden && (
+                          <Button
+                            aria-controls="up-next-content"
+                            aria-expanded={false}
+                            onClick={() => { setQueueHidden(true); setQueueMinimized(true); }}
+                          >
+                            Hide
                           </Button>
                         )}
                         <Button
+                          className={styles.createMatchButton}
                           disabled={disabled}
                           icon={<PlusOutlined aria-hidden="true" />}
                           onClick={async () => {
+                            setQueueHidden(false);
                             setQueueMinimized(false);
                             if ((await report(actions.createQueueItem())).ok)
                               toast.success(
@@ -612,7 +628,7 @@ export default function QueuingClient() {
                         </Button>
                       </div>
                     </div>
-                    <div id="up-next-content">
+                    <div id="up-next-content" hidden={queueHidden}>
                       <QueueTab
                         onChangeTeams={(id) => {
                           const item = queue.find((q) => q.id === id)!;
@@ -735,7 +751,7 @@ export default function QueuingClient() {
                               "Move all to queue",
                               async () => {
                                 const result = await report(actions.moveCourtToQueue(id, original));
-                                if (result.ok) setQueueMinimized(false);
+                                if (result.ok) { setQueueHidden(false); setQueueMinimized(false); }
                                 return result;
                               },
                             );

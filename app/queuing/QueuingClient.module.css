@@ -1073,10 +1073,6 @@
   .sidebar .sectionHeading {
     flex-wrap: wrap;
   }
-  .sidebar[data-queue-minimized="true"] .queueSection .sectionHeading {
-    margin-bottom: 0;
-    padding-bottom: 0;
-  }
 }
 @media (pointer: fine) {
   .layout[data-density="compact"] .courtCard :global(.ant-btn),
@@ -1478,4 +1474,58 @@
   color: var(--muted);
   font-size: 13px;
   vertical-align: baseline;
+}
+
+.genderIcon[data-gender="Male"] {
+  color: #2563eb;
+}
+.genderIcon[data-gender="Female"] {
+  color: #db2777;
+}
+.layout[data-mode="dark"] .genderIcon[data-gender="Male"] {
+  color: #93c5fd;
+}
+.layout[data-mode="dark"] .genderIcon[data-gender="Female"] {
+  color: #f9a8d4;
+}
+
+/* Use the same heading spacing for courts and the queue, including wrapped actions. */
+.sidebar .courtsSection .sectionHeading,
+.sidebar .queueSection .sectionHeading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space);
+  margin: 0;
+  padding: 0 0 var(--space);
+}
+.sidebar .courtsSection .sectionHeading > .inline,
+.sidebar .queueSection .sectionHeading > .inline {
+  gap: 8px;
+}
+
+/* Hidden queue retains a small, usable summary while courts reclaim the space. */
+.sidebar[data-queue-hidden="true"] .queueSection .sectionHeading {
+  padding-bottom: 0;
+}
+.sidebar[data-queue-hidden="true"] .queueSection .sectionHeading h2 {
+  margin-bottom: 0;
+}
+.sidebar[data-queue-hidden="true"] .queueSection .sectionHeading p,
+.sidebar[data-queue-hidden="true"] .createMatchButton {
+  display: none;
+}
+
+.courtActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.teams + .courtActions {
+  margin-top: var(--space);
+}
+.sidebar .teams:not(:has(.playerIdentity)) + .courtActions {
+  margin-top: 0;
 }
