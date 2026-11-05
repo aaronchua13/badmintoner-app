@@ -89,6 +89,7 @@ export type Command =
       playerId: string;
     }
   | { type: "moveQueueItem"; id: string; beforeId: string | null }
+  | { type: "moveCourtToQueue"; courtId: string; queueId: string; players: (string | null)[] }
   | { type: "assignQueueToCourt"; queueId: string; courtId: string }
   | { type: "importSession"; data: QueueData; revision: number };
 export const queueSlots = (q: QueueItem) => [
@@ -347,6 +348,22 @@ export function transition(
         if (c.id === action.id) c.removedAt = now;
       });
       break;
+    case "moveCourtToQueue": {
+      editable();
+      const c = court(action.courtId);
+      requireCondition(c.status === "idle", "Cannot move a running match to queue");
+      requireCondition(c.players.some(Boolean), "This court has no players");
+      requireCondition(JSON.stringify(c.players) === JSON.stringify(action.players), "Court lineup changed; try again");
+      requireCondition(!s.queue.some((q) => q.id === action.queueId), "Queue already exists");
+      s.queue.push({
+        id: action.queueId,
+        team1: c.players.slice(0, 2).filter((id): id is string => id !== null),
+        team2: c.players.slice(2, 4).filter((id): id is string => id !== null),
+        createdAt: now,
+      });
+      c.players = [null, null, null, null];
+      break;
+    }
     case "clearCourt":
       editable();
       requireCondition(

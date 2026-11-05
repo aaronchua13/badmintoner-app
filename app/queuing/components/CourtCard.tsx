@@ -25,6 +25,8 @@ interface Props {
   onTransfer: (id: string) => void;
   onTogglePlayer: (court: string, player: string) => Promise<ActionResult>;
   onClearCourt: (id: string) => Promise<ActionResult>;
+  onMoveToQueue: (id: string) => Promise<ActionResult>;
+  onAssignFromQueue: (id: string) => void;
   onAssignPlayers: (id: string) => void;
 }
 export default function CourtCard({
@@ -42,6 +44,8 @@ export default function CourtCard({
   onTogglePlayer,
   onClearCourt,
   onAssignPlayers,
+  onMoveToQueue,
+  onAssignFromQueue,
   onChangeTeams,
 }: Props) {
   const [renaming, setRenaming] = useState(false);
@@ -85,6 +89,12 @@ export default function CourtCard({
                   label: "Transfer players / match",
                   disabled: disabled || !count,
                   onClick: () => onTransfer(court.id),
+                },
+                {
+                  key: "queue",
+                  label: "Move all to queue",
+                  disabled: disabled || active || !count,
+                  onClick: () => { void onMoveToQueue(court.id); },
                 },
                 {
                   key: "clear",
@@ -169,6 +179,11 @@ export default function CourtCard({
       <Button disabled={disabled || !count} onClick={() => onChangeTeams(court.id)}>
         Change teams
       </Button>
+      {!active && count === 0 && (
+        <Button disabled={disabled} onClick={() => onAssignFromQueue(court.id)}>
+          Assign from queue
+        </Button>
+      )}
       <div className={styles.courtFooter}>
         <span className={active ? styles.timer : styles.muted}>
           {active

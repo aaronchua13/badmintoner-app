@@ -168,6 +168,7 @@ export default function QueuingClient() {
   const [transferCourt, setTransferCourt] = useState<Court | undefined>();
   const [transferId, setTransferId] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
+  const [queueCourtId, setQueueCourtId] = useState<string | null>(null);
   const [assignId, setAssignId] = useState<string | null>(null);
   const [addPlayerMode, setAddPlayerMode] = useState<"close" | "keep">("close");
   const [addPlayerForm] = Form.useForm();
@@ -725,6 +726,20 @@ export default function QueuingClient() {
                               () => report(actions.clearCourt(id)),
                             )
                           }
+                          onAssignFromQueue={setQueueCourtId}
+                          onMoveToQueue={(id) => {
+                            const original = [...court.players];
+                            return confirm(
+                              `Move all players from ${courtName(id)} to queue?`,
+                              "The lineup will be added to the end of Up next, keeping both teams. The court will be empty.",
+                              "Move all to queue",
+                              async () => {
+                                const result = await report(actions.moveCourtToQueue(id, original));
+                                if (result.ok) setQueueMinimized(false);
+                                return result;
+                              },
+                            );
+                          }}
                           onAssignPlayers={setAssignId}
                         />
                       ))}
@@ -970,6 +985,41 @@ export default function QueuingClient() {
             return success;
           }}
         />
+        <Modal
+          title={`Assign from queue · ${courts.find((c) => c.id === queueCourtId)?.name ?? "Court"}`}
+          open={!!queueCourtId}
+          onCancel={() => setQueueCourtId(null)}
+          footer={<Button onClick={() => setQueueCourtId(null)}>Cancel</Button>}
+        >
+          {!queue.length && <p>No queued matches. Create a match in Up next first.</p>}
+          {queue.map((item, index) => {
+            const ids = [...item.team1, ...item.team2];
+            const unavailable = ids.filter((id) => {
+              const p = players.find((p) => p.id === id);
+              return !p || !isCheckedIn(p) || !p.isActive || p.isPlaying || courts.some((c) => c.players.includes(id));
+            });
+            const target = courts.find((c) => c.id === queueCourtId);
+            const reason = !ids.length ? "No players assigned" : unavailable.length
+              ? `Unavailable: ${unavailable.map((id) => players.find((p) => p.id === id)?.name ?? "Unknown player").join(", ")}. Players must be checked in, active, and free of court assignments.`
+              : "Ready to assign";
+            return (
+              <section key={item.id} aria-label={`Queue option ${index + 1}`}>
+                <strong>Match {index + 1} · {ids.length}/4 players</strong>
+                {[item.team1, item.team2].map((team, i) => (
+                  <p key={i}>Team {i + 1}: {team.map((id) => players.find((p) => p.id === id)?.name ?? "Unknown player").join(", ") || "Empty"}</p>
+                ))}
+                <p>{reason}</p>
+                <Button
+                  disabled={disabled || !ids.length || !!unavailable.length || !target || target.status !== "idle" || target.players.some(Boolean)}
+                  onClick={async () => {
+                    if (queueCourtId && (await report(actions.assignQueueToCourt(item.id, queueCourtId))).ok)
+                      setQueueCourtId(null);
+                  }}
+                >Assign match {index + 1}</Button>
+              </section>
+            );
+          })}
+        </Modal>
         <Modal
           title={`Assign players · ${assignedCourt?.name ?? "Court"}`}
           open={!!assignId}

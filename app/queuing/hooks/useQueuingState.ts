@@ -170,6 +170,8 @@ export const useQueuingState = () => {
           beforeId: items[to]?.id ?? null,
         });
       },
+      moveCourtToQueue: (courtId: string, players: (string | null)[]) =>
+        dispatch({ type: "moveCourtToQueue", courtId, queueId: crypto.randomUUID(), players }),
       assignQueueToCourt: (queueId: string, courtId: string) =>
         dispatch({ type: "assignQueueToCourt", queueId, courtId }),
       populateDummyPlayers: async (levels: PlayerLevel[]) => {
