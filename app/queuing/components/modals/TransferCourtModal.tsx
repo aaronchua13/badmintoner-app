@@ -1,5 +1,5 @@
 import { useHydrated } from '../../hooks/useHydrated';
-import React from "react";
+import React, { useState } from "react";
 import { Modal, Select, Form, Alert } from "antd";
 import { SwapOutlined } from "@ant-design/icons";
 import { Court } from "../../types";
@@ -22,6 +22,8 @@ const TransferCourtModal: React.FC<TransferCourtModalProps> = ({
 }) => {
   const hydrated = useHydrated();
   const [form] = Form.useForm();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
   // Filter valid target courts:
   // 1. Not the current court
@@ -38,7 +40,16 @@ const TransferCourtModal: React.FC<TransferCourtModalProps> = ({
     form
       .validateFields()
       .then(async (values) => {
-        if ((await onTransfer(values.targetCourtId)).ok) form.resetFields();
+        setPending(true);
+        try {
+          const result = await onTransfer(values.targetCourtId);
+          if (result.ok) {
+            form.resetFields();
+            setError(null);
+          } else setError(result.error);
+        } finally {
+          setPending(false);
+        }
       })
       .catch(() => {
         /* Field errors remain visible in the form. */
@@ -47,6 +58,7 @@ const TransferCourtModal: React.FC<TransferCourtModalProps> = ({
 
   const handleCancel = () => {
     form.resetFields();
+    setError(null);
     onCancel();
   };
 
@@ -57,12 +69,18 @@ const TransferCourtModal: React.FC<TransferCourtModalProps> = ({
       open={visible}
       onOk={handleOk}
       onCancel={handleCancel}
+      confirmLoading={pending}
+      cancelButtonProps={{ disabled: pending }}
+      closable={!pending}
+      maskClosable={!pending}
+      keyboard={!pending}
       okText="Transfer"
       okButtonProps={{
         icon: <SwapOutlined />,
-        disabled: targetCourts.length === 0,
+        disabled: pending || targetCourts.length === 0,
       }}
     >
+      {error && <Alert type="error" showIcon title={error} />}
       <div style={{ marginBottom: 16 }}>
         Transferring from <strong>{currentCourt?.name ?? "Court"}</strong>
       </div>

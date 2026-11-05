@@ -25,7 +25,7 @@ import {
   AppstoreOutlined,
   OrderedListOutlined,
 } from "@ant-design/icons";
-import { Gender, PlayerLevel, isCheckedIn } from "./types";
+import { Court, Gender, PlayerLevel, isCheckedIn } from "./types";
 import { ActionResult } from "./state/model";
 import { useConfirmation } from "./hooks/useConfirmation";
 import { parseSession, errorText } from "./state/model";
@@ -38,6 +38,9 @@ import PlayerPanel from "./components/PlayerPanel";
 import QueueTab from "./components/QueueTab";
 import AddPlayerModal from "./components/modals/AddPlayerModal";
 import AddCourtModal from "./components/modals/AddCourtModal";
+import ChangeTeamsModal from "./components/modals/ChangeTeamsModal";
+import { isWaitingPlayer } from "./utils";
+import { queueSlots, TeamSlots } from "./state/transitions";
 import FinishMatchModal from "./components/modals/FinishMatchModal";
 import StopMatchModal from "./components/modals/StopMatchModal";
 import TransferCourtModal from "./components/modals/TransferCourtModal";
@@ -155,8 +158,14 @@ export default function QueuingClient() {
     | null
   >(null);
   const dialogMatchTime = useRef<number | null>(null);
+  const [teamEditor, setTeamEditor] = useState<{
+    kind: "court" | "queue"; id: string; title: string; original: TeamSlots;
+    status: "idle" | "active"; startTime: number | null;
+  } | null>(null);
+  const [finishCourt, setFinishCourt] = useState<Court | undefined>();
   const [finishId, setFinishId] = useState<string | null>(null);
   const [stopId, setStopId] = useState<string | null>(null);
+  const [transferCourt, setTransferCourt] = useState<Court | undefined>();
   const [transferId, setTransferId] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [assignId, setAssignId] = useState<string | null>(null);
@@ -374,7 +383,7 @@ export default function QueuingClient() {
             }
             const result = await confirm(
               "Replace the current session?",
-              "Importing replaces the current players, courts, queue, results, session statistics, expenses, and payments. Export the current session first if you need a copy.",
+              "Importing replaces the current players, courts, queue, results, player logs, session statistics, expenses, and payments. Export the current session first if you need a copy.",
               "Replace session",
               () => report(actions.importSession(text)),
             );
@@ -454,7 +463,7 @@ export default function QueuingClient() {
                             {
                               players.filter(
                                 (p) =>
-                                  isCheckedIn(p) && p.isActive && !p.isPlaying,
+                                  isWaitingPlayer(p, courts, queue),
                               ).length
                             }{" "}
                             waiting ·{" "}
@@ -604,6 +613,10 @@ export default function QueuingClient() {
                     </div>
                     <div id="up-next-content">
                       <QueueTab
+                        onChangeTeams={(id) => {
+                          const item = queue.find((q) => q.id === id)!;
+                          setTeamEditor({ kind: "queue", id, title: `Match ${queue.indexOf(item) + 1}`, original: queueSlots(item) as TeamSlots, status: "idle", startTime: null });
+                        }}
                         minimized={queueMinimized}
                         queue={queue}
                         players={players}
@@ -667,6 +680,7 @@ export default function QueuingClient() {
                     <div className={styles.courtsGrid}>
                       {courts.map((court) => (
                         <CourtCard
+                          onChangeTeams={() => setTeamEditor({ kind: "court", id: court.id, title: court.name, original: [...court.players] as TeamSlots, status: court.status, startTime: court.startTime })}
                           key={court.id}
                           court={court}
                           players={players}
@@ -689,6 +703,8 @@ export default function QueuingClient() {
                           onStartMatch={(id) => report(actions.startMatch(id))}
                           onFinishMatch={(id) => {
                             dialogMatchTime.current = court.startTime;
+                            finishForm.resetFields();
+                            setFinishCourt(structuredClone(court));
                             setFinishId(id);
                           }}
                           onStopMatch={(id) => {
@@ -697,6 +713,7 @@ export default function QueuingClient() {
                           }}
                           onTransfer={(id) => {
                             dialogMatchTime.current = court.startTime;
+                            setTransferCourt(structuredClone(court));
                             setTransferId(id);
                           }}
                           onTogglePlayer={(c, p) => toggleSelection(c, p)}
@@ -788,11 +805,33 @@ export default function QueuingClient() {
             }
           }}
         />
+        {teamEditor && (
+          <ChangeTeamsModal
+            title={teamEditor.title}
+            courts={courts}
+            queue={queue}
+            original={teamEditor.original}
+            active={teamEditor.status === "active"}
+            queued={teamEditor.kind === "queue"}
+            players={players}
+            disabled={disabled}
+            onCancel={() => setTeamEditor(null)}
+            onSave={(lineup) => {
+              const change = { original: teamEditor.original, players: lineup };
+              return teamEditor.kind === "court"
+                ? actions.changeCourtTeams(teamEditor.id, change, teamEditor.status, teamEditor.startTime)
+                : actions.changeQueueTeams(teamEditor.id, change);
+            }}
+          />
+        )}
         <FinishMatchModal
           visible={!!finishId}
-          onCancel={() => setFinishId(null)}
+          onCancel={() => {
+            finishForm.resetFields();
+            setFinishId(null);
+          }}
           form={finishForm}
-          court={courts.find((c) => c.id === finishId)}
+          court={finishCourt}
           players={players}
           onFinish={async (values) => {
             if (
@@ -803,6 +842,7 @@ export default function QueuingClient() {
                     finishId,
                     values,
                     dialogMatchTime.current,
+                    finishCourt?.players,
                   ),
                 )
               ).ok
@@ -839,15 +879,15 @@ export default function QueuingClient() {
           visible={!!transferId}
           onCancel={() => setTransferId(null)}
           courts={courts}
-          currentCourt={courts.find((c) => c.id === transferId)}
+          currentCourt={transferCourt}
           onTransfer={async (target) => {
-            if (!transferId)
+            if (!transferId || !transferCourt)
               return { ok: false, error: "Select a court first" };
             const result = await report(
               actions.transferMatch(
                 transferId,
                 target,
-                dialogMatchTime.current,
+                transferCourt,
               ),
             );
             if (result.ok) setTransferId(null);
@@ -871,9 +911,7 @@ export default function QueuingClient() {
           visible={modal === "summary"}
           onClose={close}
           sessionStartTime={sessionStartTime}
-          sessionEndTime={
-            sessionEndTime ?? (sessionStatus === "active" ? currentTime : null)
-          }
+          sessionEndTime={sessionEndTime}
           currentTime={effectiveTime}
           players={players}
           courts={courts}
@@ -899,6 +937,9 @@ export default function QueuingClient() {
           visible={!!playerId}
           onCancel={() => setPlayerId(null)}
           player={players.find((p) => p.id === playerId)}
+          playerLogs={state.playerLogs}
+          sessionStartTime={sessionStartTime}
+          currentTime={effectiveTime}
           players={players}
           history={history}
           onUpdateLevel={(id, level) => {
@@ -991,7 +1032,7 @@ export default function QueuingClient() {
               {
                 title: "Line up matches",
                 description:
-                  "Create a match in Up next. Use Queue on each player to add them, then assign the match to an empty court.",
+                  "Create a match in Up next. Use Queue on each player, even while they are playing. Assign the upcoming match to an empty court once everyone is available.",
               },
               {
                 title: "Play and record",

@@ -4,8 +4,9 @@ import { MoreOutlined } from "@ant-design/icons";
 import { Player, Court, QueueItem, isCheckedIn } from "../types";
 import { ActionResult } from "../state/model";
 import {
+  canQueuePlayer,
   getWaitTime,
-  getWaitDuration,
+  getTotalIdleTime,
   formatDuration,
   getCurrentWaitDuration,
   getWaitPriority,
@@ -114,15 +115,7 @@ export default function PlayerList(p: Props) {
             <span className={styles.playerStat} data-label="Total idle">
               <strong>
                 {formatDuration(
-                  player.totalIdleTime +
-                    Math.max(
-                      0,
-                      getWaitDuration(
-                        player,
-                        p.sessionStartTime,
-                        p.currentTime,
-                      ),
-                    ),
+                  getTotalIdleTime(player, p.sessionStartTime, p.currentTime),
                 )}
               </strong>
               <small>total idle</small>
@@ -139,7 +132,7 @@ export default function PlayerList(p: Props) {
               {!present
                 ? "Not arrived"
                 : player.isPlaying
-                  ? "Playing"
+                  ? queued ? "Playing · Queued" : "Playing"
                   : queued
                     ? "Queued"
                     : !player.isActive
@@ -162,7 +155,7 @@ export default function PlayerList(p: Props) {
               ) : (
                 <>
                   <Button
-                    disabled={p.disabled || !available || !!court}
+                    disabled={p.disabled || !canQueuePlayer(player, p.courts, p.queue)}
                     onClick={() => p.onAddToQueue(player.id)}
                   >
                     Queue

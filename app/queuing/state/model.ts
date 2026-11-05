@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { playerLogSchema, type PlayerLog } from "./activity";
 import {
   Billing,
   billingSchema,
@@ -20,6 +21,7 @@ import {
 export interface QueueData {
   schemaVersion?: number;
   billing: Billing;
+  playerLogs: PlayerLog[];
   sessionStartTime: number | null;
   sessionEndTime: number | null;
   sessionStatus: "idle" | "active" | "ended";
@@ -34,8 +36,9 @@ export type ActionResult =
   | { ok: true; id?: string }
   | { ok: false; error: string };
 export const initialSession = (now: number): QueueData => ({
-  schemaVersion: 3,
+  schemaVersion: 4,
   billing: emptyBilling(),
+  playerLogs: [],
   sessionStartTime: null,
   sessionEndTime: null,
   sessionStatus: "idle",
@@ -115,8 +118,9 @@ const historySchema = z
   })
   .refine((h) => h.endTime >= h.startTime, "Match ends before it starts");
 const sessionSchema = z.object({
-  schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
+  schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).optional(),
   billing: billingSchema.optional(),
+  playerLogs: z.array(playerLogSchema).optional(),
   sessionStartTime: time.nullable().default(null),
   sessionEndTime: time.nullable().default(null),
   sessionStatus: z.enum(["idle", "active", "ended"]).optional(),
@@ -148,12 +152,18 @@ const sessionSchema = z.object({
 });
 export function parseSession(input: unknown): QueueData {
   const s = sessionSchema.parse(input);
-  if ((s.schemaVersion === 2 || s.schemaVersion === 3) && !s.billing)
+  if ((s.schemaVersion !== undefined && s.schemaVersion >= 2) && !s.billing)
     throw new Error("Sessions version 2 and newer require payment data");
+  if (s.schemaVersion === 4 && !s.playerLogs)
+    throw new Error("Sessions version 4 require player logs");
+  const logs = s.playerLogs ?? [];
+  if (logs.some((entry, index) => index > 0 && entry.id <= logs[index - 1].id))
+    throw new Error("Player log IDs must be unique and in recording order");
   const data: QueueData = {
     ...s,
-    schemaVersion: 3,
+    schemaVersion: 4,
     billing: s.billing ?? emptyBilling(),
+    playerLogs: logs,
     autoAssignQueue: false,
     players: s.players.map((p) => ({
       ...p,
@@ -203,15 +213,17 @@ export function parseSession(input: unknown): QueueData {
       if (c.status === "active") playing.add(id);
     }
   }
+  const queued = new Set<string>();
   for (const q of data.queue)
     for (const id of [...q.team1, ...q.team2]) {
       if (
         !playerMap.get(id)?.isActive ||
         playerMap.get(id)?.checkedInAt === null ||
-        assigned.has(id)
+        (assigned.has(id) && !playing.has(id)) ||
+        queued.has(id)
       )
         throw new Error("Invalid or duplicate queued player");
-      assigned.add(id);
+      queued.add(id);
     }
   if (data.players.some((p) => p.isPlaying !== playing.has(p.id)))
     throw new Error("Player and court playing states disagree");
@@ -227,7 +239,7 @@ export function parseSession(input: unknown): QueueData {
     throw new Error("Invalid session end time");
   if (data.sessionStatus !== "active" && playing.size)
     throw new Error("Running matches require an active session");
-  if (s.schemaVersion !== 3 && s.billing) migrateManualBilling(data);
+  if ((s.schemaVersion ?? 1) < 3 && s.billing) migrateManualBilling(data);
   if (
     Object.values(data.billing.arrangements).some(
       (a) => a.kind === "shared" && a.adjustment !== "fixed",

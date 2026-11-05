@@ -225,6 +225,7 @@ describe("manual billing and independent calculator", () => {
     s = run(s, {
       type: "saveReceipt",
       editing: true,
+      original: structuredClone(s.billing.receipts[1]),
       values: { ...s.billing.receipts[1], amount: 80000, note: "Correction" },
     });
     expect(calculateBilling(s).rows[0].credit).toBe(5000);
@@ -303,7 +304,7 @@ describe("manual billing and independent calculator", () => {
         };
       }
       let migrated = parseSession(old);
-      expect(migrated.schemaVersion).toBe(3);
+      expect(migrated.schemaVersion).toBe(4);
       expect(migrated.billing.calculatorExcluded).toEqual([]);
       expect(calculateBilling(migrated).rows.map((r) => r.charge)).toEqual([
         150000, 145000, 5000,

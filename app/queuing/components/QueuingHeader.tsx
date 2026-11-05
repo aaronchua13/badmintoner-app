@@ -289,8 +289,8 @@ export default function QueuingHeader(p: Props) {
             {confirm === "stop"
               ? "Finish or stop every running match first. Your results will remain available in the summary."
               : confirm === "restart"
-                ? "Clear scores, history, assignments, check-ins, expenses, and all payments while keeping your players and courts. Export the current session first if you need a copy."
-                : "Clear this session’s players, courts, queue, history, expenses, and all payments. Your reusable player database will be kept. Export first if you need a copy."}
+                ? "Clear scores, history, player logs, assignments, check-ins, expenses, and all payments while keeping your players and courts. Export the current session first if you need a copy."
+                : "Clear this session’s players, courts, queue, history, player logs, expenses, and all payments. Your reusable player database will be kept. Export first if you need a copy."}
           </p>
         </Modal>
       )}

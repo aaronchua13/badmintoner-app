@@ -30,6 +30,7 @@ describe("session transitions", () => {
     const started = run(ready(), { type: "startMatch", courtId: "c1" });
     const action: Command = {
       type: "finishMatch",
+      players: ["p0", "p1", "p2", "p3"],
       courtId: "c1",
       startTime: started.courts[0].startTime,
       id: "m1",
@@ -113,6 +114,7 @@ describe("session transitions", () => {
     const started = run(ready(), { type: "startMatch", courtId: "c1" });
     const ended = run(started, {
       type: "finishMatch",
+      players: ["p0", "p1", "p2", "p3"],
       courtId: "c1",
       startTime: started.courts[0].startTime,
       values: { winningTeam: 2 },
@@ -155,6 +157,7 @@ describe("session transitions", () => {
     expect(() =>
       run(s, {
         type: "finishMatch",
+      players: ["p0", "p1", "p2", "p3"],
         courtId: "c1",
         startTime: old,
         values: { winningTeam: 1 },
@@ -270,6 +273,7 @@ describe("manual assignment only", () => {
     for (const action of [
       {
         type: "finishMatch",
+      players: ["p0", "p1", "p2", "p3"],
         courtId: "c1",
         startTime: started.courts[0].startTime,
         values: { winningTeam: 1 },

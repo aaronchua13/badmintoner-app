@@ -15,6 +15,7 @@ import {
   isCheckedIn,
 } from "../types";
 import { ActionResult } from "../state/model";
+import { isWaitingPlayer } from "../utils";
 import { usePlayerFilters } from "../hooks/usePlayerFilters";
 import PlayerList from "./PlayerList";
 import AssignToQueueModal from "./modals/AssignToQueueModal";
@@ -51,7 +52,7 @@ export default function PlayerPanel(p: Props) {
     if (status === "Playing") return player.isPlaying;
     if (status === "Away") return present && !player.isActive;
     if (status === "Waiting")
-      return present && player.isActive && !player.isPlaying;
+      return isWaitingPlayer(player, p.courts, p.queue);
     return true;
   });
   return (

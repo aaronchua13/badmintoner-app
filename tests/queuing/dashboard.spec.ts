@@ -125,7 +125,7 @@ test("setup, queue, play, zero score, session summary and reload", async ({
   const finish = page.getByRole("dialog", { name: "Finish Match" });
   await finish.getByRole("spinbutton").nth(0).fill("21");
   await finish.getByRole("spinbutton").nth(1).fill("0");
-  await finish.getByText("Team 1", { exact: true }).click();
+  await expect(finish.getByRole("radio", { name: "Team 1", exact: true })).toBeChecked();
   await finish.getByRole("button", { name: "OK" }).click();
   await expect(finish).not.toBeVisible();
   await expect(page.locator(".ant-modal-wrap:visible")).toHaveCount(0);

@@ -2,7 +2,7 @@ import { Expenses, Arrangement, Receipt } from "../state/billing";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Gender, PlayerLevel } from "../types";
 import { ActionResult, errorText, parseSession } from "../state/model";
-import { PlayerInput, Scores } from "../state/transitions";
+import { PlayerInput, Scores, TeamChange, TransferSource } from "../state/transitions";
 import {
   dispatch,
   getSnapshot,
@@ -60,8 +60,10 @@ export const useQueuingState = () => {
         dispatch({ type: "setExpenses", values, calculatorExcluded }),
       setArrangement: (playerId: string, values: Arrangement) =>
         dispatch({ type: "setArrangement", playerId, values }),
-      saveReceipt: (values: Receipt, editing: boolean) =>
-        dispatch({ type: "saveReceipt", values, editing }),
+      saveReceipt: (values: Receipt, original?: Receipt) =>
+        original
+          ? dispatch({ type: "saveReceipt", values, editing: true, original })
+          : dispatch({ type: "saveReceipt", values, editing: false }),
       deleteReceipt: (id: string) => dispatch({ type: "deleteReceipt", id }),
       finalizeBilling: () =>
         dispatch({ type: "finalizeBilling", revision: snapshot.data.revision }),
@@ -93,6 +95,10 @@ export const useQueuingState = () => {
             .find((c) => c.id === courtId)
             ?.players.includes(playerId),
         }),
+      changeCourtTeams: (courtId: string, change: TeamChange, status: "idle" | "active", startTime: number | null) =>
+        dispatch({ type: "changeCourtTeams", courtId, ...change, status, startTime }),
+      changeQueueTeams: (queueId: string, change: TeamChange) =>
+        dispatch({ type: "changeQueueTeams", queueId, ...change }),
       startMatch: (courtId: string) =>
         dispatch({
           type: "startMatch",
@@ -103,9 +109,11 @@ export const useQueuingState = () => {
         courtId: string,
         values: Scores,
         expectedStartTime = matchTime(courtId),
+        players = data.courts.find((c) => c.id === courtId)?.players ?? [],
       ) =>
         dispatch({
           type: "finishMatch",
+          players,
           courtId,
           startTime: expectedStartTime,
           values,
@@ -126,13 +134,13 @@ export const useQueuingState = () => {
       transferMatch: (
         from: string,
         to: string,
-        expectedStartTime = matchTime(from),
+        original: TransferSource,
       ) =>
         dispatch({
           type: "transferMatch",
           from,
           to,
-          startTime: expectedStartTime,
+          original,
         }),
       startSession: () => dispatch({ type: "startSession" }),
       stopSession: () => dispatch({ type: "stopSession" }),
@@ -212,7 +220,7 @@ export const useQueuingState = () => {
       },
       exportSession: () => {
         const blob = new Blob(
-          [JSON.stringify({ ...data, schemaVersion: 3 }, null, 2)],
+          [JSON.stringify({ ...data, schemaVersion: 4 }, null, 2)],
           { type: "application/json" },
         );
         const url = URL.createObjectURL(blob);

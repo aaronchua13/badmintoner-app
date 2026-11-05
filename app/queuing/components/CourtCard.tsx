@@ -11,6 +11,7 @@ import { ActionResult } from "../state/model";
 import { formatMatchTime, getMatchOdds } from "../utils";
 import styles from "../QueuingClient.module.css";
 interface Props {
+  onChangeTeams: (id: string) => void;
   court: Court;
   players: Player[];
   currentTime: number;
@@ -41,6 +42,7 @@ export default function CourtCard({
   onTogglePlayer,
   onClearCourt,
   onAssignPlayers,
+  onChangeTeams,
 }: Props) {
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState(court.name);
@@ -164,6 +166,9 @@ export default function CourtCard({
           </div>
         ))}
       </div>
+      <Button disabled={disabled || !count} onClick={() => onChangeTeams(court.id)}>
+        Change teams
+      </Button>
       <div className={styles.courtFooter}>
         <span className={active ? styles.timer : styles.muted}>
           {active

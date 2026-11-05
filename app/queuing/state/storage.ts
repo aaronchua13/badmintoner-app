@@ -55,7 +55,7 @@ export async function transact(
         result = change
           ? { ...change(current), revision: current.revision + 1 }
           : current;
-        if (change || !existing || existing.session.schemaVersion !== 3)
+        if (change || !existing || existing.session.schemaVersion !== 4)
           store.put(result, "current");
       } catch (error) {
         failure = error;

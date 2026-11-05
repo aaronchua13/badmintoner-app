@@ -17,7 +17,7 @@ Open `/queuing` (`/queing` redirects here). The dashboard defaults to Compact; t
 
 On first use, valid `badminton_queue_data_v2` (or legacy `badminton_queue_data`) and `badminton_players_db` localStorage values are migrated. The originals remain untouched as backups and are never reread after migration. Malformed legacy data reports an error instead of silently overwriting it. Browser data is not cloud backup; use Export Session for copies of sessions you need to retain.
 
-Exports retain the session JSON structure with `schemaVersion: 1`. Valid legacy files without this field remain supported. Import validation permits historical references to removed players but rejects invalid live assignments. Import is unavailable during an active session and rejects a replacement if another tab changed the saved record meanwhile.
+Exports retain the session JSON structure with `schemaVersion: 4`. Valid legacy files without this field remain supported. Import validation permits historical references to removed players but rejects invalid live assignments. Import is unavailable during an active session and rejects a replacement if another tab changed the saved record meanwhile.
 
 ## Offline behavior
 
@@ -51,3 +51,17 @@ Stopping a match does not require a reason. On touch devices, roster search, sta
 New session players start as Not arrived. The organizer uses Check in on the roster to mark arrival; search then clears and receives focus for the next name. Only checked-in, available players can enter a queue or court. The header shows present and not-arrived counts, and the status filter includes Present and Not arrived. Away is a break for somebody who is already present and does not reduce the present count. Check-in timestamps are session-specific and shared across tabs.
 
 Undo check-in requires confirmation and removes pending queue/court assignments. It is unavailable while a player is playing. Repeated check-in does not reset the arrival timestamp. New session resets attendance. Existing sessions and legacy imports without attendance fields remain present to preserve existing matches and assignments. Explicit attendance is preserved in exports/imports. Current wait starts from arrival or session start, whichever is later.
+
+## Result and concurrency safeguards
+
+Entering both scores selects the higher-scoring team automatically; ties and incomplete score pairs cannot be saved. Without scores, select a winner manually. Canceling Finish Match clears the draft; failed saves retain it.
+
+Payment edits and court transfers compare the original record or source lineup against the latest saved data. If another tab changes it, the action is rejected without overwriting anything. Close and reopen the dialog to review the latest data. Unrelated changes do not block payment edits.
+
+Waiting includes only checked-in, active players without court or queue assignments. Total idle uses the same calculation in the roster, player details, sorting, and summary, and stops advancing when the session ends. Existing first-game and away-time accounting rules are preserved.
+
+## Player logs
+
+Open a player’s details and select Player Logs to see timestamped activity for the current session, newest first, with ten entries per page. Entries cover check-in and undo, away/available changes, queue assignments and order, court assignments and transfers, corrected lineups, match starts/results/stops, payment additions/edits/deletions, billing changes, and session start/end. Saved entries retain their original details when courts are renamed or payments are corrected.
+
+Logs are committed atomically with each successful action, shared across tabs, retained on reload, and included in session exports/imports. Failed actions and unchanged values produce no entries. New session and Reset clear logs; export first to retain a previous session. Historical references to removed players remain in exports. Older session files remain supported and start with empty logs; past activity is not reconstructed. Exports now use schema version 4.

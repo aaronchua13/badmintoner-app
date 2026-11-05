@@ -8,14 +8,21 @@ import {
   calculateBilling,
 } from "./billing";
 import { Gender, PlayerLevel, Player, QueueItem, isCheckedIn } from "../types";
+import { canQueuePlayer, isWaitingPlayer } from "../utils";
 import { initialSession, playerInput, QueueData, parseSession } from "./model";
+import { appendPlayerLogs } from "./activity";
 export type PlayerInput = { name: string; level: PlayerLevel; gender: Gender };
 export type Scores = {
   team1Score?: number;
   team2Score?: number;
   winningTeam?: number;
 };
+export type TeamSlots = [string | null, string | null, string | null, string | null];
+export type TransferSource = { players: (string | null)[]; status: "idle" | "active"; startTime: number | null };
+export type TeamChange = { original: (string | null)[]; players: TeamSlots };
 export type Command =
+  | ({ type: "changeCourtTeams"; courtId: string; status: "idle" | "active"; startTime: number | null } & TeamChange)
+  | ({ type: "changeQueueTeams"; queueId: string } & TeamChange)
   | { type: "setExpenses"; values: Expenses; calculatorExcluded?: string[] }
   | { type: "setCalculatorExclusions"; playerIds: string[] }
   | {
@@ -26,7 +33,8 @@ export type Command =
       revision: number;
     }
   | { type: "setArrangement"; playerId: string; values: Arrangement }
-  | { type: "saveReceipt"; values: Receipt; editing: boolean }
+  | { type: "saveReceipt"; values: Receipt; editing: false }
+  | { type: "saveReceipt"; values: Receipt; editing: true; original: Receipt }
   | { type: "deleteReceipt"; id: string }
   | { type: "finalizeBilling" | "reopenBilling"; revision: number }
   | { type: "addPlayer"; values: PlayerInput; id: string }
@@ -54,6 +62,7 @@ export type Command =
   | { type: "startMatch"; courtId: string; players?: (string | null)[] }
   | {
       type: "finishMatch";
+      players: (string | null)[];
       courtId: string;
       startTime: number | null;
       values: Scores;
@@ -70,7 +79,7 @@ export type Command =
       type: "transferMatch";
       from: string;
       to: string;
-      startTime: number | null;
+      original: TransferSource;
     }
   | { type: "startSession" | "stopSession" | "resetState" | "restartSession" }
   | { type: "createQueueItem"; id: string }
@@ -96,7 +105,8 @@ export function transition(
   action: Command,
   now: number,
 ): QueueData {
-  const s = parseSession(structuredClone(previous));
+  const before = parseSession(previous);
+  const s = structuredClone(before);
   s.autoAssignQueue = false;
   const court = (id: string) => {
     const c = s.courts.find((c) => c.id === id);
@@ -207,8 +217,17 @@ export function transition(
       const index = s.billing.receipts.findIndex((r) => r.id === receipt.id);
       requireCondition(
         action.editing ? index >= 0 : index < 0,
-        "Payment changed or no longer exists",
+        "Payment changed or no longer exists. Close and reopen the editor to review the latest payment.",
       );
+      if (action.editing) {
+        const current = s.billing.receipts[index];
+        requireCondition(
+          current && Object.keys(receiptSchema.shape).every(
+            (key) => current[key as keyof Receipt] === action.original[key as keyof Receipt],
+          ),
+          "Payment changed. Close and reopen the editor to review the latest payment.",
+        );
+      }
       if (index >= 0) {
         requireCondition(
           s.billing.receipts[index].playerId === receipt.playerId,
@@ -405,6 +424,59 @@ export function transition(
       }
       break;
     }
+    case "changeCourtTeams":
+    case "changeQueueTeams": {
+      editable();
+      const c = action.type === "changeCourtTeams" ? s.courts.find((c) => c.id === action.courtId) : null;
+      const q = action.type === "changeQueueTeams" ? s.queue.find((q) => q.id === action.queueId) : null;
+      requireCondition(c || q, "Match no longer exists. Reopen the team editor and try again.");
+      const current = c ? c.players : queueSlots(q!);
+      requireCondition(
+        action.original.length === 4 && current.every((id, i) => id === action.original[i]) &&
+          (!c || (action.type === "changeCourtTeams" && c.status === action.status && c.startTime === action.startTime)),
+        "Teams changed. Reopen the team editor and try again.",
+      );
+      const ids = action.players.filter((id): id is string => id !== null);
+      const existing = current.filter((id): id is string => id !== null);
+      requireCondition(
+        action.players.length === 4 && new Set(ids).size === ids.length &&
+          ids.length === existing.length,
+        "Keep the same number of players with no duplicates",
+      );
+      const incoming = ids.filter((id) => !existing.includes(id));
+      const outgoing = existing.filter((id) => !ids.includes(id));
+      requireCondition(
+        incoming.every((id) => {
+          const p = s.players.find((p) => p.id === id);
+          return p && (q ? canQueuePlayer(p, s.courts, s.queue) : isWaitingPlayer(p, s.courts, s.queue));
+        }),
+        "Replacement player is no longer available. Choose an eligible checked-in, active player",
+      );
+      if (c) {
+        requireCondition(c.status !== "active" || ids.length === 4, "Running matches need four players");
+        if (c.status === "active") {
+          outgoing.forEach((id) => {
+            const p = player(id);
+            p.isPlaying = false;
+            p.lastMatchEndTime = now;
+          });
+          incoming.forEach((id) => {
+            const p = player(id);
+            p.isPlaying = true;
+            p.firstMatchTime ??= now;
+            if (p.gamesPlayed > 0)
+              p.totalIdleTime += Math.max(0, Math.floor((now - Math.max(
+                p.lastMatchEndTime, p.checkedInAt ?? p.joinedAt, s.sessionStartTime ?? 0,
+              )) / 1000));
+          });
+        }
+        c.players = [...action.players];
+      } else {
+        q!.team1 = action.players.slice(0, 2).filter((id): id is string => id !== null);
+        q!.team2 = action.players.slice(2).filter((id): id is string => id !== null);
+      }
+      break;
+    }
     case "startMatch": {
       requireCondition(s.sessionStatus === "active", "Start the session first");
       const c = court(action.courtId);
@@ -452,6 +524,10 @@ export function transition(
       const finished = action.type === "finishMatch";
       if (finished) {
         requireCondition(
+          action.players.length === 4 && c.players.every((id, i) => id === action.players[i]),
+          "Teams changed. Reopen Finish Match and review the teams.",
+        );
+        requireCondition(
           action.values.winningTeam === 1 || action.values.winningTeam === 2,
           "Select a winner",
         );
@@ -468,6 +544,13 @@ export function transition(
             (action.values.team2Score === undefined),
           "Enter both scores or leave both empty",
         );
+        if (action.values.team1Score !== undefined && action.values.team2Score !== undefined) {
+          requireCondition(action.values.team1Score !== action.values.team2Score, "Scores cannot be tied");
+          requireCondition(
+            action.values.winningTeam === (action.values.team1Score > action.values.team2Score ? 1 : 2),
+            "Winner must match the higher-scoring team",
+          );
+        }
       }
       const participants = c.players.map((id, i) => ({
         id: id!,
@@ -522,10 +605,13 @@ export function transition(
       const to = court(action.to);
       requireCondition(
         from.id !== to.id &&
-          from.startTime === action.startTime &&
+          from.startTime === action.original.startTime &&
+          from.status === action.original.status &&
+          action.original.players.length === 4 &&
+          from.players.every((id, index) => id === action.original.players[index]) &&
           to.status === "idle" &&
           to.players.every((id) => id === null),
-        "Courts changed; choose an empty court",
+        "Courts changed. Reopen the transfer dialog and choose an empty court.",
       );
       to.players = [...from.players];
       to.status = from.status;
@@ -607,11 +693,7 @@ export function transition(
       const q = item(action.queueId);
       const p = player(action.playerId);
       requireCondition(
-        p.isActive &&
-          isCheckedIn(p) &&
-          !p.isPlaying &&
-          !s.courts.some((c) => c.players.includes(p.id)) &&
-          !s.queue.some((q) => [...q.team1, ...q.team2].includes(p.id)),
+        canQueuePlayer(p, s.courts, s.queue),
         "Player is already assigned or unavailable",
       );
       requireCondition(
@@ -660,5 +742,6 @@ export function transition(
       );
       return parseSession(action.data);
   }
+  appendPlayerLogs(before, s, action, now);
   return parseSession(s);
 }

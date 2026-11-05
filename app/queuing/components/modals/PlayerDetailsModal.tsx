@@ -2,8 +2,10 @@ import React from 'react';
 import { Button, Modal, Descriptions, Select, Radio, Space, Tabs, Statistic, Row, Col, Tag, Empty } from 'antd';
 import { ManOutlined, WomanOutlined, TrophyOutlined, FireOutlined } from '@ant-design/icons';
 import { Player, PlayerLevel, LEVEL_COLORS, MatchHistory } from '../../types';
-import { formatDuration } from '../../utils';
+import { formatDuration, getTotalIdleTime } from '../../utils';
 import LevelTag from '../LevelTag';
+import PlayerLogs from '../PlayerLogs';
+import type { PlayerLog } from '../../state/activity';
 
 interface PlayerDetailsModalProps {
   onOpenPayments: (id: string) => void;
@@ -12,6 +14,9 @@ interface PlayerDetailsModalProps {
   player: Player | undefined;
   players: Player[];
   history: MatchHistory[];
+  playerLogs: PlayerLog[];
+  sessionStartTime: number | null;
+  currentTime: number;
   onUpdateLevel: (id: string, level: PlayerLevel) => void;
   onUpdateGender: (id: string, gender: 'Male' | 'Female') => void;
 }
@@ -23,12 +28,16 @@ const PlayerDetailsModal: React.FC<PlayerDetailsModalProps> = ({
   player,
   players,
   history = [],
+  playerLogs,
+  sessionStartTime,
+  currentTime,
   onUpdateLevel,
   onUpdateGender
 }) => {
   if (!player) return null;
 
   const playerHistory = history.filter(h => h.players.some(p => p.id === player.id)).reverse();
+  const activity = playerLogs.filter((entry) => entry.playerId === player.id);
   const winRate = player.gamesPlayed > 0 ? Math.round((player.wins / player.gamesPlayed) * 100) : 0;
 
   return (
@@ -100,7 +109,7 @@ const PlayerDetailsModal: React.FC<PlayerDetailsModalProps> = ({
                         <Radio.Button value="Female"><WomanOutlined /> Female</Radio.Button>
                      </Radio.Group>
                   </Descriptions.Item>
-                  <Descriptions.Item label="Total Idle Time">{formatDuration(player.totalIdleTime)}</Descriptions.Item>
+                  <Descriptions.Item label="Total Idle Time">{formatDuration(getTotalIdleTime(player, sessionStartTime, currentTime))}</Descriptions.Item>
                   <Descriptions.Item label="Joined At">{new Date(player.joinedAt).toLocaleTimeString()}</Descriptions.Item>
                   <Descriptions.Item label="Best Partners">
                      {Object.entries(player.partners).length > 0 ? (
@@ -119,6 +128,11 @@ const PlayerDetailsModal: React.FC<PlayerDetailsModalProps> = ({
                 </Descriptions>
               </div>
             )
+          },
+          {
+            key: 'logs',
+            label: `Player Logs (${activity.length})`,
+            children: <PlayerLogs key={player.id} entries={activity} />,
           },
           {
             key: 'matches',
