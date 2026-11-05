@@ -1,3 +1,4 @@
+import LevelTag from "./LevelTag";
 import React, { useState, useMemo } from "react";
 import { Button, Dropdown, Input, Modal, Tag } from "antd";
 import {
@@ -157,7 +158,7 @@ function CourtCardContent({
                       </span>
                       <div className={styles.playerIdentity}>
                         <strong title={p.name}>{p.name}</strong>
-                        <small>{p.level}</small>
+                        <LevelTag level={p.level} />
                       </div>
                       {!active && (
                         <Button

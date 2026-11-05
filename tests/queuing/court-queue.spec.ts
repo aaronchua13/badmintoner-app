@@ -41,7 +41,8 @@ for (const mobile of [false, true]) {
     await confirm.getByRole("button", { name: "Move all to queue", exact: true }).click();
     await court.getByRole("button", { name: "Assign from queue", exact: true }).click();
     const picker = page.getByRole("dialog", { name: /Assign from queue/ });
-    await expect(picker.getByText("Team 1: Player 1, Player 2", { exact: true })).toBeVisible();
+    await expect(picker.getByText("Player 1", { exact: true })).toBeVisible();
+    await expect(picker.locator('[data-level="Intermediate"]').first()).toBeVisible();
     await picker.getByRole("button", { name: "Assign match 1", exact: true }).click();
     await expect(court.getByText("Player 5", { exact: true })).toBeVisible();
     await expect(court.getByText("Ready", { exact: true })).toBeVisible();

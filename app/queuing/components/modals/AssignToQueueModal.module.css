@@ -43,3 +43,11 @@
 .team :global(.ant-typography) {
   font-size: inherit;
 }
+
+.member {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 3px 5px;
+  max-width: 100%;
+}

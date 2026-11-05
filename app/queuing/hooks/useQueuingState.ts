@@ -68,6 +68,7 @@ export const useQueuingState = () => {
     removePlayer: (id: string) => dispatch({ type: "removePlayer", id }),
     togglePlayerActive: (id: string) =>
       dispatch({ type: "togglePlayerActive", id }),
+    renamePlayer: (id: string, name: string) => dispatch({ type: "renamePlayer", id, name }),
     updatePlayerLevel: (id: string, level: PlayerLevel) =>
       dispatch({ type: "updatePlayerLevel", id, level }),
     updatePlayerGender: (id: string, gender: Gender) =>

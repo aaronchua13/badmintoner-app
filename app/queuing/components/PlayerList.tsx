@@ -1,3 +1,4 @@
+import LevelTag from "./LevelTag";
 import React, { useMemo } from "react";
 import { Button, Dropdown, Empty, Tag } from "antd";
 import { ManOutlined, WomanOutlined, MoreOutlined } from "@ant-design/icons";
@@ -23,6 +24,7 @@ interface Props {
   frozenTime: number | null;
   disabled?: boolean;
   onToggleSelection: (court: string, player: string) => Promise<ActionResult>;
+  onRenamePlayer: (id: string) => void;
   onViewPlayer: (id: string) => void;
   onRemovePlayer: (id: string) => Promise<ActionResult>;
   onToggleActive: (id: string) => Promise<ActionResult>;
@@ -40,6 +42,7 @@ export default function PlayerList(p: Props) {
   }, [p.courts, p.queue]);
   const handlers = {
     onToggleSelection: useStableEvent(p.onToggleSelection),
+    onRenamePlayer: useStableEvent(p.onRenamePlayer),
     onViewPlayer: useStableEvent(p.onViewPlayer),
     onRemovePlayer: useStableEvent(p.onRemovePlayer),
     onToggleActive: useStableEvent(p.onToggleActive),
@@ -112,7 +115,7 @@ const PlayerRow = React.memo(function PlayerRow(p: RowProps) {
         </span>
       </button>
       <span className={styles.rosterLevel} data-label="Level">
-        {player.level}
+        <LevelTag level={player.level} />
       </span>
       <PlayerTimes player={player} sessionStartTime={p.sessionStartTime} frozenTime={p.frozenTime} />
       <span className={styles.playerStat} data-label="Games">
@@ -195,6 +198,12 @@ const PlayerRow = React.memo(function PlayerRow(p: RowProps) {
           trigger={["click"]}
           menu={{
             items: [
+              {
+                key: "rename",
+                label: "Rename player",
+                disabled: p.disabled,
+                onClick: () => p.onRenamePlayer(player.id),
+              },
               {
                 key: "details",
                 label: "Player details",
