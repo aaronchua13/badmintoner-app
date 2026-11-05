@@ -1529,3 +1529,44 @@
 .sidebar .teams:not(:has(.playerIdentity)) + .courtActions {
   margin-top: 0;
 }
+
+.queuePickerList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: min(60dvh, 480px);
+  overflow-y: auto;
+}
+.queuePickerOption {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--ant-color-border);
+  border-radius: 8px;
+}
+.queuePickerDetails {
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.queuePickerDetails strong {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 13px;
+}
+.queuePickerDetails p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.queuePickerDetails .queuePickerReason {
+  margin-top: 4px;
+  color: var(--ant-color-text-secondary);
+}
+@media (max-width: 767px) {
+  .queuePickerOption {
+    padding: 8px;
+    gap: 8px;
+  }
+}

@@ -10,6 +10,7 @@ import {
   type FormInstance,
 } from "antd";
 import { PlayerLevel, LEVEL_COLORS } from "../../types";
+import styles from "./AddPlayerModal.module.css";
 
 interface AddPlayerModalProps {
   visible: boolean;
@@ -44,6 +45,7 @@ const AddPlayerModal: React.FC<AddPlayerModalProps> = ({
       onOk={() => form.submit()}
     >
       <Form
+        className={styles.form}
         name="add-player"
         form={form}
         layout="vertical"
@@ -86,7 +88,7 @@ const AddPlayerModal: React.FC<AddPlayerModalProps> = ({
         </Form.Item>
 
         <Form.Item label="After Adding">
-          <Radio.Group value={mode} onChange={(e) => setMode(e.target.value)}>
+          <Radio.Group className={styles.afterAdding} value={mode} onChange={(e) => setMode(e.target.value)}>
             <Radio value="close">Close Modal</Radio>
             <Radio value="keep">Keep Open (Add Another)</Radio>
           </Radio.Group>

@@ -1,0 +1,41 @@
+.form :global(.ant-form-item) {
+  margin-bottom: 14px;
+}
+.form :global(.ant-form-item-label) {
+  padding-bottom: 4px;
+}
+.form :global(.ant-input),
+.form :global(.ant-select) {
+  width: 100%;
+  min-height: 44px;
+}
+.form :global(.ant-radio-button-wrapper) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+}
+.afterAdding {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 16px;
+}
+.afterAdding :global(.ant-radio-wrapper) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-inline-end: 0;
+  line-height: 1.4;
+}
+.afterAdding :global(.ant-radio) {
+  align-self: center;
+}
+.form :global(.ant-form-item):last-child {
+  margin-bottom: 0;
+}
+@media (max-width: 575px) {
+  .afterAdding {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

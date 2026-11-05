@@ -131,6 +131,8 @@ export const useQueuingState = () => {
           reason,
           id: crypto.randomUUID(),
         }),
+      stopMatchAndQueue: (courtId: string, expectedStartTime: number | null) =>
+        dispatch({ type: "stopMatch", courtId, startTime: expectedStartTime, reason: "Stopped and moved to queue", id: crypto.randomUUID(), queueId: crypto.randomUUID() }),
       transferMatch: (
         from: string,
         to: string,

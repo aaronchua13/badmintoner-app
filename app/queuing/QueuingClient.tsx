@@ -724,6 +724,23 @@ export default function QueuingClient() {
                             setFinishCourt(structuredClone(court));
                             setFinishId(id);
                           }}
+                          onStopAndQueue={(id) => {
+                            const startTime = court.startTime;
+                            void confirm(
+                              `Stop ${court.name} and move players to queue?`,
+                              "The match will be recorded as stopped without a winner. The same teams will be added to the end of Up next and the court will be cleared.",
+                              "Stop and move to queue",
+                              async () => {
+                                const result = await report(actions.stopMatchAndQueue(id, startTime));
+                                if (result.ok) {
+                                  setQueueHidden(false);
+                                  setQueueMinimized(false);
+                                  toast.success("Match stopped and teams moved to queue");
+                                }
+                                return result;
+                              },
+                            );
+                          }}
                           onStopMatch={(id) => {
                             dialogMatchTime.current = court.startTime;
                             setStopId(id);
@@ -1007,6 +1024,7 @@ export default function QueuingClient() {
           onCancel={() => setQueueCourtId(null)}
           footer={<Button onClick={() => setQueueCourtId(null)}>Cancel</Button>}
         >
+          <div className={styles.queuePickerList}>
           {!queue.length && <p>No queued matches. Create a match in Up next first.</p>}
           {queue.map((item, index) => {
             const ids = [...item.team1, ...item.team2];
@@ -1019,22 +1037,26 @@ export default function QueuingClient() {
               ? `Unavailable: ${unavailable.map((id) => players.find((p) => p.id === id)?.name ?? "Unknown player").join(", ")}. Players must be checked in, active, and free of court assignments.`
               : "Ready to assign";
             return (
-              <section key={item.id} aria-label={`Queue option ${index + 1}`}>
+              <section className={styles.queuePickerOption} key={item.id} aria-label={`Queue option ${index + 1}`}>
+                <div className={styles.queuePickerDetails}>
                 <strong>Match {index + 1} · {ids.length}/4 players</strong>
                 {[item.team1, item.team2].map((team, i) => (
                   <p key={i}>Team {i + 1}: {team.map((id) => players.find((p) => p.id === id)?.name ?? "Unknown player").join(", ") || "Empty"}</p>
                 ))}
-                <p>{reason}</p>
+                {reason !== "Ready to assign" && <p className={styles.queuePickerReason}>{reason}</p>}
+                </div>
                 <Button
+                  aria-label={`Assign match ${index + 1}`}
                   disabled={disabled || !ids.length || !!unavailable.length || !target || target.status !== "idle" || target.players.some(Boolean)}
                   onClick={async () => {
                     if (queueCourtId && (await report(actions.assignQueueToCourt(item.id, queueCourtId))).ok)
                       setQueueCourtId(null);
                   }}
-                >Assign match {index + 1}</Button>
+                >Assign</Button>
               </section>
             );
           })}
+          </div>
         </Modal>
         <Modal
           title={`Assign players · ${assignedCourt?.name ?? "Court"}`}

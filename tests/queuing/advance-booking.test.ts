@@ -91,3 +91,28 @@ describe("saved advance bookings", () => {
     expect(await transact()).toEqual(saved);
   });
 });
+
+describe("stop and move to queue", () => {
+  it("stops the match, preserves teams at the queue tail and leaves statistics unchanged", () => {
+    const before = fixture();
+    const s = transition(before, { type: "stopMatch", courtId: "c1", startTime: before.courts[0].startTime, reason: "Stopped and moved to queue", id: "stopped", queueId: "returned" }, 5000);
+    expect(s.queue.map((q) => q.id)).toEqual(["q1", "q2", "returned"]);
+    expect(s.queue[2]).toMatchObject({ team1: ["p0", "p1"], team2: ["p2", "p3"] });
+    expect(s.courts[0]).toMatchObject({ status: "idle", startTime: null, players: [null, null, null, null] });
+    expect(s.history[0]).toMatchObject({ isStopped: true, id: "stopped" });
+    for (const p of s.players) {
+      expect(p.isPlaying).toBe(false);
+      expect(p.gamesPlayed).toBe(0);
+      expect(p.wins).toBe(0);
+      expect(p.losses).toBe(0);
+    }
+    expect(parseSession(JSON.parse(JSON.stringify(s)))).toEqual(s);
+    expect(() => transition(s, { type: "stopMatch", courtId: "c1", startTime: before.courts[0].startTime, reason: "", id: "duplicate", queueId: "duplicate" }, 6000)).toThrow();
+  });
+  it("rejects existing bookings without stopping the running match", () => {
+    const before = booked();
+    const snapshot = structuredClone(before);
+    expect(() => transition(before, { type: "stopMatch", courtId: "c1", startTime: before.courts[0].startTime, reason: "", id: "stopped", queueId: "returned" }, 5000)).toThrow(/already queued/);
+    expect(before).toEqual(snapshot);
+  });
+});
