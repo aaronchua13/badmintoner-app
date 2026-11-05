@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Tabs, Statistic, Row, Col, Table, Tag, Typography, Button, Grid, Empty, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { MatchHistory, Player, Court, CourtHistoryItem } from '../../types';
-import { formatSessionDuration, formatMatchTime } from '../../utils';
+import { formatSessionDuration, formatMatchTime, getTotalIdleTime } from '../../utils';
 import {
   TrophyOutlined,
   TeamOutlined,
@@ -52,26 +52,10 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
   const totalMatches = history.length;
   const completedMatches = history.filter(h => !h.isStopped).length;
   
-  // Calculate idle time for display
-  const playersWithStats: PlayerWithStats[] = players.map(p => {
-    let currentIdle = 0;
-    
-    // Logic matches PlayerList/usePlayerFilters: 
-    // Only count current idle time if player has played at least one game
-    // and is not currently playing.
-    if (p.checkedInAt !== null && !p.isPlaying && p.gamesPlayed > 0 && sessionStartTime !== null) {
-       const effectiveStartTime = Math.max(p.lastMatchEndTime, p.checkedInAt ?? p.joinedAt, sessionStartTime);
-       const effectiveEndTime = sessionEndTime || currentTime;
-       currentIdle = Math.floor((effectiveEndTime - effectiveStartTime) / 1000);
-    }
-    
-    const totalIdle = p.totalIdleTime + (currentIdle > 0 ? currentIdle : 0);
-    
-    return {
-      ...p,
-      displayIdleTime: totalIdle
-    };
-  });
+  const playersWithStats: PlayerWithStats[] = players.map(p => ({
+    ...p,
+    displayIdleTime: getTotalIdleTime(p, sessionStartTime, sessionEndTime ?? currentTime),
+  }));
 
   // Sort players by wins then games played
   const sortedPlayers = [...playersWithStats].sort((a, b) => {

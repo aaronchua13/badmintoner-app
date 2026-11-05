@@ -763,7 +763,7 @@ function ReceiptEditor({
   row: Row;
   receipt?: Receipt;
   full: boolean;
-  save: (v: Receipt, editing: boolean) => Promise<ActionResult>;
+  save: (v: Receipt, original?: Receipt) => Promise<ActionResult>;
   close: () => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -810,7 +810,7 @@ function ReceiptEditor({
                 paidAt: new Date(v.paidAt).getTime(),
                 note: v.note ?? "",
               },
-              !!receipt,
+              receipt,
             );
             if (r.ok) close();
             else setFailure(r.error);
@@ -1174,7 +1174,7 @@ export default function PaymentsPanel({
                       <Button
                         size="small"
                         onClick={() =>
-                          setPayment({ playerId: row.id, receipt, full: false })
+                          setPayment({ playerId: row.id, receipt: structuredClone(receipt), full: false })
                         }
                       >
                         Edit
@@ -1218,7 +1218,7 @@ export default function PaymentsPanel({
           row={paymentRow}
           receipt={payment.receipt}
           full={payment.full}
-          save={(v, editing) => run(actions.saveReceipt(v, editing))}
+          save={(v, original) => run(actions.saveReceipt(v, original))}
           close={() => setPayment(null)}
         />
       )}

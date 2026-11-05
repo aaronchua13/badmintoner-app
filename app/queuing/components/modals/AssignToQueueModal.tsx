@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Modal, Tag, Typography, Button, Space, Alert } from "antd";
-import { Player, QueueItem, Court, isCheckedIn } from "../../types";
+import { Player, QueueItem, Court } from "../../types";
+import { canQueuePlayer } from "../../utils";
 import LevelTag from "../LevelTag";
 import { ActionResult } from "../../state/model";
 
@@ -36,9 +37,9 @@ const AssignToQueueModal: React.FC<AssignToQueueModalProps> = ({
   const player = players.find((p) => p.id === playerId);
   const groupCount = (g: QueueItem) => g.team1.length + g.team2.length;
 
-  const isPlayerOnCourt = playerId
-    ? courts.some((c) => c.players.includes(playerId))
-    : false;
+  const eligible = !!player && canQueuePlayer(player, courts, queue);
+  const selectedGroup = queue.find((q) => q.id === selectedGroupId);
+  const canAdd = eligible && !!selectedGroup && groupCount(selectedGroup) < 4;
 
   return (
     <Modal
@@ -69,24 +70,9 @@ const AssignToQueueModal: React.FC<AssignToQueueModalProps> = ({
             <Button onClick={onCancel}>Cancel</Button>
             <Button
               type="primary"
-              disabled={
-                !selectedGroupId ||
-                !playerId ||
-                isPlayerOnCourt ||
-                !player ||
-                !isCheckedIn(player) ||
-                !player.isActive
-              }
+              disabled={!canAdd}
               onClick={async () => {
-                if (
-                  !selectedGroupId ||
-                  !playerId ||
-                  isPlayerOnCourt ||
-                  !player ||
-                  !isCheckedIn(player) ||
-                  !player.isActive
-                )
-                  return;
+                if (!canAdd || !selectedGroupId || !playerId) return;
                 const result = await onAddPlayerToQueue(
                   selectedGroupId,
                   playerId,
@@ -101,10 +87,10 @@ const AssignToQueueModal: React.FC<AssignToQueueModalProps> = ({
       }
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {isPlayerOnCourt && (
+        {player?.isPlaying && (
           <Alert
-            message="This player is currently assigned to a court."
-            type="warning"
+            title="Advance booking: this match will wait until the player finishes their current game."
+            type="info"
             showIcon
           />
         )}

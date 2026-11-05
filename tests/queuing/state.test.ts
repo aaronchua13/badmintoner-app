@@ -26,10 +26,46 @@ function ready() {
   return run(s, { type: "startSession" });
 }
 describe("session transitions", () => {
+  it("moves staged teams atomically to the end of the queue and assigns them back", () => {
+    for (const incomplete of [false, true]) {
+      let s = run(ready(), { type: "createQueueItem", id: "existing" });
+      if (incomplete) s = run(s, { type: "togglePlayerSelection", courtId: "c1", playerId: "p0", selected: false });
+      const original = structuredClone(s);
+      const moved = run(s, { type: "moveCourtToQueue", courtId: "c1", queueId: "returned", players: [...s.courts[0].players] });
+      expect(s).toEqual(original);
+      expect(moved.queue.map((q) => q.id)).toEqual(["existing", "returned"]);
+      expect(moved.queue[1].team1).toEqual(incomplete ? ["p1"] : ["p0", "p1"]);
+      expect(moved.queue[1].team2).toEqual(["p2", "p3"]);
+      expect(moved.courts[0].players).toEqual([null, null, null, null]);
+      expect(moved.history).toEqual(s.history);
+      expect(moved.players.map((p) => p.gamesPlayed)).toEqual(s.players.map((p) => p.gamesPlayed));
+      expect(moved.playerLogs.some((entry) => entry.kind === "queue")).toBe(true);
+      const assigned = run(moved, { type: "assignQueueToCourt", queueId: "returned", courtId: "c1" });
+      expect(assigned.courts[0].status).toBe("idle");
+      expect(assigned.courts[0].players.slice(2)).toEqual(["p2", "p3"]);
+      expect(assigned.queue.map((q) => q.id)).toEqual(["existing"]);
+    }
+  });
+  it("rejects invalid court-to-queue moves without changing the input", () => {
+    const s = ready();
+    const command: Command = { type: "moveCourtToQueue", courtId: "c1", queueId: "returned", players: [...s.courts[0].players] };
+    const cases = [
+      { state: run(s, { type: "startMatch", courtId: "c1" }), error: "running match" },
+      { state: run(s, { type: "clearCourt", id: "c1" }), error: "no players" },
+      { state: run(s, { type: "togglePlayerSelection", courtId: "c1", playerId: "p0", selected: false }), error: "lineup changed" },
+      { state: run(s, { type: "stopSession" }), error: "new session" },
+    ];
+    for (const { state, error } of cases) {
+      const original = structuredClone(state);
+      expect(() => run(state, command)).toThrow(error);
+      expect(state).toEqual(original);
+    }
+  });
   it("records a zero score and rejects duplicate completion", () => {
     const started = run(ready(), { type: "startMatch", courtId: "c1" });
     const action: Command = {
       type: "finishMatch",
+      players: ["p0", "p1", "p2", "p3"],
       courtId: "c1",
       startTime: started.courts[0].startTime,
       id: "m1",
@@ -113,6 +149,7 @@ describe("session transitions", () => {
     const started = run(ready(), { type: "startMatch", courtId: "c1" });
     const ended = run(started, {
       type: "finishMatch",
+      players: ["p0", "p1", "p2", "p3"],
       courtId: "c1",
       startTime: started.courts[0].startTime,
       values: { winningTeam: 2 },
@@ -155,6 +192,7 @@ describe("session transitions", () => {
     expect(() =>
       run(s, {
         type: "finishMatch",
+      players: ["p0", "p1", "p2", "p3"],
         courtId: "c1",
         startTime: old,
         values: { winningTeam: 1 },
@@ -270,6 +308,7 @@ describe("manual assignment only", () => {
     for (const action of [
       {
         type: "finishMatch",
+      players: ["p0", "p1", "p2", "p3"],
         courtId: "c1",
         startTime: started.courts[0].startTime,
         values: { winningTeam: 1 },

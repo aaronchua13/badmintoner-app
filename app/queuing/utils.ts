@@ -1,4 +1,15 @@
-import { Player, LEVEL_VALUE, isCheckedIn } from "./types";
+import { Player, Court, QueueItem, LEVEL_VALUE, isCheckedIn } from "./types";
+
+export const isWaitingPlayer = (player: Player, courts: Court[], queue: QueueItem[]) =>
+  isCheckedIn(player) && player.isActive && !player.isPlaying &&
+  !courts.some((court) => court.players.includes(player.id)) &&
+  !queue.some((item) => [...item.team1, ...item.team2].includes(player.id));
+
+// A running match may overlap one future booking; staged court players cannot.
+export const canQueuePlayer = (player: Player, courts: Court[], queue: QueueItem[]) =>
+  isCheckedIn(player) && player.isActive &&
+  !courts.some((court) => court.status === "idle" && court.players.includes(player.id)) &&
+  !queue.some((item) => [...item.team1, ...item.team2].includes(player.id));
 
 export const formatDuration = (seconds: number) => {
   const hrs = Math.floor(seconds / 3600);
@@ -99,6 +110,12 @@ export const getWaitTime = (
   const seconds = getCurrentWaitDuration(player, sessionStartTime, currentTime);
   return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
 };
+
+export const getTotalIdleTime = (
+  player: Player,
+  sessionStartTime: number | null,
+  currentTime: number,
+) => player.totalIdleTime + Math.max(0, getWaitDuration(player, sessionStartTime, currentTime));
 
 export const getWaitDuration = (
   player: Player,

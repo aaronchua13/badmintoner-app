@@ -370,18 +370,15 @@ for (const mobile of [false, true])
     await expect(panel.getByTestId("payment-player").first()).toContainText(
       "Unassigned",
     );
-    await panel
-      .getByRole("combobox", { name: "Exclude from cost calculation" })
-      .click();
+    const exclusions = panel.getByRole("combobox", {
+      name: "Exclude from cost calculation",
+    });
     for (const name of ["Player 1", "Player 2", "Player 3"]) {
-      await page
-        .locator(".ant-select-item-option:visible")
-        .filter({ hasText: new RegExp(`^${name}$`) })
-        .click();
+      await exclusions.fill(name);
+      await expect(page.locator(".ant-select-item-option-active")).toHaveAttribute("title", name);
+      await exclusions.press("Enter");
     }
-    await panel
-      .getByRole("combobox", { name: "Exclude from cost calculation" })
-      .press("Escape");
+    await exclusions.press("Escape");
     await panel
       .getByRole("button", { name: "Continue to set billing", exact: true })
       .click();

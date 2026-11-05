@@ -18,7 +18,7 @@ export function useConfirmation() {
         okText,
         cancelText: "Cancel",
         okButtonProps: { danger: true },
-        autoFocusButton: "cancel",
+        focusable: { autoFocusButton: "cancel" },
         maskClosable: false,
         onCancel: () => resolve({ ok: false, error: "Cancelled" }),
         onOk: async () => {

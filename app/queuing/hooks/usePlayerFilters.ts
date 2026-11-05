@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { getTotalIdleTime } from "../utils";
 import { Player, PlayerLevel, LEVEL_VALUE, isCheckedIn } from "../types";
 
 export const usePlayerFilters = (
@@ -36,6 +37,12 @@ export const usePlayerFilters = (
 
   const sortedPlayers = useMemo(() => {
     return [...baseFilteredPlayers].sort((a, b) => {
+      // Availability stays first even when the selected sort is reversed.
+      const availabilityRank = (player: Player) =>
+        !isCheckedIn(player) || !player.isActive ? 2 : player.isPlaying ? 1 : 0;
+      const availability = availabilityRank(a) - availabilityRank(b);
+      if (availability !== 0) return availability;
+
       let valA: number | string = 0;
       let valB: number | string = 0;
 
@@ -72,22 +79,8 @@ export const usePlayerFilters = (
           }
           break;
         case "total_idle":
-          const getCurrentIdle = (p: Player) => {
-            if (sessionStartTime === null) return 0;
-            return !isCheckedIn(p) || p.isPlaying || p.gamesPlayed === 0
-              ? 0
-              : Math.floor(
-                  (currentTime -
-                    Math.max(
-                      p.lastMatchEndTime,
-                      p.checkedInAt ?? p.joinedAt,
-                      sessionStartTime,
-                    )) /
-                    1000,
-                );
-          };
-          valA = a.totalIdleTime + getCurrentIdle(a);
-          valB = b.totalIdleTime + getCurrentIdle(b);
+          valA = getTotalIdleTime(a, sessionStartTime, currentTime);
+          valB = getTotalIdleTime(b, sessionStartTime, currentTime);
           break;
         case "games":
           valA = a.gamesPlayed;

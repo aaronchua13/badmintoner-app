@@ -11,6 +11,7 @@ import { ActionResult } from "../state/model";
 import { formatMatchTime, getMatchOdds } from "../utils";
 import styles from "../QueuingClient.module.css";
 interface Props {
+  onChangeTeams: (id: string) => void;
   court: Court;
   players: Player[];
   currentTime: number;
@@ -24,6 +25,8 @@ interface Props {
   onTransfer: (id: string) => void;
   onTogglePlayer: (court: string, player: string) => Promise<ActionResult>;
   onClearCourt: (id: string) => Promise<ActionResult>;
+  onMoveToQueue: (id: string) => Promise<ActionResult>;
+  onAssignFromQueue: (id: string) => void;
   onAssignPlayers: (id: string) => void;
 }
 export default function CourtCard({
@@ -41,6 +44,9 @@ export default function CourtCard({
   onTogglePlayer,
   onClearCourt,
   onAssignPlayers,
+  onMoveToQueue,
+  onAssignFromQueue,
+  onChangeTeams,
 }: Props) {
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState(court.name);
@@ -83,6 +89,12 @@ export default function CourtCard({
                   label: "Transfer players / match",
                   disabled: disabled || !count,
                   onClick: () => onTransfer(court.id),
+                },
+                {
+                  key: "queue",
+                  label: "Move all to queue",
+                  disabled: disabled || active || !count,
+                  onClick: () => { void onMoveToQueue(court.id); },
                 },
                 {
                   key: "clear",
@@ -164,6 +176,14 @@ export default function CourtCard({
           </div>
         ))}
       </div>
+      <Button disabled={disabled || !count} onClick={() => onChangeTeams(court.id)}>
+        Change teams
+      </Button>
+      {!active && count === 0 && (
+        <Button disabled={disabled} onClick={() => onAssignFromQueue(court.id)}>
+          Assign from queue
+        </Button>
+      )}
       <div className={styles.courtFooter}>
         <span className={active ? styles.timer : styles.muted}>
           {active

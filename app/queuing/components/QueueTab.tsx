@@ -22,10 +22,11 @@ import {
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Court, Player, QueueItem } from "../types";
+import { Court, Player, QueueItem, isCheckedIn } from "../types";
 import { ActionResult } from "../state/model";
 import styles from "../QueuingClient.module.css";
 interface Props {
+  onChangeTeams: (id: string) => void;
   queue: QueueItem[];
   minimized?: boolean;
   players: Player[];
@@ -49,6 +50,11 @@ function QueueRow({
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({ id: item.id, disabled: p.disabled });
   const count = item.team1.length + item.team2.length;
+  const waitingForPlayers = [...item.team1, ...item.team2].some((id) => {
+    const player = p.players.find((player) => player.id === id);
+    return !player || !isCheckedIn(player) || !player.isActive || player.isPlaying ||
+      p.courts.some((court) => court.players.includes(id));
+  });
   const courts = p.courts.filter(
     (c) => c.status === "idle" && c.players.every((id) => id === null),
   );
@@ -73,8 +79,8 @@ function QueueRow({
           />
           <strong>Match {String(index + 1).padStart(2, "0")}</strong>
           {index === 0 && <Tag color="green">Next</Tag>}
-          <Tag color={count === 4 ? "green" : "default"}>
-            {count === 4 ? "Ready" : `${count}/4 players`}
+          <Tag color={waitingForPlayers ? "gold" : count === 4 ? "green" : "default"}>
+            {waitingForPlayers ? "Waiting for players" : count === 4 ? "Ready" : `${count}/4 players`}
           </Tag>
         </div>
         <Dropdown
@@ -118,6 +124,7 @@ function QueueRow({
                   <span>{p.players.find((p) => p.id === id)?.name}</span>
                   <small className={styles.queueLevel}>
                     {p.players.find((p) => p.id === id)?.level}
+                    {p.players.find((p) => p.id === id)?.isPlaying && " · Playing"}
                   </small>
                 </span>
                 <Button
@@ -143,6 +150,9 @@ function QueueRow({
           </div>
         ))}
       </div>
+      <Button disabled={p.disabled || !count} onClick={() => p.onChangeTeams(item.id)}>
+        Change teams
+      </Button>
       <div className={styles.courtFooter}>
         <div className={styles.inline}>
           <Button
@@ -176,7 +186,7 @@ function QueueRow({
         >
           <Button
             type={index === 0 ? "primary" : "default"}
-            disabled={p.disabled || !count || !courts.length}
+            disabled={p.disabled || !count || waitingForPlayers || !courts.length}
           >
             {courts.length ? "Assign to court" : "No empty court"}
           </Button>
