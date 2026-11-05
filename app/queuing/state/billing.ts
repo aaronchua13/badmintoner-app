@@ -81,12 +81,18 @@ export function calculateBilling(s: Pick<QueueData, "players" | "billing">) {
     e.tubePrice * (e.tubes + e.pieces / e.piecesPerTube),
   );
   const totalExpenses = e.courtFee + shuttleCost;
-  const count = s.players.filter(
-    (p) => !b.calculatorExcluded.includes(p.id),
-  ).length;
+  const excluded = new Set(b.calculatorExcluded);
+  const count = s.players.filter((p) => !excluded.has(p.id)).length;
+  const chargesByPlayer = new Map(b.finalized?.charges.map((charge) => [charge.playerId, charge]));
+  const receiptsByPlayer = new Map<string, Receipt[]>();
+  for (const receipt of b.receipts) {
+    const receipts = receiptsByPlayer.get(receipt.playerId) ?? [];
+    receipts.push(receipt);
+    receiptsByPlayer.set(receipt.playerId, receipts);
+  }
   const baseShare = count ? Math.round(totalExpenses / count) : null;
   const rows = s.players.map((p) => {
-    const frozen = b.finalized?.charges.find((c) => c.playerId === p.id);
+    const frozen = chargesByPlayer.get(p.id);
     const arrangement = frozen?.arrangement ?? b.arrangements[p.id];
     let charge: number | null = null;
     if (arrangement?.kind === "none") charge = 0;
@@ -107,7 +113,7 @@ export function calculateBilling(s: Pick<QueueData, "players" | "billing">) {
                   : 0),
             );
     if (frozen) charge = frozen.amount;
-    const receipts = b.receipts.filter((r) => r.playerId === p.id);
+    const receipts = receiptsByPlayer.get(p.id) ?? [];
     const cash = receipts
       .filter((r) => r.method === "cash")
       .reduce((a, r) => a + r.amount, 0);

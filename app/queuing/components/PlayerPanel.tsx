@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import { Button, Input, Select, Segmented, Popover } from "antd";
 import {
   SearchOutlined,
@@ -27,7 +27,7 @@ interface Props {
   courts: Court[];
   queue: QueueItem[];
   sessionStartTime: number | null;
-  currentTime: number;
+  frozenTime: number | null;
   disabled: boolean;
   onToggleSelection: (court: string, player: string) => Promise<ActionResult>;
   onViewPlayer: (id: string) => void;
@@ -39,13 +39,13 @@ interface Props {
   onAddPlayerToQueue: (queue: string, player: string) => Promise<ActionResult>;
 }
 export default function PlayerPanel(p: Props) {
-  const f = usePlayerFilters(p.players, p.sessionStartTime, p.currentTime);
+  const { clockRef, ...f } = usePlayerFilters(p.players, p.sessionStartTime, p.frozenTime);
   const focusSearchAfterClose = useRef(false);
   const searchRef = useRef<InputRef>(null);
   const [status, setStatus] = useState("All");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [assignId, setAssignId] = useState<string | null>(null);
-  const filtered = f.allPlayers.filter((player) => {
+  const filtered = useMemo(() => f.allPlayers.filter((player) => {
     const present = isCheckedIn(player);
     if (status === "Present") return present;
     if (status === "Not arrived") return !present;
@@ -54,10 +54,11 @@ export default function PlayerPanel(p: Props) {
     if (status === "Waiting")
       return isWaitingPlayer(player, p.courts, p.queue);
     return true;
-  });
+  }), [f.allPlayers, status, p.courts, p.queue]);
   return (
     <>
       <div
+        ref={clockRef}
         className={styles.rosterControls}
         data-testid="roster-floating-header"
       >

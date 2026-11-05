@@ -31,6 +31,17 @@ test("summary table numbering continues across pages, including after sorting", 
   await expect(ranks.last()).toHaveText("25");
   await summary.locator('.ant-pagination-item[title="2"]').click();
   await expect(ranks.first()).toHaveText("11");
+  await summary.getByRole("button", { name: "Close", exact: true }).first().click();
+  await expect(summary).not.toBeVisible();
+  await page.getByRole("button", { name: "Summary", exact: true }).click();
+  await expect(ranks.first()).toHaveText("11");
+  await expect(summary.getByRole("columnheader", { name: "Games" })).toHaveAttribute("aria-sort", "ascending");
+  await summary.getByRole("tab", { name: /^Match history/ }).click();
+  await summary.getByRole("button", { name: "Close", exact: true }).first().click();
+  await expect(summary).not.toBeVisible();
+  await page.getByRole("button", { name: "Summary", exact: true }).click();
+  await expect(summary.getByRole("tab", { name: /^Match history/ })).toHaveAttribute("aria-selected", "true");
+  await summary.getByRole("tab", { name: /^Leaderboard/ }).click();
   await summary.locator('.ant-pagination-item[title="1"]').click();
   await expect(ranks.first()).toHaveText("1");
 });

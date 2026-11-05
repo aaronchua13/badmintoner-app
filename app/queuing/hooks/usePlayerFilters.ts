@@ -1,11 +1,12 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useDeferredValue } from "react";
 import { getTotalIdleTime } from "../utils";
 import { Player, PlayerLevel, LEVEL_VALUE, isCheckedIn } from "../types";
 
+import { useVisibleTime } from "./useCurrentTime";
 export const usePlayerFilters = (
   players: Player[],
   sessionStartTime: number | null,
-  currentTime: number,
+  frozenTime: number | null,
 ) => {
   const [playerTab, setPlayerTab] = useState<
     "all" | "active" | "inactive" | "queue"
@@ -21,19 +22,23 @@ export const usePlayerFilters = (
   }>({ field: "idle_time", direction: "desc" });
   const [playerViewMode, setPlayerViewMode] = useState<"list" | "grid">("list");
 
+  const search = useDeferredValue(searchQuery).toLowerCase();
+  const { ref: clockRef, currentTime } = useVisibleTime<HTMLDivElement>(frozenTime, sessionStartTime !== null && sortConfig.field === "total_idle");
+  // Current-idle ordering depends on wait start times, not the ticking clock.
+  const sortTime = currentTime;
   const baseFilteredPlayers = useMemo(() => {
     return players.filter((p) => {
       if (levelFilter.length > 0 && !levelFilter.includes(p.level))
         return false;
       if (genderFilter !== "All" && p.gender !== genderFilter) return false;
       if (
-        searchQuery &&
-        !p.name.toLowerCase().includes(searchQuery.toLowerCase())
+        search &&
+        !p.name.toLowerCase().includes(search)
       )
         return false;
       return true;
     });
-  }, [players, levelFilter, genderFilter, searchQuery]);
+  }, [players, levelFilter, genderFilter, search]);
 
   const sortedPlayers = useMemo(() => {
     return [...baseFilteredPlayers].sort((a, b) => {
@@ -60,7 +65,7 @@ export const usePlayerFilters = (
               ? -2
               : a.isPlaying
                 ? -1
-                : currentTime -
+                : sortTime -
                   Math.max(
                     a.lastMatchEndTime,
                     a.checkedInAt ?? a.joinedAt,
@@ -70,7 +75,7 @@ export const usePlayerFilters = (
               ? -2
               : b.isPlaying
                 ? -1
-                : currentTime -
+                : sortTime -
                   Math.max(
                     b.lastMatchEndTime,
                     b.checkedInAt ?? b.joinedAt,
@@ -79,8 +84,8 @@ export const usePlayerFilters = (
           }
           break;
         case "total_idle":
-          valA = getTotalIdleTime(a, sessionStartTime, currentTime);
-          valB = getTotalIdleTime(b, sessionStartTime, currentTime);
+          valA = getTotalIdleTime(a, sessionStartTime, sortTime);
+          valB = getTotalIdleTime(b, sessionStartTime, sortTime);
           break;
         case "games":
           valA = a.gamesPlayed;
@@ -109,7 +114,7 @@ export const usePlayerFilters = (
       const compare = valA > valB ? 1 : -1;
       return sortConfig.direction === "asc" ? compare : -compare;
     });
-  }, [baseFilteredPlayers, sortConfig, sessionStartTime, currentTime]);
+  }, [baseFilteredPlayers, sortConfig, sessionStartTime, sortTime]);
 
   const activePlayers = useMemo(
     () => sortedPlayers.filter((p) => p.isPlaying),
@@ -121,6 +126,7 @@ export const usePlayerFilters = (
   );
 
   return {
+    clockRef,
     playerTab,
     setPlayerTab,
     levelFilter,

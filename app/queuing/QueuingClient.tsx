@@ -1,6 +1,7 @@
 "use client";
 import React, {
   useEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -80,7 +81,12 @@ export default function QueuingClient() {
   const { state, actions } = useQueuingState();
   const [paymentsOpen, setPaymentsOpen] = useState(false);
   const [paymentPlayer, setPaymentPlayer] = useState<string | undefined>();
-  const billingRows = calculateBilling(state).rows;
+  const billingRows = useMemo(() => calculateBilling({ players: state.players, billing: state.billing }).rows, [state.players, state.billing]);
+  const paymentTags = useMemo(() => Object.fromEntries(
+    billingRows.filter((row) => row.arrangement || row.receipts.length).map((row) => [
+      row.id, <PaymentTag key={row.id} row={row} finalized={!!state.billing.finalized} />,
+    ]),
+  ), [billingRows, state.billing.finalized]);
   const openPayments = (id?: string) => {
     setPaymentPlayer(id);
     setPaymentsOpen(true);
@@ -95,7 +101,6 @@ export default function QueuingClient() {
     history,
     courtHistory,
     isLoaded,
-    currentTime,
   } = state;
   const density = useSyncExternalStore(
     subscribeDensity,
@@ -178,8 +183,7 @@ export default function QueuingClient() {
   const [stopForm] = Form.useForm();
   const { confirm, holder: confirmationHolder } = useConfirmation();
   const [toast, contextHolder] = message.useMessage();
-  const effectiveTime =
-    sessionStatus === "ended" ? (sessionEndTime ?? currentTime) : currentTime;
+  const frozenTime = sessionStatus === "ended" ? sessionEndTime : null;
   const disabled = !isLoaded || sessionStatus === "ended";
   const report = async (promise: Promise<ActionResult>) => {
     const result = await promise;
@@ -348,9 +352,8 @@ export default function QueuingClient() {
           sessionStartTime={sessionStartTime}
           sessionEndTime={sessionEndTime}
           sessionStatus={sessionStatus}
-          currentTime={effectiveTime}
+          frozenTime={frozenTime}
           isOffline={!online}
-          saveStatus={state.saveStatus}
           disabled={!isLoaded}
           onStartSession={() => report(actions.startSession())}
           onStopSession={async () => {
@@ -498,18 +501,7 @@ export default function QueuingClient() {
                         </div>
                       </div>
                     }
-                    paymentTags={Object.fromEntries(
-                      billingRows
-                        .filter((row) => row.arrangement || row.receipts.length)
-                        .map((row) => [
-                          row.id,
-                          <PaymentTag
-                            key={row.id}
-                            row={row}
-                            finalized={!!state.billing.finalized}
-                          />,
-                        ]),
-                    )}
+                    paymentTags={paymentTags}
                     players={players}
                     courts={courts}
                     queue={queue}
@@ -522,7 +514,7 @@ export default function QueuingClient() {
                         () => report(actions.undoCheckIn(id)),
                       )
                     }
-                    currentTime={effectiveTime}
+                    frozenTime={frozenTime}
                     sessionStartTime={sessionStartTime}
                     disabled={disabled}
                     onToggleSelection={(c, p) => toggleSelection(c, p)}
@@ -701,7 +693,7 @@ export default function QueuingClient() {
                           key={court.id}
                           court={court}
                           players={players}
-                          currentTime={effectiveTime}
+                          frozenTime={frozenTime}
                           sessionStartTime={
                             sessionStatus === "active" ? sessionStartTime : null
                           }
@@ -960,7 +952,7 @@ export default function QueuingClient() {
           onClose={close}
           sessionStartTime={sessionStartTime}
           sessionEndTime={sessionEndTime}
-          currentTime={effectiveTime}
+          frozenTime={frozenTime}
           players={players}
           courts={courts}
           history={history}
@@ -987,7 +979,7 @@ export default function QueuingClient() {
           player={players.find((p) => p.id === playerId)}
           playerLogs={state.playerLogs}
           sessionStartTime={sessionStartTime}
-          currentTime={effectiveTime}
+          frozenTime={frozenTime}
           players={players}
           history={history}
           onUpdateLevel={(id, level) => {
@@ -1139,3 +1131,5 @@ export default function QueuingClient() {
     </ConfigProvider>
   );
 }
+
+QueuingClient.displayName = "QueuingClient";

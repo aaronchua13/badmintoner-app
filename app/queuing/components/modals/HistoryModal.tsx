@@ -1,18 +1,25 @@
-import React from "react";
+import React, { useState } from "react";
 import { Modal, Table, Tag, Grid, Space, Typography } from "antd";
 import { MatchHistory } from "../../types";
 import { formatMatchTime } from "../../utils";
 
 const { Text } = Typography;
 
+import DeferredDialog from "./DeferredDialog";
 interface HistoryModalProps {
+  afterClose?: () => void;
+  page?: number;
+  onPage?: (page: number) => void;
   visible: boolean;
   onCancel: () => void;
   history: MatchHistory[];
 }
 
-const HistoryModal: React.FC<HistoryModalProps> = ({
+const HistoryModalContent: React.FC<HistoryModalProps> = ({
   visible,
+  afterClose,
+  page,
+  onPage,
   onCancel,
   history,
 }) => {
@@ -83,6 +90,7 @@ const HistoryModal: React.FC<HistoryModalProps> = ({
     <Modal
       title="Match History"
       open={visible}
+      afterClose={afterClose}
       onCancel={onCancel}
       footer={null}
       width={isMobile ? "100%" : 800}
@@ -241,11 +249,16 @@ const HistoryModal: React.FC<HistoryModalProps> = ({
           columns={columns}
           rowKey="id"
           size="small"
-          pagination={{ pageSize: 5 }}
+          pagination={{ pageSize: 5, current: page ?? 1, onChange: onPage }}
         />
       )}
     </Modal>
   );
 };
 
-export default HistoryModal;
+export default function HistoryModal(p: HistoryModalProps) {
+  const [page, setPage] = useState(1);
+  return <DeferredDialog open={p.visible}>{(visible, afterClose) => <HistoryModalContent {...p} visible={visible} afterClose={afterClose} page={page} onPage={setPage} />}</DeferredDialog>;
+}
+
+HistoryModalContent.displayName = "HistoryModalContent";

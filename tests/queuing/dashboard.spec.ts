@@ -153,12 +153,12 @@ test("simultaneous tabs retain both edits", async ({ page, context }) => {
   await ready(other);
   await Promise.all([addPlayer(page, "Tab One"), addPlayer(other, "Tab Two")]);
   for (const tab of [page, other]) {
-    await expect(tab.getByRole("button", { name: /^Tab One/ })).toBeVisible();
-    await expect(tab.getByRole("button", { name: /^Tab Two/ })).toBeVisible();
+    await expect(tab.getByRole("button", { name: /^(?:Male |Female )?Tab One$/ })).toBeVisible();
+    await expect(tab.getByRole("button", { name: /^(?:Male |Female )?Tab Two$/ })).toBeVisible();
   }
   await page.reload();
-  await expect(page.getByRole("button", { name: /^Tab One/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Tab Two/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^(?:Male |Female )?Tab One$/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^(?:Male |Female )?Tab Two$/ })).toBeVisible();
 });
 test("invalid import leaves the existing roster intact", async ({ page }) => {
   await seed(page);
