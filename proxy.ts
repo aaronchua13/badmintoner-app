@@ -36,7 +36,8 @@ export function proxy(request: NextRequest) {
 
   // Check if route is valid (including dynamic routes)
   const isValidRoute = 
-    validRoutes.includes(pathname) || 
+    validRoutes.includes(pathname) ||
+    /^\/queuing\/view\/[A-Za-z0-9_-]{43}$/.test(pathname) ||
     pathname.startsWith('/player/profile/') ||
     /^\/clubs\/[^/]+$/.test(pathname);
 

@@ -1,5 +1,7 @@
 # Queuing dashboard
 
+Optional cloud sync, recovery, templates, undo, history, and displays are described in [the cloud guide](queuing-cloud.md).
+
 Open `/queuing` (`/queing` redirects here). The dashboard defaults to Compact; the Density control switches to Comfortable without resetting search, filters, selected views, or open forms. The preference is stored separately from session data.
 
 ## Layout and session workflow

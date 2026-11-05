@@ -23,7 +23,7 @@ const publish = (patch: Partial<Snapshot>) => {
   snapshot = { ...snapshot, ...patch };
   listeners.forEach((fn) => fn());
 };
-const accept = (data: StoredData) => {
+export const accept = (data: StoredData) => {
   if (data.revision >= snapshot.data.revision) publish({ data });
 };
 export const getSnapshot = () => snapshot;
@@ -57,7 +57,7 @@ export function initialize() {
   }
   return initializing;
 }
-async function save(
+export async function save(
   operation: () => Promise<StoredData>,
   id?: string,
 ): Promise<ActionResult> {
@@ -87,9 +87,17 @@ export const dispatch = (action: Command): Promise<ActionResult> =>
 export const editLibrary = (
   change: (entries: PlayersDbEntry[]) => PlayersDbEntry[],
 ) =>
-  save(() =>
-    transact((data) => ({
-      ...data,
-      library: parseLibrary(change(data.library)),
-    })),
-  );
+  save(() => transact((data) => {
+    const library = parseLibrary(change(data.library));
+    if (data.hub) {
+      const owner = data.hub.records[data.hub.activeId].ownerId ?? "local";
+      const workspace = data.hub.workspaces[owner];
+      workspace.payload.library = library;
+      for (const p of library) workspace.payload.identities[p.id] = { name: p.name };
+      workspace.revision++;
+    }
+    return { ...data, library };
+  }));
+
+export const editHub = (change: (data: StoredData) => void) =>
+  save(() => transact((data) => { change(data); return data; }));

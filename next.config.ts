@@ -2,12 +2,12 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   async rewrites() {
-    return [
+    return { fallback: [
       {
         source: '/api/:path*',
         destination: `${process.env.API_TARGET_URL || 'http://localhost:3000'}/:path*`,
       },
-    ];
+    ] };
   },
 };
 

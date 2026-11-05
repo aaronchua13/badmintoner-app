@@ -1,7 +1,9 @@
 import { PlayersDbEntry } from "../types";
 import { initialSession, parseSession, parseLibrary, QueueData } from "./model";
 import { Command, transition } from "./transitions";
+import { ensureHub, backup, recordCommand, type Hub } from "./hub";
 export interface StoredData {
+  hub?: Hub;
   revision: number;
   session: QueueData;
   library: PlayersDbEntry[];
@@ -52,10 +54,11 @@ export async function transact(
         const existing: StoredData | undefined = request.result;
         const raw = existing ?? legacyData();
         const current = { ...raw, session: parseSession(raw.session) };
-        result = change
-          ? { ...change(current), revision: current.revision + 1 }
-          : current;
-        if (change || !existing || existing.session.schemaVersion !== 4)
+        const original = change ? JSON.stringify(current) : null;
+        const updated = change ? change(current) : current;
+        const modified = !!change && JSON.stringify(updated) !== original;
+        result = modified ? { ...updated, revision: current.revision + 1 } : updated;
+        if (modified || !existing || existing.session.schemaVersion !== 4)
           store.put(result, "current");
       } catch (error) {
         failure = error;
@@ -90,7 +93,10 @@ export function commitCommand(action: Command, now: number) {
       throw new Error(
         "Session changed in another tab. Review it and try again.",
       );
-    const session = transition(data.session, action, now);
+    ensureHub(data, now);
+    if (["resetState", "restartSession", "importSession"].includes(action.type)) backup(data, `Before ${action.type}`, now);
+    const before = data.session;
+    const session = transition(before, action, now);
     let library = data.library;
     if (action.type === "addPlayer") {
       const p = session.players.find((p) => p.id === action.id)!;
@@ -107,6 +113,8 @@ export function commitCommand(action: Command, now: number) {
           },
         ];
     }
-    return { ...data, session, library };
+    const next = { ...data, session, library };
+    recordCommand(next, before, action, now);
+    return next;
   });
 }

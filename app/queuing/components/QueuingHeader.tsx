@@ -13,6 +13,7 @@ import { ActionResult } from "../state/model";
 import styles from "../QueuingClient.module.css";
 import type { ColorMode, ColorTheme } from "../hooks/useAppearance";
 interface Props {
+  tools?: React.ReactNode;
   appearance: {
     color: ColorTheme;
     mode: ColorMode;
@@ -85,6 +86,7 @@ export default function QueuingHeader(p: Props) {
         </div>
       </div>
       <div className={styles.headerActions}>
+        {p.tools}
         <Button disabled={p.disabled} onClick={p.onOpenPayments}>
           Payments
         </Button>

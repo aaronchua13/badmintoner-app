@@ -30,6 +30,10 @@ import { ActionResult } from "./state/model";
 import { useConfirmation } from "./hooks/useConfirmation";
 import { parseSession, errorText } from "./state/model";
 import { useQueuingState } from "./hooks/useQueuingState";
+import CloudTools from "./components/CloudTools";
+import QueueDisplay from "./components/QueueDisplay";
+import { displayProjection } from "./state/hub";
+import { getSnapshot } from "./state/store";
 import PaymentsPanel, { PaymentTag } from "./components/PaymentsPanel";
 import { calculateBilling } from "./state/billing";
 import QueuingHeader from "./components/QueuingHeader";
@@ -72,7 +76,12 @@ function subscribeDensity(fn: () => void) {
     window.removeEventListener("queue-density", fn);
   };
 }
+const subscribeDisplay = (fn: () => void) => {
+  window.addEventListener("popstate", fn);
+  return () => window.removeEventListener("popstate", fn);
+};
 export default function QueuingClient() {
+  const displayMode = useSyncExternalStore(subscribeDisplay, () => new URLSearchParams(location.search).get("display") === "tv", () => false);
   const appearance = useAppearance();
   const primary = { emerald: "#047857", ocean: "#0369a1", violet: "#7c3aed" }[
     appearance.color
@@ -298,6 +307,11 @@ export default function QueuingClient() {
       );
     }
   };
+  if (displayMode) {
+    const hub = getSnapshot().data.hub;
+    const record = hub?.records[hub.activeId];
+    return <ConfigProvider><QueueDisplay data={displayProjection(state, record?.metadata.title ?? "Badmintoner queue", record?.updatedAt ?? currentTime)} onExit={() => { location.href = "/queuing"; }} /></ConfigProvider>;
+  }
   return (
     <ConfigProvider
       theme={{
@@ -340,6 +354,7 @@ export default function QueuingClient() {
         data-tablet-view={tabletView}
       >
         <QueuingHeader
+          tools={<CloudTools />}
           appearance={appearance}
           playerCount={players.length}
           courtCount={courts.length}
