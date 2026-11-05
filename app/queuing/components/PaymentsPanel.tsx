@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useDeferredValue } from "react";
 import {
   Alert,
   Button,
@@ -876,7 +876,8 @@ export default function PaymentsPanel({
   close: () => void;
   playerFilter?: string;
 }) {
-  const totals = calculateBilling(session);
+  const { players, billing } = session;
+  const totals = useMemo(() => calculateBilling({ players, billing }), [players, billing]);
   const finalized = !!session.billing.finalized;
   const [showFinalExpenses, setShowFinalExpenses] = useState(false);
   const [search, setSearch] = useState("");
@@ -906,13 +907,14 @@ export default function PaymentsPanel({
   };
   const billingRow = totals.rows.find((r) => r.id === billingId);
   const paymentRow = totals.rows.find((r) => r.id === payment?.playerId);
-  const visible = totals.rows.filter(
+  const deferredSearch = useDeferredValue(search).toLowerCase();
+  const visible = useMemo(() => totals.rows.filter(
     (r) =>
       (!focused || !playerFilter || r.id === playerFilter) &&
-      r.name.toLowerCase().includes(search.toLowerCase()) &&
+      r.name.toLowerCase().includes(deferredSearch) &&
       (status === "All" || r.status === status) &&
       (kind === "All" || (r.arrangement?.kind ?? "unassigned") === kind),
-  );
+  ), [totals.rows, focused, playerFilter, deferredSearch, status, kind]);
   return (
     <Drawer
       title="Payments"

@@ -1,6 +1,7 @@
 import { PlayersDbEntry } from "../types";
 import { initialSession, parseSession, parseLibrary, QueueData } from "./model";
-import { Command, transition } from "./transitions";
+import { Command, transitionValidated } from "./transitions";
+import { measureQueue } from "./performance";
 export interface StoredData {
   revision: number;
   session: QueueData;
@@ -46,17 +47,20 @@ export async function transact(
     const store = tx.objectStore("data");
     let result: StoredData;
     let failure: unknown;
+    const readStart = typeof window !== "undefined" && Object.hasOwn(window, "queuePerf") ? performance.now() : null;
     const request = store.get("current");
+
     request.onsuccess = () => {
+      if (readStart !== null) performance.measure("queue:read", { start: readStart, end: performance.now() });
       try {
         const existing: StoredData | undefined = request.result;
         const raw = existing ?? legacyData();
-        const current = { ...raw, session: parseSession(raw.session) };
+        const current = { ...raw, session: measureQueue("validate-input", () => parseSession(raw.session)) };
         result = change
           ? { ...change(current), revision: current.revision + 1 }
           : current;
         if (change || !existing || existing.session.schemaVersion !== 4)
-          store.put(result, "current");
+          measureQueue("write-request", () => store.put(result, "current"));
       } catch (error) {
         failure = error;
         tx.abort();
@@ -90,7 +94,7 @@ export function commitCommand(action: Command, now: number) {
       throw new Error(
         "Session changed in another tab. Review it and try again.",
       );
-    const session = transition(data.session, action, now);
+    const session = measureQueue("transition", () => transitionValidated(data.session, action, now));
     let library = data.library;
     if (action.type === "addPlayer") {
       const p = session.players.find((p) => p.id === action.id)!;

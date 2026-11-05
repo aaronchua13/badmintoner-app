@@ -1,3 +1,4 @@
+import { measureQueue } from "./performance";
 import {
   Expenses,
   Arrangement,
@@ -107,8 +108,11 @@ export function transition(
   action: Command,
   now: number,
 ): QueueData {
-  const before = parseSession(previous);
-  const s = structuredClone(before);
+  return transitionValidated(measureQueue("validate-input", () => parseSession(previous)), action, now);
+}
+// Internal entry point for storage, which has already validated the input.
+export function transitionValidated(before: QueueData, action: Command, now: number): QueueData {
+  const s = measureQueue("clone", () => structuredClone(before));
   s.autoAssignQueue = false;
   const court = (id: string) => {
     const c = s.courts.find((c) => c.id === id);
@@ -771,5 +775,5 @@ export function transition(
       return parseSession(action.data);
   }
   appendPlayerLogs(before, s, action, now);
-  return parseSession(s);
+  return measureQueue("validate-output", () => parseSession(s));
 }

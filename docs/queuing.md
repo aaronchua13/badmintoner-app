@@ -67,3 +67,7 @@ Open a player’s details and select Player Logs to see timestamped activity for
 Logs are committed atomically with each successful action, shared across tabs, retained on reload, and included in session exports/imports. Failed actions and unchanged values produce no entries. New session and Reset clear logs; export first to retain a previous session. Historical references to removed players remain in exports. Older session files remain supported and start with empty logs; past activity is not reconstructed. Exports now use schema version 4.
 
 Idle courts with staged players offer **Move all to queue** in court options. Confirming appends one match to Up next, keeps both teams (including incomplete teams), and empties the court. Empty idle courts offer **Assign from queue**, which shows queued teams and availability. Assigning moves the selected lineup onto the court without starting it; unavailable or currently playing players must become available first. To replace a staged lineup, move it to the queue and then assign another match.
+
+## Tablet performance
+
+See [queuing-performance.md](queuing-performance.md) for the rendering/storage changes, production measurements, repeatable Chromium and WebKit scenarios, and the physical-iPad verification steps.

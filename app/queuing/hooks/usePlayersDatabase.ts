@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore, useMemo, useDeferredValue } from "react";
 import { Gender, PlayerLevel } from "../types";
 import {
   editLibrary,
@@ -8,13 +8,15 @@ import {
   refresh,
   subscribe,
 } from "../state/store";
-export const usePlayersDatabase = () => {
+export const usePlayersDatabase = (searchState?: [string, (query: string) => void]) => {
   const snapshot = useSyncExternalStore(
     subscribe,
     getSnapshot,
     getServerSnapshot,
   );
-  const [searchQuery, setSearchQuery] = useState("");
+  const localSearch = useState("");
+  const [searchQuery, setSearchQuery] = searchState ?? localSearch;
+  const search = useDeferredValue(searchQuery).toLowerCase();
   useEffect(() => {
     void initialize();
   }, []);
@@ -27,11 +29,10 @@ export const usePlayersDatabase = () => {
       { id, name: name.trim(), gender, level, createdAt: now, updatedAt: now },
     ]);
   };
+  const filtered = useMemo(() => entries.filter((e) => e.name.toLowerCase().includes(search)), [entries, search]);
   return {
     entries,
-    filtered: entries.filter((e) =>
-      e.name.toLowerCase().includes(searchQuery.toLowerCase()),
-    ),
+    filtered,
     searchQuery,
     setSearchQuery,
     refresh,

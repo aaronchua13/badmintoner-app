@@ -12,13 +12,25 @@ import {
 
 const { Title } = Typography;
 
+import DeferredDialog from "./DeferredDialog";
+import { useCurrentTime } from "../../hooks/useCurrentTime";
+interface SummaryView {
+  tab: string;
+  historyPage: number;
+  sort: { key?: React.Key; order: 'ascend' | 'descend' | null };
+}
 interface SessionSummaryModalProps {
+  view?: SummaryView;
+  onView?: React.Dispatch<React.SetStateAction<SummaryView>>;
+  afterClose?: () => void;
+  pagination?: { current: number; pageSize: number };
+  onPagination?: (value: { current: number; pageSize: number }) => void;
   onOpenPayments?: () => void;
   visible: boolean;
   onClose: () => void;
   sessionStartTime: number | null;
   sessionEndTime: number | null;
-  currentTime: number;
+  frozenTime: number | null;
   players: Player[];
   history: MatchHistory[];
   courts?: Court[];
@@ -29,21 +41,28 @@ interface PlayerWithStats extends Player {
   displayIdleTime: number;
 }
 
-const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
+const SessionSummaryModalContent: React.FC<SessionSummaryModalProps> = ({
   onOpenPayments,
   visible,
   onClose,
   sessionStartTime,
   sessionEndTime,
-  currentTime,
+  frozenTime,
+  afterClose,
+  pagination,
+  onPagination,
+  view,
+  onView,
   players,
   history,
   courtHistory = []
 }) => {
+  const currentTime = useCurrentTime(frozenTime, visible && sessionStartTime !== null);
   const { md } = Grid.useBreakpoint();
   const isMobile = !md;
   const { token } = theme.useToken();
-  const [leaderboardPage, setLeaderboardPage] = useState({ current: 1, pageSize: 10 });
+  const leaderboardPage = pagination ?? { current: 1, pageSize: 10 };
+  const setLeaderboardPage = onPagination ?? (() => {});
 
   const duration = sessionStartTime !== null
     ? Math.max(0, Math.floor(((sessionEndTime ?? currentTime) - sessionStartTime) / 1000)) 
@@ -91,13 +110,15 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
     { 
       title: 'Games', 
       dataIndex: 'gamesPlayed', 
-      key: 'gamesPlayed', 
+      key: 'gamesPlayed',
+      sortOrder: view?.sort.key === 'gamesPlayed' ? view.sort.order : null,
       sorter: (a: PlayerWithStats, b: PlayerWithStats) => a.gamesPlayed - b.gamesPlayed 
     },
     { 
       title: 'Wins', 
       dataIndex: 'wins', 
-      key: 'wins', 
+      key: 'wins',
+      sortOrder: view?.sort.key === 'wins' ? view.sort.order : null,
       sorter: (a: PlayerWithStats, b: PlayerWithStats) => a.wins - b.wins, 
  
     },
@@ -109,7 +130,8 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
     },
     { 
       title: 'Idle Time', 
-      key: 'idleTime', 
+      key: 'idleTime',
+      sortOrder: view?.sort.key === 'idleTime' ? view.sort.order : null,
       render: (_: unknown, r: PlayerWithStats) => formatSessionDuration(r.displayIdleTime),
       sorter: (a: PlayerWithStats, b: PlayerWithStats) => a.displayIdleTime - b.displayIdleTime
     },
@@ -212,6 +234,7 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
     <Modal
       title={<Title level={5} style={{ margin: 0 }}>Session Summary</Title>}
       open={visible}
+      afterClose={afterClose}
       onCancel={onClose}
       footer={[
         <Button key="download" onClick={downloadSummary} size="small">
@@ -274,7 +297,8 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
       </div>
 
       <Tabs
-        defaultActiveKey="leaderboard"
+        activeKey={view?.tab ?? "leaderboard"}
+        onChange={(tab) => onView?.((previous) => ({ ...previous, tab }))}
         size="small"
         items={[
           {
@@ -313,10 +337,11 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
                   columns={playerColumns} 
                   rowKey="id" 
                   pagination={{ ...leaderboardPage, size: 'small' }}
-                  onChange={(pagination) => setLeaderboardPage({
-                    current: pagination.current ?? 1,
-                    pageSize: pagination.pageSize ?? 10,
-                  })}
+                  onChange={(pagination, _filters, sorter) => {
+                    setLeaderboardPage({ current: pagination.current ?? 1, pageSize: pagination.pageSize ?? 10 });
+                    const selected = Array.isArray(sorter) ? sorter[0] : sorter;
+                    onView?.((previous) => ({ ...previous, sort: { key: selected.columnKey, order: selected.order ?? null } }));
+                  }}
                   size="small"
                   scroll={{ x: 600, y: 300 }}
                   style={{ fontSize: 12 }}
@@ -332,7 +357,7 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
                 dataSource={history} 
                 columns={historyColumns} 
                 rowKey="id" 
-                pagination={{ pageSize: 10, size: 'small' }} 
+                pagination={{ pageSize: 10, size: 'small', current: view?.historyPage ?? 1, onChange: (historyPage) => onView?.((previous) => ({ ...previous, historyPage })) }}
                 size="small"
                 scroll={{ x: 800, y: 300 }}
               />
@@ -344,4 +369,10 @@ const SessionSummaryModal: React.FC<SessionSummaryModalProps> = ({
   );
 };
 
-export default SessionSummaryModal;
+export default function SessionSummaryModal(p: SessionSummaryModalProps) {
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 10 });
+  const [view, setView] = useState<SummaryView>({ tab: "leaderboard", historyPage: 1, sort: { order: null } });
+  return <DeferredDialog open={p.visible}>{(visible, afterClose) => <SessionSummaryModalContent {...p} visible={visible} afterClose={afterClose} pagination={pagination} onPagination={setPagination} view={view} onView={setView} />}</DeferredDialog>;
+}
+
+SessionSummaryModalContent.displayName = "SessionSummaryModalContent";

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useSyncExternalStore } from "react";
 import { Button, Dropdown, Modal, Tag, Popover, Segmented, Select } from "antd";
 import {
   HomeOutlined,
@@ -12,6 +12,8 @@ import { formatSessionDuration } from "../utils";
 import { ActionResult } from "../state/model";
 import styles from "../QueuingClient.module.css";
 import type { ColorMode, ColorTheme } from "../hooks/useAppearance";
+import { useVisibleTime } from "../hooks/useCurrentTime";
+import { subscribe, getSnapshot, getServerSnapshot } from "../state/store";
 interface Props {
   appearance: {
     color: ColorTheme;
@@ -24,9 +26,8 @@ interface Props {
   sessionStartTime: number | null;
   sessionEndTime: number | null;
   sessionStatus: "idle" | "active" | "ended";
-  currentTime: number;
+  frozenTime: number | null;
   isOffline: boolean;
-  saveStatus: string;
   disabled: boolean;
   onStartSession: () => Promise<ActionResult>;
   onStopSession: () => Promise<ActionResult>;
@@ -47,17 +48,6 @@ export default function QueuingHeader(p: Props) {
     null,
   );
   const [busy, setBusy] = useState(false);
-  const duration =
-    p.sessionStartTime === null
-      ? "Ready to begin"
-      : formatSessionDuration(
-          Math.max(
-            0,
-            Math.floor(
-              ((p.sessionEndTime ?? p.currentTime) - p.sessionStartTime) / 1000,
-            ),
-          ),
-        );
   return (
     <header className={styles.header}>
       <div className={styles.brand}>
@@ -81,7 +71,7 @@ export default function QueuingHeader(p: Props) {
         </Tag>
         <div className={styles.sessionClock}>
           <small>SESSION TIME</small>
-          <span className={styles.timer}>{duration}</span>
+          <SessionClock sessionStartTime={p.sessionStartTime} sessionEndTime={p.sessionEndTime} frozenTime={p.frozenTime} />
         </div>
       </div>
       <div className={styles.headerActions}>
@@ -241,7 +231,7 @@ export default function QueuingHeader(p: Props) {
           queued matches
         </span>
         <span>{p.isOffline ? "○ Offline · work locally" : "● Online"}</span>
-        <span role="status">{p.saveStatus}</span>
+        <StorageStatus />
       </div>
       <input
         hidden
@@ -296,4 +286,25 @@ export default function QueuingHeader(p: Props) {
       )}
     </header>
   );
+}
+
+function SessionClock(p: Pick<Props, "sessionStartTime" | "sessionEndTime" | "frozenTime">) {
+  const { ref, currentTime } = useVisibleTime(p.frozenTime, p.sessionStartTime !== null);
+  const duration =
+    p.sessionStartTime === null
+      ? "Ready to begin"
+      : formatSessionDuration(
+          Math.max(
+            0,
+            Math.floor(
+              ((p.sessionEndTime ?? currentTime) - p.sessionStartTime) / 1000,
+            ),
+          ),
+        );
+  return <span ref={ref} className={styles.timer}>{duration}</span>;
+}
+function StorageStatus() {
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const text = !snapshot.loaded ? "Loading saved session…" : snapshot.pending ? "Saving…" : snapshot.error ? "Not saved" : "Saved on this device";
+  return <span role="status">{text}</span>;
 }

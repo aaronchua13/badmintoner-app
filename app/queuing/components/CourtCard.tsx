@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Button, Dropdown, Input, Modal, Tag } from "antd";
 import {
   MoreOutlined,
@@ -10,11 +10,13 @@ import { Court, Player } from "../types";
 import { ActionResult } from "../state/model";
 import { formatMatchTime, getMatchOdds } from "../utils";
 import styles from "../QueuingClient.module.css";
+import { useVisibleTime } from "../hooks/useCurrentTime";
+import { useStableEvent } from "../hooks/useStableEvent";
 interface Props {
   onChangeTeams: (id: string) => void;
   court: Court;
   players: Player[];
-  currentTime: number;
+  frozenTime: number | null;
   sessionStartTime: number | null;
   disabled?: boolean;
   onUpdateName: (id: string, name: string) => Promise<ActionResult>;
@@ -30,10 +32,10 @@ interface Props {
   onAssignFromQueue: (id: string) => void;
   onAssignPlayers: (id: string) => void;
 }
-export default function CourtCard({
+function CourtCardContent({
   court,
   players,
-  currentTime,
+  frozenTime,
   sessionStartTime,
   disabled,
   onUpdateName,
@@ -55,7 +57,7 @@ export default function CourtCard({
   const active = court.status === "active";
   const count = court.players.filter(Boolean).length;
   const ready = count === 4;
-  const odds = getMatchOdds(court.players, players);
+  const odds = useMemo(() => getMatchOdds(court.players, players), [court.players, players]);
   return (
     <article
       className={`${styles.courtCard} ${active ? styles.liveCourt : ""}`}
@@ -197,14 +199,7 @@ export default function CourtCard({
       <div className={styles.courtFooter}>
         <span className={active ? styles.timer : styles.muted}>
           {active
-            ? formatMatchTime(
-                Math.max(
-                  0,
-                  Math.floor(
-                    (currentTime - (court.startTime ?? currentTime)) / 1000,
-                  ),
-                ),
-              )
+            ? <MatchClock startTime={court.startTime} frozenTime={frozenTime} />
             : ready
               ? (odds?.text ?? "Four players ready")
               : `${count}/4 assigned`}
@@ -251,4 +246,27 @@ export default function CourtCard({
       </Modal>
     </article>
   );
+}
+
+function MatchClock({ startTime, frozenTime }: { startTime: number | null; frozenTime: number | null }) {
+  const { ref, currentTime } = useVisibleTime(frozenTime);
+  return <span ref={ref}>{formatMatchTime(Math.max(0, Math.floor((currentTime - (startTime ?? currentTime)) / 1000)))}</span>;
+}
+const MemoCourtCard = React.memo(CourtCardContent);
+export default function CourtCard(p: Props) {
+  return <MemoCourtCard {...p}
+    onChangeTeams={useStableEvent(p.onChangeTeams)}
+    onUpdateName={useStableEvent(p.onUpdateName)}
+    onRemove={useStableEvent(p.onRemove)}
+    onStartMatch={useStableEvent(p.onStartMatch)}
+    onFinishMatch={useStableEvent(p.onFinishMatch)}
+    onStopMatch={useStableEvent(p.onStopMatch)}
+    onStopAndQueue={useStableEvent(p.onStopAndQueue)}
+    onTransfer={useStableEvent(p.onTransfer)}
+    onTogglePlayer={useStableEvent(p.onTogglePlayer)}
+    onClearCourt={useStableEvent(p.onClearCourt)}
+    onMoveToQueue={useStableEvent(p.onMoveToQueue)}
+    onAssignFromQueue={useStableEvent(p.onAssignFromQueue)}
+    onAssignPlayers={useStableEvent(p.onAssignPlayers)}
+  />;
 }

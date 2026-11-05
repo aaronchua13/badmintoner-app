@@ -7,7 +7,10 @@ import LevelTag from '../LevelTag';
 import PlayerLogs from '../PlayerLogs';
 import type { PlayerLog } from '../../state/activity';
 
+import DeferredDialog from "./DeferredDialog";
+import { useCurrentTime } from "../../hooks/useCurrentTime";
 interface PlayerDetailsModalProps {
+  afterClose?: () => void;
   onOpenPayments: (id: string) => void;
   visible: boolean;
   onCancel: () => void;
@@ -16,12 +19,12 @@ interface PlayerDetailsModalProps {
   history: MatchHistory[];
   playerLogs: PlayerLog[];
   sessionStartTime: number | null;
-  currentTime: number;
+  frozenTime: number | null;
   onUpdateLevel: (id: string, level: PlayerLevel) => void;
   onUpdateGender: (id: string, gender: 'Male' | 'Female') => void;
 }
 
-const PlayerDetailsModal: React.FC<PlayerDetailsModalProps> = ({
+const PlayerDetailsModalContent: React.FC<PlayerDetailsModalProps> = ({
   onOpenPayments,
   visible,
   onCancel,
@@ -30,10 +33,12 @@ const PlayerDetailsModal: React.FC<PlayerDetailsModalProps> = ({
   history = [],
   playerLogs,
   sessionStartTime,
-  currentTime,
+  frozenTime,
+  afterClose,
   onUpdateLevel,
   onUpdateGender
 }) => {
+  const currentTime = useCurrentTime(frozenTime, visible && sessionStartTime !== null);
   if (!player) return null;
 
   const playerHistory = history.filter(h => h.players.some(p => p.id === player.id)).reverse();
@@ -49,6 +54,7 @@ const PlayerDetailsModal: React.FC<PlayerDetailsModalProps> = ({
         </div>
       }
       open={visible}
+      afterClose={afterClose}
       onCancel={onCancel}
       footer={null}
       width={600}
@@ -194,4 +200,6 @@ const PlayerDetailsModal: React.FC<PlayerDetailsModalProps> = ({
   );
 };
 
-export default PlayerDetailsModal;
+export default function PlayerDetailsModal(p: PlayerDetailsModalProps) {
+  return <DeferredDialog open={p.visible}>{(visible, afterClose) => <PlayerDetailsModalContent {...p} visible={visible} afterClose={afterClose} />}</DeferredDialog>;
+}
