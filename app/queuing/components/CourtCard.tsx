@@ -22,6 +22,7 @@ interface Props {
   onStartMatch: (id: string) => Promise<ActionResult>;
   onFinishMatch: (id: string) => void;
   onStopMatch: (id: string) => void;
+  onStopAndQueue: (id: string) => void;
   onTransfer: (id: string) => void;
   onTogglePlayer: (court: string, player: string) => Promise<ActionResult>;
   onClearCourt: (id: string) => Promise<ActionResult>;
@@ -40,6 +41,7 @@ export default function CourtCard({
   onStartMatch,
   onFinishMatch,
   onStopMatch,
+  onStopAndQueue,
   onTransfer,
   onTogglePlayer,
   onClearCourt,
@@ -103,6 +105,12 @@ export default function CourtCard({
                   onClick: () => {
                     void onClearCourt(court.id);
                   },
+                },
+                {
+                  key: "stop-and-queue",
+                  label: "Stop and move to queue",
+                  disabled: disabled || !active,
+                  onClick: () => onStopAndQueue(court.id),
                 },
                 {
                   key: "stop",
@@ -176,14 +184,16 @@ export default function CourtCard({
           </div>
         ))}
       </div>
-      <Button disabled={disabled || !count} onClick={() => onChangeTeams(court.id)}>
-        Change teams
-      </Button>
-      {!active && count === 0 && (
-        <Button disabled={disabled} onClick={() => onAssignFromQueue(court.id)}>
-          Assign from queue
+      <div className={styles.courtActions}>
+        <Button disabled={disabled || !count} onClick={() => onChangeTeams(court.id)}>
+          Change teams
         </Button>
-      )}
+        {!active && count === 0 && (
+          <Button disabled={disabled} onClick={() => onAssignFromQueue(court.id)}>
+            Assign from queue
+          </Button>
+        )}
+      </div>
       <div className={styles.courtFooter}>
         <span className={active ? styles.timer : styles.muted}>
           {active

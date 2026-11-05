@@ -70,6 +70,7 @@ export type Command =
     }
   | {
       type: "stopMatch";
+      queueId?: string;
       courtId: string;
       startTime: number | null;
       reason: string;
@@ -538,6 +539,16 @@ export function transition(
         c.status === "active" && c.startTime === action.startTime,
         "This match has changed or already ended",
       );
+      if (action.type === "stopMatch" && action.queueId) {
+        requireCondition(!s.queue.some((q) => q.id === action.queueId), "Queue already exists");
+        requireCondition(!s.queue.some((q) => [...q.team1, ...q.team2].some((id) => c.players.includes(id))), "A player is already queued. Remove their existing booking first.");
+        s.queue.push({
+          id: action.queueId,
+          team1: c.players.slice(0, 2).filter((id): id is string => id !== null),
+          team2: c.players.slice(2, 4).filter((id): id is string => id !== null),
+          createdAt: now,
+        });
+      }
       const finished = action.type === "finishMatch";
       if (finished) {
         requireCondition(
