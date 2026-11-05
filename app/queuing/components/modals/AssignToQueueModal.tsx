@@ -4,6 +4,7 @@ import { Player, QueueItem, Court } from "../../types";
 import { canQueuePlayer } from "../../utils";
 import LevelTag from "../LevelTag";
 import { ActionResult } from "../../state/model";
+import styles from "./AssignToQueueModal.module.css";
 
 const { Title, Text } = Typography;
 
@@ -101,8 +102,8 @@ const AssignToQueueModal: React.FC<AssignToQueueModalProps> = ({
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: 8,
-            maxHeight: "60vh",
+            gap: 6,
+            maxHeight: "45dvh",
             overflowY: "auto",
           }}
         >
@@ -130,22 +131,8 @@ const AssignToQueueModal: React.FC<AssignToQueueModalProps> = ({
                     }
                   }}
                   onClick={() => !isFull && setSelectedGroupId(g.id)}
-                  style={{
-                    border: isSelected
-                      ? "1px solid #047857"
-                      : "1px solid #d9d9d9",
-                    background: isSelected
-                      ? "var(--ant-color-primary-bg)"
-                      : "var(--ant-color-bg-container)",
-                    borderRadius: 6,
-                    padding: 12,
-                    cursor: isFull ? "not-allowed" : "pointer",
-                    opacity: isFull ? 0.6 : 1,
-                    transition: "all 0.2s",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 8,
-                  }}
+                  className={styles.queueOption}
+                  data-selected={isSelected}
                 >
                   <div
                     style={{
@@ -157,34 +144,24 @@ const AssignToQueueModal: React.FC<AssignToQueueModalProps> = ({
                     <Text strong>Queue {index + 1}</Text>
                     <Tag color={isFull ? "red" : "green"}>{count}/4</Tag>
                   </div>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: 12,
-                    }}
-                  >
+                  <div className={styles.teams}>
                     {[g.team1, g.team2].map((team, teamIndex) => (
-                      <div key={teamIndex}>
-                        <Text strong>Team {teamIndex + 1}</Text>
-                        {[0, 1].map((slot) => {
-                          const member = players.find(
-                            (p) => p.id === team[slot],
-                          );
-                          return (
-                            <div key={slot} style={{ padding: "6px 0" }}>
-                              {member ? (
-                                <>
-                                  <Text>{member.name}</Text>
-                                  <br />
-                                  <Text type="secondary">{member.level}</Text>
-                                </>
-                              ) : (
-                                <Text type="secondary">Available slot</Text>
-                              )}
-                            </div>
-                          );
-                        })}
+                      <div key={teamIndex} className={styles.team}>
+                        <Text type="secondary">T{teamIndex + 1}</Text>
+                        <span>
+                          {team.length ? team.map((id, memberIndex) => {
+                            const member = players.find((p) => p.id === id);
+                            return (
+                              <React.Fragment key={id}>
+                                {memberIndex > 0 && ", "}
+                                <span title={member?.level}>{member?.name ?? "Unknown player"}</span>
+                              </React.Fragment>
+                            );
+                          }) : <Text type="secondary">Empty</Text>}
+                          {team.length < 2 && team.length > 0 && (
+                            <Text type="secondary"> · {2 - team.length} open</Text>
+                          )}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -195,7 +172,7 @@ const AssignToQueueModal: React.FC<AssignToQueueModalProps> = ({
         </div>
 
         {player && (
-          <div style={{ marginTop: 12 }}>
+          <div>
             <Text>Player: </Text>
             <Space>
               <LevelTag level={player.level} />

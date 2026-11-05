@@ -1,6 +1,6 @@
 import React from "react";
 import { Button, Dropdown, Empty, Tag } from "antd";
-import { MoreOutlined } from "@ant-design/icons";
+import { ManOutlined, WomanOutlined, MoreOutlined } from "@ant-design/icons";
 import { Player, Court, QueueItem, isCheckedIn } from "../types";
 import { ActionResult } from "../state/model";
 import {
@@ -89,7 +89,12 @@ export default function PlayerList(p: Props) {
                 {present ? "✓" : "○"}
               </span>
               <span className={styles.playerIdentity}>
-                <strong title={player.name}>{player.name}</strong>
+                <strong title={player.name}>
+                  <span className={styles.genderIcon} role="img" aria-label={player.gender} title={player.gender}>
+                    {player.gender === "Female" ? <WomanOutlined aria-hidden="true" /> : <ManOutlined aria-hidden="true" />}
+                  </span>
+                  {player.name}
+                </strong>
                 {p.paymentTags?.[player.id]}
               </span>
             </button>

@@ -1,0 +1,45 @@
+.queueOption {
+  border: 1px solid var(--ant-color-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--ant-color-bg-container);
+  cursor: pointer;
+}
+.queueOption[data-selected="true"] {
+  border-color: var(--ant-color-primary);
+  background: var(--ant-color-primary-bg);
+}
+.queueOption[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.queueOption :global(.ant-tag) {
+  margin-inline-end: 0;
+  font-size: 12px;
+  line-height: 18px;
+}
+.teams {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 18px;
+}
+.team {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+}
+.team > :first-child {
+  flex-shrink: 0;
+  font-size: inherit;
+}
+.team > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.team :global(.ant-typography) {
+  font-size: inherit;
+}

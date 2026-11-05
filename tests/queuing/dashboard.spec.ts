@@ -259,7 +259,7 @@ for (const width of [375, 768, 899, 900, 1024, 1200, 1440])
           () => document.documentElement.scrollWidth <= innerWidth,
         ),
       ).toBe(true);
-      if (width >= 1200) {
+      if (width >= 1000) {
         const roster = page.locator("section").filter({
           has: page.getByRole("textbox", { name: "Search players" }),
         });
@@ -306,12 +306,12 @@ for (const width of [375, 768, 899, 900, 1024, 1200, 1440])
           .getByRole("navigation", { name: "Session views" })
           .getByRole("button", { name: /Courts/ })
           .click();
-      else if (width < 1200)
+      else if (width < 1000)
         await page.getByText("Courts (6)", { exact: true }).click();
       const courtCards = page.getByRole("article", { name: /^Court [12]$/ });
       const firstCourt = await courtCards.nth(0).boundingBox();
       const secondCourt = await courtCards.nth(1).boundingBox();
-      if (width >= 900) {
+      if (width >= 1200 || (width >= 900 && width < 1000)) {
         expect(Math.abs(firstCourt!.y - secondCourt!.y)).toBeLessThan(2);
         expect(secondCourt!.x).toBeGreaterThan(firstCourt!.x);
       } else {
@@ -499,7 +499,7 @@ test("long queue, courts and roster scroll independently and the first match ass
   expect(await queue.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
   await expect(
     page.getByRole("article", { name: "Queued match 1", exact: true }),
-  ).toBeInViewport();
+  ).not.toBeInViewport();
   await expect(
     page.getByRole("button", { name: "Create Match", exact: true }),
   ).toBeInViewport();
@@ -1120,3 +1120,29 @@ test("organizer checks players in before assignment and attendance syncs across 
     other.getByTestId("player-row").filter({ hasText: "Late arrival" }),
   ).toHaveAttribute("data-player-status", "not-arrived");
 });
+
+for (const width of [1024, 1180, 1366]) {
+  test(`iPad ${width}px keeps courts visible beside a large roster`, async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width, height: 768 }, hasTouch: true });
+    const page = await context.newPage();
+    await seed(page, 30);
+    await ready(page);
+    for (const density of ["Compact", "Comfortable"]) {
+      await page.getByText(density, { exact: true }).click();
+      const court = page.getByRole("article", { name: "Court 1", exact: true });
+      const roster = page.locator("section").filter({ has: page.getByRole("textbox", { name: "Search players" }) });
+      await expect(court).toBeInViewport();
+      expect((await court.boundingBox())!.x).toBeLessThan((await roster.boundingBox())!.x);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await roster.evaluate((el) => { el.scrollTop = 300; });
+      expect(await roster.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+      await expect(court).toBeInViewport();
+      await roster.evaluate((el) => { el.scrollTop = 0; });
+      const first = page.getByTestId("player-row").filter({ hasText: "Alexandria" });
+      await expect(first.getByRole("img", { name: "Female", exact: true })).toBeVisible();
+      await expect(page.getByTestId("player-row").filter({ has: page.locator('strong[title="Player 2"]') }).getByRole("img", { name: "Male", exact: true })).toBeVisible();
+    }
+    await page.screenshot({ path: `test-results/ipad-${width}.png` });
+    await context.close();
+  });
+}

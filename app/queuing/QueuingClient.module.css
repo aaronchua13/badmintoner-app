@@ -490,7 +490,7 @@
   padding: 80px 16px;
   color: var(--muted);
 }
-@media (min-width: 768px) and (max-width: 1199px) {
+@media (min-width: 768px) and (max-width: 999px) {
   .dashboard {
     grid-template-columns: 1fr;
   }
@@ -857,7 +857,7 @@
 .sidebar .courtCard .cardHeading > div:first-child > .eyebrow {
   display: none;
 }
-@media (min-width: 1200px) {
+@media (min-width: 1000px) {
   .playersSection,
   .sidebar {
     max-height: calc(100dvh - 190px);
@@ -868,7 +868,7 @@
     padding-right: 3px;
   }
 }
-@media (min-width: 768px) and (max-width: 1199px) {
+@media (min-width: 768px) and (max-width: 999px) {
   .dashboard {
     grid-template-columns: 1fr;
   }
@@ -945,7 +945,7 @@
     display: none;
   }
 }
-@media (max-width: 1199px) {
+@media (max-width: 999px) {
   .rosterControls {
     position: sticky;
     top: var(--session-header-height, 120px);
@@ -959,7 +959,7 @@
 }
 
 /* Desktop: courts and the queue share the left column; roster stays on the right. */
-@media (min-width: 1200px) {
+@media (min-width: 1000px) {
   .dashboard {
     grid-template-columns: minmax(310px, 1fr) minmax(0, 2fr);
   }
@@ -1063,7 +1063,7 @@
   flex: 1 1 140px;
   min-width: 0;
 }
-@media (min-width: 1200px) {
+@media (min-width: 1000px) {
   .sidebar[data-queue-minimized="true"] {
     grid-template-rows: minmax(0, 1fr) auto;
   }
@@ -1146,7 +1146,7 @@
     grid-template-columns: minmax(450px, 1.1fr) minmax(660px, 1.5fr);
   }
 }
-@media (min-width: 1200px) and (max-width: 1399px) {
+@media (min-width: 1000px) and (max-width: 1399px) {
   .rosterColumns,
   .playerRows .playerRow {
     grid-template-columns: minmax(90px, 1fr) 82px 80px 62px 48px 60px 144px;
@@ -1154,13 +1154,6 @@
   .playerRows .rowActions :global(.ant-btn) {
     font-size: 14px;
     padding-inline: 6px;
-  }
-}
-@media (min-width: 1200px) {
-  .queueList > .queueRow[data-next-match="true"] {
-    position: sticky;
-    top: calc(var(--queue-heading-height, 64px) + 8px);
-    z-index: 2;
   }
 }
 
@@ -1440,3 +1433,49 @@
 }
 .teamEditorSlot:focus-visible { outline: 3px solid var(--ant-color-primary); outline-offset: 2px; }
 .teamEditorSlot:disabled { cursor: default; opacity: 0.6; }
+
+/* Landscape tablets keep courts visible beside an independently scrolling roster. */
+@media (min-width: 1000px) and (max-width: 1199px) {
+  .dashboard {
+    grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1.8fr);
+  }
+  .sidebar .courtsGrid,
+  .layout[data-density="comfortable"] .sidebar .courtsGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rosterColumns,
+  .playerRows .playerRow {
+    grid-template-columns: minmax(95px, 1fr) 75px 75px 60px 40px 58px 135px;
+    gap: 6px;
+  }
+  .rosterColumns {
+    font-size: 11px;
+  }
+  .playersSection {
+    overflow: auto;
+  }
+  .rosterControls,
+  .playerRows {
+    min-width: 600px;
+  }
+  .rosterControls {
+    top: 0;
+  }
+}
+@media (min-width: 768px) and (max-width: 999px) {
+  .sidebar {
+    grid-row: 1;
+  }
+  .sidebar .courtsSection,
+  .sidebar .queueSection {
+    max-height: 40dvh;
+    overflow-y: auto;
+  }
+}
+.genderIcon {
+  display: inline-flex;
+  margin-inline-end: 4px;
+  color: var(--muted);
+  font-size: 13px;
+  vertical-align: baseline;
+}
