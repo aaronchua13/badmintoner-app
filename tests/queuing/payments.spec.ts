@@ -3,21 +3,12 @@ import { initialSession } from "../../app/queuing/state/model";
 import { transition } from "../../app/queuing/state/transitions";
 
 for (const mobile of [false, true])
-  test(`manual bulk billing and mixed payments (${mobile ? "mobile" : "desktop"})`, async ({
+  test(`collection-first payments, corrections and settlement (${mobile ? "mobile" : "desktop"})`, async ({
     page,
   }, testInfo) => {
     if (mobile) await page.setViewportSize({ width: 390, height: 844 });
     let data = initialSession(Date.now());
-    for (const name of [
-      "Aaron",
-      "Phinky",
-      "Dan",
-      "Flor",
-      "Cloyd",
-      "Anj",
-      "Kayth",
-      "Jans",
-    ])
+    for (const name of ["Aaron", "Phinky", "Jans", "Unassigned player"]) {
       data = transition(
         data,
         {
@@ -27,6 +18,22 @@ for (const mobile of [false, true])
         },
         Date.now(),
       );
+    }
+    for (const name of ["Phinky", "Jans"])
+      data = transition(
+        data,
+        {
+          type: "setArrangement",
+          playerId: name,
+          values: { kind: "shared", adjustment: "fixed", amount: 22000 },
+        },
+        Date.now(),
+      );
+    data = transition(
+      data,
+      { type: "setArrangement", playerId: "Aaron", values: { kind: "none" } },
+      Date.now(),
+    );
     await page.addInitScript((data) => {
       if (!localStorage.getItem("badminton_queue_data_v2"))
         localStorage.setItem(
@@ -41,114 +48,47 @@ for (const mobile of [false, true])
     await page.getByRole("button", { name: "Payments", exact: true }).click();
     const panel = page.getByRole("dialog", { name: "Payments", exact: true });
     const row = (name: string) =>
-      panel.getByTestId("payment-player").filter({
-        has: page.locator(".ant-card-head").getByText(name, { exact: true }),
-      });
-    await panel
-      .getByRole("spinbutton", { name: "Court fees (PHP)" })
-      .fill("1000");
-    await panel
-      .getByRole("spinbutton", { name: "Price per tube (PHP)" })
-      .fill("845");
-    await panel
-      .getByRole("spinbutton", { name: "Tubes used", exact: true })
-      .fill("1");
-    await expect(panel.getByTestId("cost-estimate")).toContainText(
-      "₱1,845.00 ÷ 8 players = ₱230.63 each",
-    );
-    await panel
-      .getByRole("combobox", { name: "Exclude from cost calculation" })
-      .click();
-    await page
-      .locator(".ant-select-item-option")
-      .filter({ hasText: /^Aaron$/ })
-      .click();
-    await panel
-      .getByRole("combobox", { name: "Exclude from cost calculation" })
-      .press("Escape");
-    const estimate = panel.getByTestId("cost-estimate");
-    await expect(estimate).toContainText(
-      "₱1,845.00 ÷ 7 players = ₱263.57 each",
-    );
-    await expect(row("Jans")).toContainText("Unassigned");
-    await estimate.scrollIntoViewIfNeeded();
-    await page.screenshot({
-      path: testInfo.outputPath("calculator-guide.png"),
-      animations: "disabled",
-    });
-    await panel
-      .getByRole("button", { name: "Continue to set billing", exact: true })
-      .click();
-    const bulk = page.getByRole("dialog", {
-      name: "Set billing for players",
-      exact: true,
-    });
+      panel
+        .getByTestId("payment-player")
+        .filter({ has: page.getByText(name, { exact: true }) });
     await expect(
-      bulk.getByRole("spinbutton", { name: "Amount per player (PHP)" }),
-    ).toHaveValue("263.57");
-    await expect(bulk).toContainText("Calculator guide: ₱263.57 per player");
-    await expect(bulk).toContainText("Apply to 7 players");
+      panel.getByRole("textbox", { name: "Search payments" }),
+    ).toBeInViewport();
     await expect(
-      bulk.getByTestId("bulk-player-preview").filter({ hasText: "Aaron" }),
-    ).toContainText("Excluded");
-    // Exclusions carried from the calculator can be changed without changing the guide.
-    await bulk
-      .getByRole("combobox", { name: "Exclude from bulk billing" })
-      .click();
-    await page
-      .locator(".ant-select-item-option:visible")
-      .filter({ hasText: /^Aaron$/ })
-      .click();
-    await bulk
-      .getByRole("combobox", { name: "Exclude from bulk billing" })
-      .press("Escape");
-    await expect(bulk).toContainText("Apply to 8 players");
-    await bulk.getByRole("button", { name: "Close", exact: true }).click();
-    await expect(bulk).not.toBeVisible();
-    await expect(row("Jans")).toContainText("Unassigned");
+      panel.getByRole("spinbutton", { name: "Court fees (PHP)" }),
+    ).toHaveCount(0);
+    await expect(panel.getByTestId("payment-player")).toHaveCount(2);
+    await expect(panel).toContainText("1 player needs billing");
     await panel
-      .getByRole("button", { name: "Continue to set billing", exact: true })
-      .click();
-    await bulk
-      .getByRole("button", { name: "Use ₱270.00", exact: true })
-      .click();
-    await expect(
-      bulk.getByRole("spinbutton", { name: "Amount per player (PHP)" }),
-    ).toHaveValue("270.00");
-    await expect(bulk).toContainText("Apply to 7 players");
-    await bulk
-      .getByRole("button", { name: "Apply billing", exact: true })
-      .click();
-    await expect(bulk).not.toBeVisible();
-    await expect(row("Aaron")).toContainText("No charge");
-    await expect(row("Phinky")).toContainText("₱270.00");
-    await panel
-      .getByRole("button", { name: "Set billing for players", exact: true })
-      .click();
-    await expect(bulk).toContainText("Apply to 7 players");
-    await bulk.getByRole("button", { name: "Close", exact: true }).click();
-    await expect(bulk).not.toBeVisible();
-    await expect(row("Aaron")).toContainText("No charge");
-    await row("Jans")
       .getByRole("button", { name: "Set billing", exact: true })
       .click();
-    const billing = page.getByRole("dialog", {
+    await panel
+      .getByTestId("billing-player")
+      .filter({ hasText: "Jans" })
+      .getByRole("button", { name: "Edit billing for Jans", exact: true })
+      .click();
+    const individualBill = page.getByRole("dialog", {
       name: "Billing · Jans",
       exact: true,
     });
-    await billing
-      .getByRole("spinbutton", { name: "Discount (PHP)" })
+    await individualBill
+      .getByRole("spinbutton", { name: "Charge amount", exact: true })
+      .fill("270");
+    await individualBill
+      .getByRole("spinbutton", { name: "Discount (PHP)", exact: true })
       .fill("50");
-    await billing.getByLabel("Billing note").fill("Student discount");
-    await expect(billing).toContainText("Amount due: ₱220.00");
-    await billing
+    await individualBill.getByLabel("Billing note").fill("Student discount");
+    await expect(individualBill).toContainText("Amount due: ₱220.00");
+    await individualBill
       .getByRole("button", { name: "Save billing", exact: true })
       .click();
-    await expect(billing).not.toBeVisible();
-    await expect(row("Jans")).toContainText("₱220.00");
-    await expect(panel).toContainText("₱1,840.00");
+    await panel.getByRole("tab", { name: "Collect", exact: true }).click();
+
     await row("Jans")
-      .getByRole("button", { name: "Record payment", exact: true })
+      .getByRole("button", { name: "Pay Jans", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Other amount", exact: true })
       .click();
     const deposit = page.getByRole("dialog", {
       name: "Record payment · Jans",
@@ -157,6 +97,7 @@ for (const mobile of [false, true])
     await deposit
       .getByRole("spinbutton", { name: "Payment amount (PHP)" })
       .fill("100");
+    await expect(deposit.getByLabel("Payment date and time")).not.toBeVisible();
     await deposit.getByRole("combobox", { name: "Payment method" }).click();
     await page
       .locator(".ant-select-item-option")
@@ -167,35 +108,82 @@ for (const mobile of [false, true])
       .click();
     await expect(deposit).not.toBeVisible();
     await expect(row("Jans")).toContainText("Partially paid");
+    await expect(row("Jans")).toContainText("₱120.00");
     await row("Jans")
-      .getByRole("button", { name: "Mark fully paid", exact: true })
+      .getByRole("button", { name: "Pay Jans", exact: true })
       .click();
-    const full = page.getByRole("dialog", {
-      name: "Mark fully paid · Jans",
-      exact: true,
-    });
+    await page.getByRole("button", { name: "Cash", exact: true }).click();
+    await expect(panel.getByRole("status")).toContainText(
+      "Jans · ₱120.00 received · Cash",
+    );
+    await expect(row("Jans")).toHaveCount(0);
     await expect(
-      full.getByRole("spinbutton", { name: "Payment amount (PHP)" }),
-    ).toHaveValue("120.00");
-    await full
+      panel.getByRole("textbox", { name: "Search payments" }),
+    ).toBeFocused();
+    await panel
+      .getByRole("button", { name: "Review payment", exact: true })
+      .click();
+    const edit = page.getByRole("dialog", { name: "Edit payment · Jans" });
+    await edit
+      .getByRole("spinbutton", { name: "Payment amount (PHP)" })
+      .fill("110");
+    await edit
       .getByRole("button", { name: "Save payment", exact: true })
       .click();
-    await expect(full).not.toBeVisible();
+    await expect(row("Jans")).toContainText("₱10.00");
+    await row("Jans")
+      .getByRole("button", { name: "Pay Jans", exact: true })
+      .click();
+    await page.getByRole("button", { name: "Digital", exact: true }).click();
+    await expect(panel.getByRole("status")).toContainText(
+      "₱10.00 received · Digital",
+    );
+    await panel.getByText("All", { exact: true }).click();
     await expect(row("Jans")).toContainText("Fully paid");
+    await expect(
+      row("Jans").getByRole("button", { name: "Pay Jans", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      row("Aaron").getByRole("button", { name: "Pay Aaron", exact: true }),
+    ).toHaveCount(0);
+    await row("Jans").getByRole("button", { name: "Details for Jans" }).click();
+    const details = page.getByRole("dialog", {
+      name: "Payment details · Jans",
+    });
+    await details.getByText("Payment history (3)").click();
+    await expect(details).toContainText("Cash");
+    await expect(details).toContainText("Digital");
+    await details.getByRole("button", { name: "Close", exact: true }).click();
+    await panel.getByRole("tab", { name: "Costs", exact: true }).click();
     await panel
       .getByRole("spinbutton", { name: "Court fees (PHP)" })
-      .fill("1200");
-    await expect(estimate).toContainText(
-      "₱2,045.00 ÷ 7 players = ₱292.14 each",
+      .fill("1000");
+    await expect(panel.getByTestId("cost-estimate")).toContainText(
+      "₱1,000.00 ÷ 4 players = ₱250.00 each",
     );
-    await expect(row("Jans")).toContainText("Fully paid");
     await panel
       .getByRole("button", { name: "Save estimate", exact: true })
       .click();
-    await expect(panel.getByText("₱205.00", { exact: true })).toBeVisible();
-    await expect(row("Jans")).toContainText("Fully paid");
-    await expect(row("Jans")).toContainText("₱220.00");
-    await expect(row("Phinky")).toContainText("₱270.00");
+    await panel.getByRole("tab", { name: "Billing", exact: true }).click();
+    const unassigned = panel
+      .getByTestId("billing-player")
+      .filter({ hasText: "Unassigned player" });
+    await unassigned
+      .getByRole("button", {
+        name: "Set billing for Unassigned player",
+        exact: true,
+      })
+      .click();
+    const billing = page.getByRole("dialog", {
+      name: "Billing · Unassigned player",
+      exact: true,
+    });
+    await billing
+      .getByRole("spinbutton", { name: "Charge amount", exact: true })
+      .fill("220");
+    await billing
+      .getByRole("button", { name: "Save billing", exact: true })
+      .click();
     await panel.getByRole("button", { name: "Close", exact: true }).click();
     await page
       .getByRole("button", { name: "Start Session", exact: true })
@@ -212,39 +200,37 @@ for (const mobile of [false, true])
       .getByRole("dialog", { name: "Session Summary" })
       .getByRole("button", { name: "Review payments" })
       .click();
+    await panel.getByRole("tab", { name: "Billing", exact: true }).click();
     await panel
       .getByRole("button", { name: "Review final settlement", exact: true })
       .click();
-    const review = page.getByRole("dialog", {
-      name: "Review final settlement",
-      exact: true,
-    });
-    await expect(review).toContainText(
-      "Start estimate ₱220.00 → Final ₱220.00",
-    );
-    await review.getByRole("button", { name: "Finalize charges" }).click();
-    await expect(review).not.toBeVisible();
+    await page
+      .getByRole("dialog", { name: "Review final settlement", exact: true })
+      .getByRole("button", { name: "Finalize charges" })
+      .click();
     await page.reload();
     await page.getByRole("button", { name: "Payments", exact: true }).click();
     await expect(panel).toContainText(
       "Final charges · collections remain open",
     );
-    await expect(row("Jans")).toContainText("Fully paid");
-    await expect(row("Aaron")).toContainText("No charge");
-    await row("Jans").getByText("Payment history (2)").click();
-    await expect(row("Jans")).toContainText("Cash");
-    await expect(row("Jans")).toContainText("Digital");
-    await row("Jans").scrollIntoViewIfNeeded();
+    await row("Phinky")
+      .getByRole("button", { name: "Pay Phinky", exact: true })
+      .click();
+    await page.getByRole("button", { name: "Cash", exact: true }).click();
+    await expect(panel.getByRole("status")).toContainText(
+      "Phinky · ₱220.00 received · Cash",
+    );
+    await panel.getByText("Paid", { exact: true }).click();
+    await expect(panel.getByTestId("payment-player")).toHaveCount(2);
     await page.screenshot({
       path: testInfo.outputPath("payments.png"),
       animations: "disabled",
     });
-    if (mobile)
-      expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth <= window.innerWidth,
-        ),
-      ).toBe(true);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
   });
 
 for (const mobile of [false, true])
@@ -303,6 +289,7 @@ for (const mobile of [false, true])
     ).toBeVisible();
     await page.getByRole("button", { name: "Payments", exact: true }).click();
     const panel = page.getByRole("dialog", { name: "Payments", exact: true });
+    await panel.getByRole("tab", { name: "Billing", exact: true }).click();
     await panel
       .getByRole("button", { name: "Set billing for players", exact: true })
       .click();
@@ -367,15 +354,15 @@ for (const mobile of [false, true])
     });
     await modal.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(modal).not.toBeVisible();
-    await expect(panel.getByTestId("payment-player").first()).toContainText(
-      "Unassigned",
-    );
+    await panel.getByRole("tab", { name: "Costs", exact: true }).click();
     const exclusions = panel.getByRole("combobox", {
       name: "Exclude from cost calculation",
     });
     for (const name of ["Player 1", "Player 2", "Player 3"]) {
       await exclusions.fill(name);
-      await expect(page.locator(".ant-select-item-option-active")).toHaveAttribute("title", name);
+      await expect(
+        page.locator(".ant-select-item-option-active"),
+      ).toHaveAttribute("title", name);
       await exclusions.press("Enter");
     }
     await exclusions.press("Escape");
@@ -392,4 +379,132 @@ for (const mobile of [false, true])
     }
     await modal.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(modal).not.toBeVisible();
+  });
+
+for (const mobile of [false, true])
+  test(`failed quick payments retry without duplicate receipts (${mobile ? "mobile" : "desktop"})`, async ({
+    page,
+  }, testInfo) => {
+    if (mobile) await page.setViewportSize({ width: 390, height: 844 });
+    let data = initialSession(Date.now());
+    for (let i = 0; i < 25; i++) {
+      data = transition(
+        data,
+        {
+          type: "addPlayer",
+          id: `p${i}`,
+          values: {
+            name:
+              i === 0
+                ? "Player with a very long display name for checking readable rows"
+                : `Player ${i}`,
+            gender: "Male",
+            level: "Intermediate",
+          },
+        },
+        Date.now(),
+      );
+      data = transition(
+        data,
+        {
+          type: "setArrangement",
+          playerId: `p${i}`,
+          values: { kind: "shared", adjustment: "fixed", amount: 22000 },
+        },
+        Date.now(),
+      );
+    }
+    await page.addInitScript(
+      (data) =>
+        localStorage.setItem(
+          "badminton_queue_data_v2",
+          JSON.stringify({ version: 1, data }),
+        ),
+      data,
+    );
+    await page.goto("/queuing");
+    await expect(
+      page.getByText("Saved on this device", { exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Payments", exact: true }).click();
+    const panel = page.getByRole("dialog", { name: "Payments", exact: true });
+    await page.screenshot({
+      path: testInfo.outputPath("collection.png"),
+      animations: "disabled",
+    });
+    const pay = panel.getByRole("button", {
+      name: "Pay Player 24",
+      exact: true,
+    });
+    await pay.click();
+    const cash = page.getByRole("button", { name: "Cash", exact: true });
+    await expect(cash).toBeInViewport();
+    await expect
+      .poll(async () => (await cash.boundingBox())?.height ?? 0)
+      .toBeGreaterThanOrEqual(44);
+    await page.screenshot({
+      path: testInfo.outputPath("quick-pay.png"),
+      animations: "disabled",
+    });
+    // Fail an actual storage write once, leaving subsequent retry available.
+    await page.evaluate(() => {
+      const original = IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.put = function () {
+        IDBObjectStore.prototype.put = original;
+        throw new Error("Test payment write failed");
+      };
+    });
+    await cash.click();
+    await expect(
+      page
+        .getByRole("alert")
+        .filter({ hasText: "Test payment write failed" })
+        .last(),
+    ).toBeVisible();
+    await expect(cash).toBeEnabled();
+    await expect(panel.getByRole("status")).toHaveCount(0);
+    await expect(
+      panel
+        .getByTestId("payment-player")
+        .filter({ has: page.getByText("Player 24", { exact: true }) }),
+    ).toContainText("No payment");
+    const scrollBefore = await panel
+      .locator(".ant-drawer-body")
+      .evaluate((el) => el.scrollTop);
+    // Dispatch two clicks in the same turn to exercise the synchronous save guard.
+    await cash.evaluate((button) => {
+      (button as HTMLButtonElement).click();
+      (button as HTMLButtonElement).click();
+    });
+    await expect(panel.getByRole("status")).toContainText(
+      "Player 24 · ₱220.00 received · Cash",
+    );
+    await expect
+      .poll(async () =>
+        panel.locator(".ant-drawer-body").evaluate((el) => el.scrollTop),
+      )
+      .toBe(scrollBefore);
+    await panel.getByText("Paid", { exact: true }).click();
+    await panel
+      .getByRole("button", { name: "Details for Player 24", exact: true })
+      .click();
+    const detail = page.getByRole("dialog", {
+      name: "Payment details · Player 24",
+      exact: true,
+    });
+    await expect(detail).toContainText("Payment history (1)");
+    await detail.getByRole("button", { name: "Close", exact: true }).click();
+    await panel.getByText("To collect", { exact: true }).click();
+    await panel
+      .getByRole("button", { name: "Pay Player 23", exact: true })
+      .click();
+    await cash.focus();
+    await page.keyboard.press("Escape");
+    await expect(cash).not.toBeVisible();
+    await expect(
+      panel.getByRole("button", { name: "Pay Player 23", exact: true }),
+    ).toBeFocused();
+    await expect(
+      panel.getByRole("textbox", { name: "Search payments" }),
+    ).toBeInViewport();
   });

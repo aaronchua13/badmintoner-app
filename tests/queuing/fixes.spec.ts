@@ -99,7 +99,10 @@ test("stale payment edits retain the draft and require reopening to see the corr
   await ready(other);
   const openEditor = async (p: Page) => {
     await p.getByRole("button", { name: "Payments", exact: true }).click();
-    const row = p.getByTestId("payment-player").filter({ hasText: "Player 1" });
+    const panel = p.getByRole("dialog", { name: "Payments", exact: true });
+    await panel.getByText("All", { exact: true }).click();
+    await panel.getByRole("button", { name: "Details for Player 1", exact: true }).click();
+    const row = p.getByRole("dialog", { name: "Payment details · Player 1", exact: true });
     await row.getByText("Payment history (1)", { exact: true }).click();
     await row.getByRole("button", { name: "Edit", exact: true }).click();
     return p.getByRole("dialog", { name: "Edit payment · Player 1", exact: true });
@@ -114,7 +117,7 @@ test("stale payment edits retain the draft and require reopening to see the corr
   await expect(oldEditor.getByLabel("Note", { exact: true })).toHaveValue("My draft");
   await oldEditor.getByRole("button", { name: "Close", exact: true }).click();
   await expect(oldEditor).not.toBeVisible();
-  await page.getByTestId("payment-player").filter({ hasText: "Player 1" }).getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("dialog", { name: "Payment details · Player 1", exact: true }).getByRole("button", { name: "Edit", exact: true }).click();
   await expect(oldEditor.getByRole("spinbutton", { name: "Payment amount (PHP)" })).toHaveValue("250.00");
   await other.close();
 });
