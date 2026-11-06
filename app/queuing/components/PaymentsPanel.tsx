@@ -1,10 +1,9 @@
-import React, { useState, useMemo, useDeferredValue } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import {
   Alert,
   Button,
   Card,
   Drawer,
-  Empty,
   Form,
   Input,
   InputNumber,
@@ -12,12 +11,13 @@ import {
   Popconfirm,
   Select,
   Space,
-  Tag,
   Typography,
   Table,
   Row as AntRow,
   Col,
   Grid,
+  Tabs,
+  Tag,
 } from "antd";
 import { QueueData, ActionResult } from "../state/model";
 import {
@@ -31,6 +31,9 @@ import {
 } from "../state/billing";
 import type { useQueuingState } from "../hooks/useQueuingState";
 import styles from "./PaymentsPanel.module.css";
+import PaymentsCollection from "./PaymentsCollection";
+import { PaymentTag } from "./PaymentTag";
+export { PaymentTag } from "./PaymentTag";
 
 type Actions = ReturnType<typeof useQueuingState>["actions"];
 type Row = ReturnType<typeof calculateBilling>["rows"][number];
@@ -39,28 +42,6 @@ const arrangements = [
   { value: "separate", label: "Separate payment" },
   { value: "none", label: "No charge" },
 ];
-export function PaymentTag({
-  row,
-  finalized,
-}: {
-  row: Row;
-  finalized: boolean;
-}) {
-  return (
-    <Tag
-      title={finalized ? "Final assigned charge" : "Based on assigned charge"}
-      color={
-        row.status === "Fully paid"
-          ? "green"
-          : row.status === "Partially paid"
-            ? "orange"
-            : "default"
-      }
-    >
-      {row.status}
-    </Tag>
-  );
-}
 function ExpenseForm({
   expenses,
   save,
@@ -756,13 +737,11 @@ function BulkBilling({
 function ReceiptEditor({
   row,
   receipt,
-  full,
   save,
   close,
 }: {
   row: Row;
   receipt?: Receipt;
-  full: boolean;
   save: (v: Receipt, original?: Receipt) => Promise<ActionResult>;
   close: () => void;
 }) {
@@ -775,11 +754,19 @@ function ReceiptEditor({
       .slice(0, 16);
   };
   const [receiptId] = useState(() => receipt?.id ?? crypto.randomUUID());
+  const [moreDetails, setMoreDetails] = useState(!!receipt);
+  const dateChanged = useRef(false);
+  const saving = useRef(false);
   return (
     <Modal
-      title={`${receipt ? "Edit payment" : full ? "Mark fully paid" : "Record payment"} · ${row.name}`}
+      title={`${receipt ? "Edit payment" : "Record payment"} · ${row.name}`}
       open
-      onCancel={close}
+      onCancel={() => {
+        if (!saving.current) close();
+      }}
+      closable={!busy}
+      maskClosable={!busy}
+      keyboard={!busy}
       footer={null}
     >
       <p>
@@ -787,18 +774,17 @@ function ReceiptEditor({
         Received {money(row.received)} · Balance {money(row.balance)}
       </p>
       <Form
+        disabled={busy}
         layout="vertical"
         initialValues={{
-          amount: receipt
-            ? receipt.amount / 100
-            : full
-              ? row.balance / 100
-              : undefined,
+          amount: receipt ? receipt.amount / 100 : undefined,
           method: receipt?.method ?? "cash",
           paidAt: localDate(receipt?.paidAt ?? Date.now()),
           note: receipt?.note ?? "",
         }}
         onFinish={async (v) => {
+          if (saving.current) return;
+          saving.current = true;
           setBusy(true);
           try {
             const r = await save(
@@ -807,14 +793,19 @@ function ReceiptEditor({
                 playerId: row.id,
                 amount: Math.round(v.amount * 100),
                 method: v.method,
-                paidAt: new Date(v.paidAt).getTime(),
+                paidAt: dateChanged.current
+                  ? new Date(v.paidAt).getTime()
+                  : (receipt?.paidAt ?? Date.now()),
                 note: v.note ?? "",
               },
               receipt,
             );
             if (r.ok) close();
             else setFailure(r.error);
+          } catch {
+            setFailure("Payment could not be saved. Please try again.");
           } finally {
+            saving.current = false;
             setBusy(false);
           }
         }}
@@ -846,16 +837,29 @@ function ReceiptEditor({
             ]}
           />
         </Form.Item>
-        <Form.Item
-          name="paidAt"
-          label="Payment date and time"
-          rules={[{ required: true }]}
+        <details
+          open={moreDetails}
+          onToggle={(event) => setMoreDetails(event.currentTarget.open)}
+          className={styles.moreDetails}
         >
-          <Input aria-label="Payment date and time" type="datetime-local" />
-        </Form.Item>
-        <Form.Item name="note" label="Note">
-          <Input.TextArea maxLength={500} />
-        </Form.Item>
+          <summary>More details</summary>
+          <Form.Item
+            name="paidAt"
+            label="Payment date and time"
+            rules={[{ required: true }]}
+          >
+            <Input
+              aria-label="Payment date and time"
+              type="datetime-local"
+              onChange={() => {
+                dateChanged.current = true;
+              }}
+            />
+          </Form.Item>
+          <Form.Item name="note" label="Note">
+            <Input.TextArea maxLength={500} />
+          </Form.Item>
+        </details>
         <Button type="primary" htmlType="submit" loading={busy}>
           Save payment
         </Button>
@@ -863,6 +867,158 @@ function ReceiptEditor({
     </Modal>
   );
 }
+function BillingView({
+  rows,
+  finalized,
+  ended,
+  bulk,
+  reopen,
+  review,
+  edit,
+}: {
+  rows: Row[];
+  finalized: boolean;
+  ended: boolean;
+  bulk: () => void;
+  reopen: () => Promise<ActionResult>;
+  review: () => void;
+  edit: (id: string) => void;
+}) {
+  const screens = Grid.useBreakpoint();
+  const [search, setSearch] = useState("");
+  const visible = rows.filter((row) =>
+    row.name.toLowerCase().includes(search.trim().toLowerCase()),
+  );
+  const player = (row: Row) => (
+    <div className={styles.playerName}>
+      {row.name}
+      <PaymentTag row={row} finalized={finalized} />
+    </div>
+  );
+  const editButton = (row: Row) => (
+    <Button
+      aria-label={`${row.arrangement ? "Edit" : "Set"} billing for ${row.name}`}
+      disabled={finalized}
+      onClick={() => edit(row.id)}
+    >
+      {row.arrangement ? "Edit billing" : "Set billing"}
+    </Button>
+  );
+  const charge = (row: Row) =>
+    row.charge === null ? "Unassigned" : money(row.charge);
+  return (
+    <>
+      <div className={styles.billingStep}>
+        <div>
+          <strong>Set player billing</strong>
+          <p>Choose a fixed amount and the players who will pay it.</p>
+        </div>
+        <Button
+          type="primary"
+          disabled={finalized || !rows.length}
+          onClick={bulk}
+        >
+          Set billing for players
+        </Button>
+      </div>
+      <div className={styles.settlementActions}>
+        {finalized ? (
+          <Popconfirm
+            title="Reopen settlement?"
+            description="Charges become provisional. All receipts are preserved."
+            onConfirm={reopen}
+          >
+            <Button>Reopen settlement</Button>
+          </Popconfirm>
+        ) : (
+          <Button
+            type={ended ? "primary" : "default"}
+            disabled={!ended}
+            onClick={review}
+          >
+            Review final settlement
+          </Button>
+        )}
+        {!finalized && !ended && (
+          <Typography.Text type="secondary">
+            Finalize after ending the session.
+          </Typography.Text>
+        )}
+      </div>
+      <div className={styles.collectionToolbar}>
+        <Input
+          aria-label="Search billing"
+          placeholder="Search players"
+          value={search}
+          allowClear
+          onChange={(event) => setSearch(event.target.value)}
+        />
+      </div>
+      {screens.sm ? (
+        <Table<Row>
+          className={styles.paymentTable}
+          aria-label="Player billing"
+          size="small"
+          rowKey="id"
+          pagination={false}
+          dataSource={visible}
+          locale={{
+            emptyText: rows.length
+              ? "No players match your search"
+              : "No players yet.",
+          }}
+          tableLayout="fixed"
+          onRow={() =>
+            ({
+              "data-testid": "billing-player",
+            }) as React.HTMLAttributes<HTMLTableRowElement>
+          }
+          columns={[
+            { title: "Player", render: (_, row) => player(row) },
+            {
+              title: "Charge",
+              width: 152,
+              align: "right",
+              className: styles.money,
+              render: (_, row) => charge(row),
+            },
+            {
+              title: "Actions",
+              width: 136,
+              align: "right",
+              render: (_, row) => editButton(row),
+            },
+          ]}
+        />
+      ) : (
+        <div aria-label="Player billing">
+          {!visible.length && (
+            <Typography.Text type="secondary">
+              {rows.length ? "No players match your search" : "No players yet."}
+            </Typography.Text>
+          )}
+          {visible.map((row) => (
+            <div
+              key={row.id}
+              className={styles.collectionRow}
+              data-testid="billing-player"
+              role="group"
+              aria-label={row.name}
+            >
+              {player(row)}
+              <div className={styles.billingAmount}>
+                <span>Charge</span>
+                <strong className={styles.money}>{charge(row)}</strong>
+              </div>
+              <div className={styles.rowActions}>{editButton(row)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function PaymentsPanel({
   session,
   actions,
@@ -877,13 +1033,17 @@ export default function PaymentsPanel({
   playerFilter?: string;
 }) {
   const { players, billing } = session;
-  const totals = useMemo(() => calculateBilling({ players, billing }), [players, billing]);
+  const totals = useMemo(
+    () => calculateBilling({ players, billing }),
+    [players, billing],
+  );
   const finalized = !!session.billing.finalized;
-  const [showFinalExpenses, setShowFinalExpenses] = useState(false);
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("All");
-  const [kind, setKind] = useState("All");
-  const [focused, setFocused] = useState(true);
+  const [view, setView] = useState("collect");
+  const [detailsId, setDetailsId] = useState<string | null>(null);
+  const [success, setSuccess] = useState<{
+    receipt: Receipt;
+    name: string;
+  } | null>(null);
   const [bulkGuide, setBulkGuide] = useState<{
     suggestion: number | null;
     excluded: string[];
@@ -892,7 +1052,6 @@ export default function PaymentsPanel({
   const [payment, setPayment] = useState<{
     playerId: string;
     receipt?: Receipt;
-    full: boolean;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [review, setReview] = useState<{
@@ -907,37 +1066,17 @@ export default function PaymentsPanel({
   };
   const billingRow = totals.rows.find((r) => r.id === billingId);
   const paymentRow = totals.rows.find((r) => r.id === payment?.playerId);
-  const deferredSearch = useDeferredValue(search).toLowerCase();
-  const visible = useMemo(() => totals.rows.filter(
-    (r) =>
-      (!focused || !playerFilter || r.id === playerFilter) &&
-      r.name.toLowerCase().includes(deferredSearch) &&
-      (status === "All" || r.status === status) &&
-      (kind === "All" || (r.arrangement?.kind ?? "unassigned") === kind),
-  ), [totals.rows, focused, playerFilter, deferredSearch, status, kind]);
+  const detailRow = totals.rows.find((r) => r.id === detailsId);
   return (
     <Drawer
       title="Payments"
+      push={false}
       open={open}
       onClose={close}
       size="large"
       styles={{ wrapper: { maxWidth: "100vw" } }}
     >
       <div className={styles.panel}>
-        <Alert
-          type={finalized ? "success" : "info"}
-          showIcon
-          title={
-            finalized
-              ? "Final charges · collections remain open"
-              : "Calculate first, then choose what to collect"
-          }
-          description={
-            finalized
-              ? "Reopen settlement to correct assigned charges. The cost calculator remains independent."
-              : "Start with an estimate, choose a fixed fee, then record payments. You can adjust individual players after applying the fee."
-          }
-        />
         {error && (
           <Alert
             type="error"
@@ -947,22 +1086,17 @@ export default function PaymentsPanel({
             onClose={() => setError(null)}
           />
         )}
-        <Card
-          title="1. Calculate your costs"
-          extra={
-            finalized && (
-              <Button
-                size="small"
-                aria-expanded={showFinalExpenses}
-                onClick={() => setShowFinalExpenses(!showFinalExpenses)}
-              >
-                {showFinalExpenses ? "Hide details" : "Show details"}
-              </Button>
-            )
-          }
-          size="small"
-        >
-          {(!finalized || showFinalExpenses) && (
+        <Tabs
+          activeKey={view}
+          onChange={setView}
+          items={[
+            { key: "collect", label: "Collect" },
+            { key: "billing", label: "Billing" },
+            { key: "costs", label: "Costs" },
+          ]}
+        />
+        {view === "costs" && (
+          <Card title="Calculate your costs" size="small">
             <ExpenseForm
               key={JSON.stringify([
                 session.billing.expenses,
@@ -977,225 +1111,219 @@ export default function PaymentsPanel({
               players={totals.rows}
               save={(v, excluded) => run(actions.setExpenses(v, excluded))}
             />
-          )}
-          {finalized && !showFinalExpenses && (
-            <p>
-              Estimated cost {money(totals.totalExpenses)} ·{" "}
-              {totals.calculatorCount} players · Guide per player{" "}
-              {totals.baseShare === null ? "—" : money(totals.baseShare)}
-            </p>
-          )}
-        </Card>
-        <div className={styles.billingStep}>
-          <div>
-            <strong>2. Set player billing</strong>
-            <p>Choose a fixed amount and the players who will pay it.</p>
-          </div>
-          <Button
-            disabled={finalized || !totals.rows.length}
-            onClick={() =>
+          </Card>
+        )}
+        {view === "billing" && (
+          <BillingView
+            rows={totals.rows}
+            finalized={finalized}
+            ended={session.sessionStatus === "ended"}
+            bulk={() =>
               setBulkGuide({
                 suggestion: totals.baseShare,
                 excluded: session.billing.calculatorExcluded,
               })
             }
-          >
-            Set billing for players
-          </Button>
-        </div>
-        <div className={styles.totals}>
-          {(
-            [
-              ["Assigned charges", totals.sharedCharges],
-              ["Separate charges", totals.separateCharges],
-              ["Cash received", totals.cash],
-              ["Digital received", totals.digital],
-              ["Total received", totals.received],
-              ["Outstanding", totals.outstanding],
-              ["Credits", totals.credits],
-              [
-                totals.difference < 0 ? "Cost shortfall" : "Cost surplus",
-                Math.abs(totals.difference),
-              ],
-            ] as const
-          ).map(([label, amount]) => (
-            <div key={label}>
-              <span>{label}</span>
-              <strong>{money(amount)}</strong>
-            </div>
-          ))}
-        </div>
-        <Space wrap>
-          {finalized ? (
-            <Popconfirm
-              title="Reopen settlement?"
-              description="Charges become provisional. All receipts are preserved."
-              onConfirm={() => run(actions.reopenBilling())}
-            >
-              <Button>Reopen settlement</Button>
-            </Popconfirm>
-          ) : (
-            <Button
-              type="primary"
-              disabled={session.sessionStatus !== "ended"}
-              onClick={() =>
-                setReview({ totals, finalize: actions.finalizeBilling })
-              }
-            >
-              Review final settlement
-            </Button>
-          )}
-          {!finalized && session.sessionStatus !== "ended" && (
-            <Typography.Text type="secondary">
-              Finalize after ending the session.
-            </Typography.Text>
-          )}
-        </Space>
-        <div className={styles.collectionStep}>
-          <strong>3. Record payments</strong>
-          <p>
-            Track cash and digital payments against each player’s assigned bill.
-          </p>
-        </div>
-        <div className={styles.filters}>
-          <Input
-            aria-label="Search payments"
-            placeholder="Search players"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            allowClear
-          />
-          <Select
-            aria-label="Payment status filter"
-            value={status}
-            onChange={setStatus}
-            options={[
-              "All",
-              "No payment",
-              "Partially paid",
-              "Fully paid",
-              "Unassigned",
-              "No charge",
-            ].map((value) => ({
-              value,
-              label: value === "All" ? "All statuses" : value,
-            }))}
-          />
-          <Select
-            aria-label="Billing arrangement filter"
-            value={kind}
-            onChange={setKind}
-            options={[
-              { value: "All", label: "All arrangements" },
-              { value: "unassigned", label: "Unassigned" },
-              ...arrangements,
-            ]}
-          />
-        </div>
-        {focused && playerFilter && (
-          <Button onClick={() => setFocused(false)}>Show all players</Button>
-        )}
-        {!visible.length && <Empty description="No players match this view" />}
-        {visible.map((row) => (
-          <Card
-            key={row.id}
-            size="small"
-            data-testid="payment-player"
-            title={
-              <Space wrap>
-                <span>{row.name}</span>
-                <PaymentTag row={row} finalized={finalized} />
-              </Space>
+            reopen={() => run(actions.reopenBilling())}
+            review={() =>
+              setReview({ totals, finalize: actions.finalizeBilling })
             }
-          >
-            <p>
-              {arrangements.find((a) => a.value === row.arrangement?.kind)
-                ?.label ?? "Unassigned"}
-              {row.arrangement &&
-              "discount" in row.arrangement &&
-              (row.arrangement.discount ?? 0) > 0
-                ? ` · Discount ${money(row.arrangement.discount!)}`
-                : ""}
-              {row.arrangement &&
-              "note" in row.arrangement &&
-              row.arrangement.note
-                ? ` · ${row.arrangement.note}`
-                : ""}
-            </p>
-            <div className={styles.amounts}>
-              <span>
-                Charge{" "}
-                <strong>{row.charge === null ? "—" : money(row.charge)}</strong>
-              </span>
-              <span>
-                Cash <strong>{money(row.cash)}</strong>
-              </span>
-              <span>
-                Digital <strong>{money(row.digital)}</strong>
-              </span>
-              <span>
-                Balance <strong>{money(row.balance)}</strong>
-              </span>
-              {row.credit > 0 && (
-                <span>
-                  Credit <strong>{money(row.credit)}</strong>
-                </span>
-              )}
+            edit={setBillingId}
+          />
+        )}
+        {view === "collect" && (
+          <>
+            <div className={styles.totals}>
+              <div>
+                <span>Received</span>
+                <strong>{money(totals.received)}</strong>
+              </div>
+              <div>
+                <span>Outstanding</span>
+                <strong>{money(totals.outstanding)}</strong>
+              </div>
             </div>
-            <Space wrap>
-              <Button disabled={finalized} onClick={() => setBillingId(row.id)}>
-                Set billing
-              </Button>
-              <Button
-                onClick={() => setPayment({ playerId: row.id, full: false })}
-              >
-                Record payment
-              </Button>
-              <Button
-                disabled={row.balance <= 0}
-                onClick={() => setPayment({ playerId: row.id, full: true })}
-              >
-                Mark fully paid
-              </Button>
-            </Space>
-            {row.receipts.length > 0 && (
-              <details className={styles.receipts}>
-                <summary>Payment history ({row.receipts.length})</summary>
-                {row.receipts.map((receipt) => (
-                  <div key={receipt.id} className={styles.receipt}>
-                    <span>
-                      <strong>{money(receipt.amount)}</strong> ·{" "}
-                      {receipt.method === "cash" ? "Cash" : "Digital"}
-                      <br />
-                      <small>
-                        {new Date(receipt.paidAt).toLocaleString()}
-                        {receipt.note ? ` · ${receipt.note}` : ""}
-                      </small>
-                    </span>
-                    <Space wrap>
-                      <Button
-                        size="small"
-                        onClick={() =>
-                          setPayment({ playerId: row.id, receipt: structuredClone(receipt), full: false })
-                        }
-                      >
-                        Edit
-                      </Button>
-                      <Popconfirm
-                        title="Delete this payment?"
-                        onConfirm={() => run(actions.deleteReceipt(receipt.id))}
-                      >
-                        <Button size="small" danger>
-                          Delete
-                        </Button>
-                      </Popconfirm>
-                    </Space>
+            <details className={styles.financialSummary}>
+              <summary>Financial breakdown</summary>
+              <div className={styles.totals}>
+                {(
+                  [
+                    ["Assigned charges", totals.sharedCharges],
+                    ["Separate charges", totals.separateCharges],
+                    ["Cash received", totals.cash],
+                    ["Digital received", totals.digital],
+                    ["Total received", totals.received],
+                    ["Outstanding", totals.outstanding],
+                    ["Credits", totals.credits],
+                    [
+                      totals.difference < 0 ? "Cost shortfall" : "Cost surplus",
+                      Math.abs(totals.difference),
+                    ],
+                  ] as const
+                ).map(([label, amount]) => (
+                  <div key={label}>
+                    <span>{label}</span>
+                    <strong>{money(amount)}</strong>
                   </div>
                 ))}
-              </details>
+              </div>
+            </details>
+            {finalized && (
+              <Typography.Text type="secondary">
+                Final charges · collections remain open
+              </Typography.Text>
             )}
-          </Card>
-        ))}
+            <PaymentsCollection
+              rows={totals.rows}
+              finalized={finalized}
+              playerFilter={playerFilter}
+              save={actions.saveReceipt}
+              details={setDetailsId}
+              other={(id) => setPayment({ playerId: id })}
+              missingBilling={() => setView("billing")}
+              received={(receipt, name) => setSuccess({ receipt, name })}
+              success={
+                success && (
+                  <Alert
+                    type="success"
+                    role="status"
+                    title={`${success.name} · ${money(success.receipt.amount)} received · ${success.receipt.method === "cash" ? "Cash" : "Digital"}`}
+                    action={
+                      <Button
+                        onClick={() => {
+                          const current = totals.rows
+                            .flatMap((r) => r.receipts)
+                            .find((r) => r.id === success.receipt.id);
+                          if (current)
+                            setPayment({
+                              playerId: current.playerId,
+                              receipt: structuredClone(current),
+                            });
+                          else setDetailsId(success.receipt.playerId);
+                        }}
+                      >
+                        Review payment
+                      </Button>
+                    }
+                    closable
+                    onClose={() => setSuccess(null)}
+                  />
+                )
+              }
+            />
+          </>
+        )}
+        {detailRow && (
+          <Modal
+            title={`Payment details · ${detailRow.name}`}
+            open
+            onCancel={() => setDetailsId(null)}
+            footer={null}
+          >
+            {[detailRow].map((row) => (
+              <Card
+                key={row.id}
+                size="small"
+                data-testid="payment-player"
+                title={
+                  <Space wrap>
+                    <span>{row.name}</span>
+                    <PaymentTag row={row} finalized={finalized} />
+                  </Space>
+                }
+              >
+                <p>
+                  {arrangements.find((a) => a.value === row.arrangement?.kind)
+                    ?.label ?? "Unassigned"}
+                  {row.arrangement &&
+                  "discount" in row.arrangement &&
+                  (row.arrangement.discount ?? 0) > 0
+                    ? ` · Discount ${money(row.arrangement.discount!)}`
+                    : ""}
+                  {row.arrangement &&
+                  "note" in row.arrangement &&
+                  row.arrangement.note
+                    ? ` · ${row.arrangement.note}`
+                    : ""}
+                </p>
+                <div className={styles.amounts}>
+                  <span>
+                    Charge{" "}
+                    <strong>
+                      {row.charge === null ? "—" : money(row.charge)}
+                    </strong>
+                  </span>
+                  <span>
+                    Cash <strong>{money(row.cash)}</strong>
+                  </span>
+                  <span>
+                    Digital <strong>{money(row.digital)}</strong>
+                  </span>
+                  <span>
+                    Balance <strong>{money(row.balance)}</strong>
+                  </span>
+                  {row.credit > 0 && (
+                    <span>
+                      Credit <strong>{money(row.credit)}</strong>
+                    </span>
+                  )}
+                </div>
+                <Space wrap>
+                  <Button
+                    disabled={finalized}
+                    onClick={() => setBillingId(row.id)}
+                  >
+                    Set billing
+                  </Button>
+                  <Button onClick={() => setPayment({ playerId: row.id })}>
+                    Record payment
+                  </Button>
+                </Space>
+                {row.receipts.length > 0 && (
+                  <details className={styles.receipts}>
+                    <summary>Payment history ({row.receipts.length})</summary>
+                    {row.receipts.map((receipt) => (
+                      <div key={receipt.id} className={styles.receipt}>
+                        <span>
+                          <strong>{money(receipt.amount)}</strong> ·{" "}
+                          {receipt.method === "cash" ? "Cash" : "Digital"}
+                          <br />
+                          <small>
+                            {new Date(receipt.paidAt).toLocaleString()}
+                            {receipt.note ? ` · ${receipt.note}` : ""}
+                          </small>
+                        </span>
+                        <Space wrap>
+                          <Button
+                            size="small"
+                            onClick={() =>
+                              setPayment({
+                                playerId: row.id,
+                                receipt: structuredClone(receipt),
+                              })
+                            }
+                          >
+                            Edit
+                          </Button>
+                          <Popconfirm
+                            title="Delete this payment?"
+                            onConfirm={() =>
+                              run(actions.deleteReceipt(receipt.id))
+                            }
+                          >
+                            <Button size="small" danger>
+                              Delete
+                            </Button>
+                          </Popconfirm>
+                        </Space>
+                      </div>
+                    ))}
+                  </details>
+                )}
+              </Card>
+            ))}
+          </Modal>
+        )}
       </div>
       {bulkGuide && (
         <BulkBilling
@@ -1219,8 +1347,11 @@ export default function PaymentsPanel({
         <ReceiptEditor
           row={paymentRow}
           receipt={payment.receipt}
-          full={payment.full}
-          save={(v, original) => run(actions.saveReceipt(v, original))}
+          save={async (v, original) => {
+            const result = await run(actions.saveReceipt(v, original));
+            if (result.ok) setSuccess({ receipt: v, name: paymentRow.name });
+            return result;
+          }}
           close={() => setPayment(null)}
         />
       )}
@@ -1237,8 +1368,8 @@ export default function PaymentsPanel({
           if (!review) return;
           setBusy(true);
           try {
-            await run(review.finalize());
-            setReview(null);
+            const result = await run(review.finalize());
+            if (result.ok) setReview(null);
           } finally {
             setBusy(false);
           }

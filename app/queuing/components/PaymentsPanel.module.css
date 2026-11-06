@@ -1,7 +1,7 @@
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
 }
 .expenses {
   display: grid;
@@ -166,4 +166,154 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 16px;
+}
+.collection {
+  overflow-anchor: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.collectionToolbar {
+  position: sticky;
+  top: -24px;
+  z-index: 2;
+  background: var(--ant-color-bg-elevated, #fff);
+  padding: 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.collectionToolbar :global(.ant-alert) {
+  overflow-wrap: anywhere;
+}
+.collectionRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--ant-color-border-secondary, #ddd);
+}
+.playerName {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.rowActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.collectionRow .rowActions {
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+}
+.collection :global(.ant-btn),
+.collection :global(.ant-segmented-item-label),
+.collectionToolbar :global(.ant-input-affix-wrapper) {
+  min-height: 44px;
+}
+.collection :global(.ant-segmented-item-label) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.quickPay {
+  width: 280px;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.quickPay p {
+  margin: 0;
+}
+.quickPay :global(.ant-btn) {
+  min-height: 44px;
+}
+.paymentMethods {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.quickHint {
+  font-size: 12px;
+  color: var(--ant-color-text-secondary);
+}
+.financialSummary summary,
+.moreDetails summary {
+  cursor: pointer;
+  padding: 12px 0;
+  min-height: 44px;
+}
+.moreDetails {
+  margin-bottom: 16px;
+}
+@media (max-width: 575px) {
+  .quickPay {
+    width: 100%;
+  }
+}
+.panel :global(.ant-btn) {
+  min-height: 44px;
+}
+@media (max-width: 575px) {
+  .collectionToolbar {
+    top: -24px;
+  }
+  .collectionToolbar :global(.ant-alert) {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .collectionToolbar :global(.ant-alert-actions) {
+    margin-inline-start: 0;
+  }
+}
+.panel > :global(.ant-tabs) :global(.ant-tabs-nav) {
+  margin-bottom: 0;
+}
+
+.settlementActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.paymentTable {
+  min-width: 0;
+}
+.paymentTable :global(.ant-table),
+.paymentTable :global(.ant-table-tbody > tr > td) {
+  background: var(--ant-color-bg-elevated);
+}
+.paymentTable :global(.ant-table-thead > tr > th) {
+  background: var(--ant-color-fill-alter);
+}
+.paymentTable :global(.ant-table-tbody > tr:hover > td) {
+  background: var(--ant-color-fill-tertiary);
+}
+.money {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.playerName :global(.ant-tag) {
+  margin-inline-end: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.billingAmount {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: right;
+}
+.billingAmount > span {
+  color: var(--ant-color-text-secondary);
+  font-size: 12px;
 }
