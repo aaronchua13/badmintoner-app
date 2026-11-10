@@ -72,3 +72,33 @@ test("queue picker explains unavailable players", async ({ page }) => {
   await expect(picker.getByText(/Unavailable: Player 5/)).toBeVisible();
   await expect(picker.getByRole("button", { name: "Assign match 1" })).toBeDisabled();
 });
+
+for (const mobile of [false, true]) for (const source of ["up next", "picker"]) {
+  test(`assign and start from ${source} (${mobile ? "mobile" : "desktop"})`, async ({ page }) => {
+    if (mobile) await page.setViewportSize({ width: 390, height: 844 });
+    const data = transition(fixture(), { type: "clearCourt", id: "c1" }, Date.now());
+    await page.addInitScript((data) => localStorage.setItem("badminton_queue_data_v2", JSON.stringify({ data })), data);
+    await page.goto("/queuing");
+    await expect(page.getByText("Saved on this device")).toBeVisible();
+    const show = async (name: string) => {
+      if (mobile) await page.getByRole("navigation", { name: "Session views" }).getByRole("button", { name: new RegExp(name) }).click();
+    };
+    const court = page.getByRole("article", { name: "Court 1", exact: true });
+    if (source === "picker") {
+      await show("Courts");
+      await court.getByRole("button", { name: "Assign from queue", exact: true }).click();
+      await page.getByRole("dialog", { name: /Assign from queue/ }).getByRole("button", { name: "Assign and start match 1", exact: true }).click();
+    } else {
+      await show("Queue");
+      await page.getByRole("article", { name: "Queued match 1", exact: true }).getByRole("button", { name: "Assign and start", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Court 1", exact: true }).click();
+      await show("Courts");
+    }
+    await expect(court.getByText("Playing", { exact: true })).toBeVisible();
+    await expect(court.getByText("Player 5", { exact: true })).toBeVisible();
+    await page.reload();
+    await expect(page.getByText("Saved on this device")).toBeVisible();
+    await show("Courts");
+    await expect(court.getByText("Playing", { exact: true })).toBeVisible();
+  });
+}

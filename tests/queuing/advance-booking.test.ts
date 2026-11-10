@@ -116,3 +116,32 @@ describe("stop and move to queue", () => {
     expect(before).toEqual(snapshot);
   });
 });
+
+describe("assign queue and start", () => {
+  function readyQueue() {
+    const s = booked();
+    return transition(s, { type: "stopMatch", courtId: "c1", startTime: s.courts[0].startTime, reason: "", id: "stopped" }, 4000);
+  }
+  it("assigns both teams and starts the timer in one transition", () => {
+    const before = readyQueue();
+    const s = transition(before, { type: "assignQueueToCourt", queueId: "q1", courtId: "c1", start: true }, 5000);
+    expect(s.courts[0]).toMatchObject({ status: "active", startTime: 5000, players: ["p0", "p1", "p2", "p3"] });
+    expect(s.players.every((p) => p.isPlaying)).toBe(true);
+    expect(s.queue.some((q) => q.id === "q1")).toBe(false);
+  });
+  it("leaves the queue and court unchanged when the session is not active", () => {
+    const before = readyQueue();
+    before.sessionStatus = "idle";
+    before.sessionStartTime = null;
+    const snapshot = structuredClone(before);
+    expect(() => transition(before, { type: "assignQueueToCourt", queueId: "q1", courtId: "c1", start: true }, 5000)).toThrow();
+    expect(before).toEqual(snapshot);
+  });
+  it("rejects incomplete lineups without consuming the queue item", () => {
+    const before = readyQueue();
+    before.queue[0].team2.pop();
+    const snapshot = structuredClone(before);
+    expect(() => transition(before, { type: "assignQueueToCourt", queueId: "q1", courtId: "c1", start: true }, 5000)).toThrow(/four/);
+    expect(before).toEqual(snapshot);
+  });
+});

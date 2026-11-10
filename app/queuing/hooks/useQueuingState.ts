@@ -50,7 +50,7 @@ export const useQueuingState = () => {
       original
         ? dispatch({ type: "saveReceipt", values, editing: true, original })
         : dispatch({ type: "saveReceipt", values, editing: false }),
-    deleteReceipt: (id: string) => dispatch({ type: "deleteReceipt", id }),
+    deleteReceipt: (original: Receipt) => dispatch({ type: "deleteReceipt", id: original.id, original }),
     finalizeBilling: () =>
       dispatch({ type: "finalizeBilling", revision: snapshot.data.revision }),
     reopenBilling: () =>
@@ -161,8 +161,8 @@ export const useQueuingState = () => {
     },
     moveCourtToQueue: (courtId: string, players: (string | null)[]) =>
       dispatch({ type: "moveCourtToQueue", courtId, queueId: crypto.randomUUID(), players }),
-    assignQueueToCourt: (queueId: string, courtId: string) =>
-      dispatch({ type: "assignQueueToCourt", queueId, courtId }),
+    assignQueueToCourt: (queueId: string, courtId: string, start = false) =>
+      dispatch({ type: "assignQueueToCourt", queueId, courtId, start }),
     populateDummyPlayers: async (levels: PlayerLevel[]) => {
       for (const [i, name] of [
         "Allan",

@@ -36,10 +36,6 @@ function QuickPay({ row, save, received, other, preserveScroll }: PayProps) {
   const changeOpen = (next: boolean) => {
     if (saving.current) return;
     setOpen(next);
-    if (!next)
-      requestAnimationFrame(() =>
-        triggerRef.current?.focus({ preventScroll: true }),
-      );
     if (next) {
       receiptId.current = crypto.randomUUID();
       setError(null);
@@ -141,6 +137,7 @@ function QuickPay({ row, save, received, other, preserveScroll }: PayProps) {
       destroyOnHidden
       afterOpenChange={(shown) => {
         if (shown) cashRef.current?.focus({ preventScroll: true });
+        else requestAnimationFrame(() => triggerRef.current?.focus({ preventScroll: true }));
       }}
       content={content}
       title="Receive payment"
@@ -163,6 +160,7 @@ function QuickPay({ row, save, received, other, preserveScroll }: PayProps) {
         open={open}
         afterOpenChange={(shown) => {
           if (shown) cashRef.current?.focus({ preventScroll: true });
+          else requestAnimationFrame(() => triggerRef.current?.focus({ preventScroll: true }));
         }}
         onClose={() => changeOpen(false)}
         closable={!busy}

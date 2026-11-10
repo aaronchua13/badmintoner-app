@@ -1611,3 +1611,23 @@
   max-width: 100%;
   overflow-wrap: anywhere;
 }
+
+.queueAssignActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.queuePickerActions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+@media (max-width: 575px) {
+  .queuePickerOption {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .queuePickerActions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}

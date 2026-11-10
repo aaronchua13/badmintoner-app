@@ -9,7 +9,13 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "lint:queuing": "eslint app/queuing tests/queuing"
+    "lint:queuing": "eslint app/queuing tests/queuing",
+    "test:payments:unit": "vitest run tests/queuing/billing.test.ts tests/queuing/payment-audit/calculation.test.ts tests/queuing/payment-audit/commands.test.ts tests/queuing/payment-audit/defects.test.ts",
+    "test:payments:baseline": "playwright test tests/queuing/payments.spec.ts",
+    "test:payments:e2e": "playwright test --config playwright.payments.config.ts",
+    "test:payments:defects": "vitest run tests/queuing/payment-audit/defects.test.ts",
+    "test:payments": "npm run test:payments:unit && npm run test:payments:e2e",
+    "test:payments:defects:e2e": "PAYMENT_AUDIT_DEFECTS=1 PAYMENT_AUDIT_OUTPUT=test-results/payment-audit-defects playwright test --config playwright.payments.config.ts"
   },
   "dependencies": {
     "@ant-design/nextjs-registry": "^1.3.0",

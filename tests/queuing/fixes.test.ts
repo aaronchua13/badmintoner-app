@@ -71,7 +71,7 @@ describe("transaction-time conflict checks", () => {
     await commitCommand({ type: "createQueueItem", id: "unrelated" }, 5000);
     await commitCommand({ type: "saveReceipt", editing: true, original, values: { ...original, amount: 15000 } }, 6000);
     const current = (await transact()).session.billing.receipts[0];
-    await commitCommand({ type: "deleteReceipt", id: original.id }, 7000);
+    await commitCommand({ type: "deleteReceipt", id: original.id, original: current }, 7000);
     const saved = await transact();
     await expect(commitCommand({ type: "saveReceipt", editing: true, original: current, values: { ...current, note: "Stale" } }, 8000)).rejects.toThrow("reopen");
     expect(await transact()).toEqual(saved);

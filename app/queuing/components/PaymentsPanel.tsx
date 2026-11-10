@@ -49,6 +49,8 @@ function ExpenseForm({
   players,
   canBill,
   continueBilling,
+  onSaved,
+  onDirty,
 }: {
   excluded: string[];
   players: Row[];
@@ -56,6 +58,8 @@ function ExpenseForm({
   canBill: boolean;
   save: (v: Expenses, excluded: string[]) => Promise<ActionResult>;
   continueBilling: (suggestion: number | null, excluded: string[]) => void;
+  onSaved: () => void;
+  onDirty: () => void;
 }) {
   const [form] = Form.useForm();
   const [busy, setBusy] = useState(false);
@@ -86,20 +90,39 @@ function ExpenseForm({
         },
       })
     : null;
+  const saving = useRef(false);
   const persist = async (next: boolean) => {
+    if (saving.current) return;
+    saving.current = true;
     try {
-      await form.validateFields();
-    } catch {
-      return;
-    }
-    if (!parsed.success || !preview) return;
-    setBusy(true);
-    try {
-      const result = await save(parsed.data, values.excluded ?? []);
+      const latest = await form.validateFields();
+      const validated = expensesSchema.safeParse({
+        courtFee: centavos(latest.courtFee),
+        tubePrice: centavos(latest.tubePrice),
+        piecesPerTube: latest.piecesPerTube,
+        tubes: latest.tubes,
+        pieces: latest.pieces,
+      });
+      if (!validated.success) {
+        setFailure("Check the cost amounts and pieces per tube before saving.");
+        return;
+      }
+      const exclusions: string[] = latest.excluded ?? [];
+      const estimate = calculateBilling({ players, billing: {
+        ...emptyBilling(), expenses: validated.data, calculatorExcluded: exclusions,
+      } });
+      setBusy(true);
+      const result = await save(validated.data, exclusions);
       setFailure(result.ok ? null : result.error);
-      if (result.ok && next)
-        continueBilling(preview.baseShare, values.excluded ?? []);
+      if (result.ok) {
+        if (next) continueBilling(estimate.baseShare, exclusions);
+        else onSaved();
+      }
+    } catch (error) {
+      if (!(error && typeof error === "object" && "errorFields" in error))
+        setFailure("The estimate could not be saved. Please try again.");
     } finally {
+      saving.current = false;
       setBusy(false);
     }
   };
@@ -128,6 +151,7 @@ function ExpenseForm({
       form={form}
       layout="vertical"
       initialValues={initial}
+      onValuesChange={onDirty}
       onFinish={() => persist(false)}
     >
       <p className={styles.guideIntro}>
@@ -221,7 +245,7 @@ function ExpenseForm({
             type="primary"
             aria-label="Continue to set billing"
             loading={busy}
-            disabled={!preview || preview.baseShare === null}
+            disabled={!preview || !players.length}
             onClick={() => persist(true)}
           >
             Continue to set billing
@@ -360,6 +384,7 @@ function BulkBilling({
   rows,
   save,
   close,
+  onApplied,
   suggestion,
   initialExcluded,
 }: {
@@ -368,6 +393,7 @@ function BulkBilling({
   suggestion: number | null;
   save: Actions["setPlayerCharges"];
   close: () => void;
+  onApplied: (included: number, excluded: number) => void;
 }) {
   const [form] = Form.useForm();
   const screens = Grid.useBreakpoint();
@@ -380,9 +406,10 @@ function BulkBilling({
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState(false);
+  const saving = useRef(false);
   const [failure, setFailure] = useState<string | null>(null);
   const selected = rows.filter((r) => !excluded.includes(r.id));
-  const charge = amount === null ? null : Math.round(amount * 100);
+  const charge = !selected.length ? 0 : amount === null ? null : Math.round(amount * 100);
   const rounded =
     suggestion === null ? null : Math.ceil(suggestion / 1000) * 1000;
   const visible = rows.filter((r) =>
@@ -466,7 +493,7 @@ function BulkBilling({
               style={{ flex: screens.sm ? undefined : 1, minHeight: 40 }}
               type="primary"
               onClick={() => form.submit()}
-              disabled={!selected.length || charge === null}
+              disabled={!rows.length || charge === null}
               loading={busy}
             >
               Apply billing
@@ -485,20 +512,25 @@ function BulkBilling({
         initialValues={{
           amount: suggestion === null ? undefined : suggestion / 100,
         }}
-        onFinish={async () => {
-          if (charge === null) return;
+        onFinish={async (values: { amount?: number }) => {
+          if (saving.current) return;
+          saving.current = true;
+          const latestCharge = selected.length ? Math.round(values.amount! * 100) : 0;
           setBusy(true);
           try {
             const result = await save(
               selected.map((r) => r.id),
               rows
-                .filter((r) => excluded.includes(r.id) && !r.arrangement)
+                .filter((r) => excluded.includes(r.id))
                 .map((r) => r.id),
-              charge,
+              latestCharge,
             );
-            if (result.ok) close();
+            if (result.ok) onApplied(selected.length, excluded.length);
             else setFailure(result.error);
+          } catch {
+            setFailure("Billing could not be saved. Please try again.");
           } finally {
+            saving.current = false;
             setBusy(false);
           }
         }}
@@ -508,14 +540,12 @@ function BulkBilling({
             <Form.Item
               label="Amount per player (PHP)"
               name="amount"
-              rules={[{ required: true }]}
+              rules={[{ required: selected.length > 0 }, { type: "number", min: 0, max: 10000000 }]}
               style={{ marginBottom: 8 }}
             >
-              <InputNumber
+              <InputNumber<number>
                 aria-label="Amount per player (PHP)"
                 prefix="₱"
-                min={0}
-                max={10000000}
                 precision={2}
                 onChange={setAmount}
                 disabled={busy}
@@ -604,8 +634,8 @@ function BulkBilling({
             type="secondary"
             style={{ margin: "4px 0 0", fontSize: 12 }}
           >
-            {excluded.length} excluded · Existing bills stay unchanged;
-            unassigned players become No charge.
+            {excluded.length} excluded · Set to No charge when applied.
+            Recorded payments stay in their history and may appear as credit.
           </Typography.Paragraph>
         )}
       </Card>
@@ -680,7 +710,7 @@ function BulkBilling({
                         type="secondary"
                         style={{ fontSize: 11 }}
                       >
-                        {row.arrangement ? "Bill unchanged" : "Excluded"}
+                        Excluded · No charge
                       </Typography.Text>
                     )}
                   </div>
@@ -700,9 +730,7 @@ function BulkBilling({
                     }}
                   >
                     {excluded.includes(row.id)
-                      ? row.arrangement
-                        ? money(row.charge ?? 0)
-                        : "No charge"
+                      ? "No charge"
                       : charge === null
                         ? "—"
                         : money(charge)}
@@ -734,6 +762,50 @@ function BulkBilling({
     </Modal>
   );
 }
+function DeleteReceiptButton({ receipt, remove }: {
+  receipt: Receipt;
+  remove: (original: Receipt) => Promise<ActionResult>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const reviewed = useRef(receipt);
+  const saving = useRef(false);
+  return (
+    <Popconfirm
+      title="Delete this payment?"
+      description={error ?? "This removes the reviewed payment from the ledger."}
+      open={open}
+      onOpenChange={(next) => {
+        if (saving.current) return;
+        if (next) { reviewed.current = structuredClone(receipt); setError(null); }
+        setOpen(next);
+      }}
+      okButtonProps={{ loading: busy }}
+      cancelButtonProps={{ disabled: busy }}
+      onConfirm={() => {
+        if (saving.current) return;
+        saving.current = true;
+        setBusy(true);
+        void (async () => {
+          try {
+            const result = await remove(reviewed.current);
+            if (result.ok) setOpen(false);
+            else setError(result.error);
+          } catch {
+            setError("Payment could not be deleted. Please try again.");
+          } finally {
+            saving.current = false;
+            setBusy(false);
+          }
+        })();
+      }}
+    >
+      <Button size="small" danger>Delete</Button>
+    </Popconfirm>
+  );
+}
+
 function ReceiptEditor({
   row,
   receipt,
@@ -814,12 +886,10 @@ function ReceiptEditor({
         <Form.Item
           name="amount"
           label="Payment amount (PHP)"
-          rules={[{ required: true }, { type: "number", min: 0.01 }]}
+          rules={[{ required: true }, { type: "number", min: 0.01, max: 10000000 }]}
         >
           <InputNumber
             aria-label="Payment amount (PHP)"
-            min={0.01}
-            max={10000000}
             precision={2}
             style={{ width: "100%" }}
           />
@@ -1048,6 +1118,8 @@ export default function PaymentsPanel({
     suggestion: number | null;
     excluded: string[];
   } | null>(null);
+  const [estimateSaved, setEstimateSaved] = useState(false);
+  const [billingNotice, setBillingNotice] = useState<string | null>(null);
   const [billingId, setBillingId] = useState<string | null>(null);
   const [payment, setPayment] = useState<{
     playerId: string;
@@ -1067,12 +1139,17 @@ export default function PaymentsPanel({
   const billingRow = totals.rows.find((r) => r.id === billingId);
   const paymentRow = totals.rows.find((r) => r.id === payment?.playerId);
   const detailRow = totals.rows.find((r) => r.id === detailsId);
+  const nestedDialogOpen = Boolean(detailRow || paymentRow || billingRow || bulkGuide || review);
   return (
     <Drawer
       title="Payments"
       push={false}
       open={open}
-      onClose={close}
+      onClose={() => {
+        if (!nestedDialogOpen) close();
+      }}
+      maskClosable={!nestedDialogOpen}
+      keyboard={!nestedDialogOpen}
       size="large"
       styles={{ wrapper: { maxWidth: "100vw" } }}
     >
@@ -1097,6 +1174,7 @@ export default function PaymentsPanel({
         />
         {view === "costs" && (
           <Card title="Calculate your costs" size="small">
+            {estimateSaved && <Alert type="success" title="Estimate saved. Continue to set billing, then apply it to update collections." />}
             <ExpenseForm
               key={JSON.stringify([
                 session.billing.expenses,
@@ -1104,9 +1182,12 @@ export default function PaymentsPanel({
               ])}
               expenses={session.billing.expenses}
               canBill={!finalized}
-              continueBilling={(suggestion, excluded) =>
-                setBulkGuide({ suggestion, excluded })
-              }
+              onSaved={() => setEstimateSaved(true)}
+              onDirty={() => setEstimateSaved(false)}
+              continueBilling={(suggestion, excluded) => {
+                setEstimateSaved(false);
+                setBulkGuide({ suggestion, excluded });
+              }}
               excluded={session.billing.calculatorExcluded}
               players={totals.rows}
               save={(v, excluded) => run(actions.setExpenses(v, excluded))}
@@ -1121,7 +1202,10 @@ export default function PaymentsPanel({
             bulk={() =>
               setBulkGuide({
                 suggestion: totals.baseShare,
-                excluded: session.billing.calculatorExcluded,
+                excluded: [...new Set([
+                  ...session.billing.calculatorExcluded,
+                  ...totals.rows.filter((row) => row.arrangement?.kind === "none").map((row) => row.id),
+                ])],
               })
             }
             reopen={() => run(actions.reopenBilling())}
@@ -1133,6 +1217,7 @@ export default function PaymentsPanel({
         )}
         {view === "collect" && (
           <>
+            {billingNotice && <Alert type="success" title={billingNotice} role="status" closable onClose={() => setBillingNotice(null)} />}
             <div className={styles.totals}>
               <div>
                 <span>Received</span>
@@ -1216,6 +1301,7 @@ export default function PaymentsPanel({
         {detailRow && (
           <Modal
             title={`Payment details · ${detailRow.name}`}
+            maskClosable={false}
             open
             onCancel={() => setDetailsId(null)}
             footer={null}
@@ -1305,16 +1391,10 @@ export default function PaymentsPanel({
                           >
                             Edit
                           </Button>
-                          <Popconfirm
-                            title="Delete this payment?"
-                            onConfirm={() =>
-                              run(actions.deleteReceipt(receipt.id))
-                            }
-                          >
-                            <Button size="small" danger>
-                              Delete
-                            </Button>
-                          </Popconfirm>
+                          <DeleteReceiptButton
+                            receipt={receipt}
+                            remove={(original) => run(actions.deleteReceipt(original))}
+                          />
                         </Space>
                       </div>
                     ))}
@@ -1334,6 +1414,11 @@ export default function PaymentsPanel({
             run(actions.setPlayerCharges(ids, exempt, amount))
           }
           close={() => setBulkGuide(null)}
+          onApplied={(included, excluded) => {
+            setBulkGuide(null);
+            setView("collect");
+            setBillingNotice(`Billing updated for ${included} player${included === 1 ? "" : "s"}.${excluded ? ` ${excluded} set to No charge.` : ""}`);
+          }}
         />
       )}
       {billingRow && (

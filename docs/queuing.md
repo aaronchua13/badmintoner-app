@@ -71,3 +71,11 @@ Idle courts with staged players offer **Move all to queue** in court options. Co
 ## Tablet performance
 
 See [queuing-performance.md](queuing-performance.md) for the rendering/storage changes, production measurements, repeatable Chromium and WebKit scenarios, and the physical-iPad verification steps.
+
+## Costs, billing, and collection exclusions
+
+Costs are an estimate. **Save estimate** saves costs and calculator exclusions, with a confirmation explaining that bills are unchanged. Use **Continue to set billing**, review the amount and players, then **Apply billing** to update collection. Saves use the latest validated form values, including an amount typed immediately before applying.
+
+Players explicitly excluded from the billing review become **No charge**, including players who already had a bill. Their recorded payments and history are preserved; previously received money may appear as credit. The preview shows this before applying. Everyone can be excluded without entering a per-player amount. Empty selections with nobody included or excluded are still rejected, and finalized settlement still requires reopening before charges change.
+
+After applying, Payments returns to Collect and confirms the update. Opening bulk billing again from the Billing tab keeps existing No charge players excluded. Calculator changes alone do not silently change charges or receipts.

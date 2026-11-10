@@ -36,7 +36,7 @@ export type Command =
   | { type: "setArrangement"; playerId: string; values: Arrangement }
   | { type: "saveReceipt"; values: Receipt; editing: false }
   | { type: "saveReceipt"; values: Receipt; editing: true; original: Receipt }
-  | { type: "deleteReceipt"; id: string }
+  | { type: "deleteReceipt"; id: string; original: Receipt }
   | { type: "finalizeBilling" | "reopenBilling"; revision: number }
   | { type: "addPlayer"; values: PlayerInput; id: string }
   | { type: "checkInPlayer" | "undoCheckIn"; id: string }
@@ -93,7 +93,7 @@ export type Command =
     }
   | { type: "moveQueueItem"; id: string; beforeId: string | null }
   | { type: "moveCourtToQueue"; courtId: string; queueId: string; players: (string | null)[] }
-  | { type: "assignQueueToCourt"; queueId: string; courtId: string }
+  | { type: "assignQueueToCourt"; queueId: string; courtId: string; start?: boolean }
   | { type: "importSession"; data: QueueData; revision: number };
 export const queueSlots = (q: QueueItem) => [
   q.team1[0] ?? null,
@@ -183,7 +183,7 @@ export function transitionValidated(before: QueueData, action: Command, now: num
         "Reopen settlement before changing charges",
       );
       requireCondition(
-        action.playerIds.length > 0,
+        action.playerIds.length > 0 || action.exemptPlayerIds.length > 0,
         "Select at least one player",
       );
       const ids = [...action.playerIds, ...action.exemptPlayerIds];
@@ -199,13 +199,8 @@ export function transitionValidated(before: QueueData, action: Command, now: num
       });
       for (const id of action.playerIds)
         s.billing.arrangements[id] = arrangement;
-      for (const id of action.exemptPlayerIds) {
-        requireCondition(
-          !s.billing.arrangements[id],
-          "Excluded player billing changed; review again",
-        );
+      for (const id of action.exemptPlayerIds)
         s.billing.arrangements[id] = { kind: "none" };
-      }
       break;
     }
     case "setArrangement":
@@ -244,13 +239,18 @@ export function transitionValidated(before: QueueData, action: Command, now: num
       } else s.billing.receipts.push(receipt);
       break;
     }
-    case "deleteReceipt":
+    case "deleteReceipt": {
+      const current = s.billing.receipts.find((r) => r.id === action.id);
+      requireCondition(current, "Payment no longer exists");
       requireCondition(
-        s.billing.receipts.some((r) => r.id === action.id),
-        "Payment no longer exists",
+        action.original && Object.keys(receiptSchema.shape).every(
+          (key) => current[key as keyof Receipt] === action.original[key as keyof Receipt],
+        ),
+        "Payment changed. Close and reopen the deletion confirmation to review the latest payment.",
       );
       s.billing.receipts = s.billing.receipts.filter((r) => r.id !== action.id);
       break;
+    }
     case "finalizeBilling": {
       requireCondition(
         s.sessionStatus === "ended",
@@ -773,6 +773,10 @@ export function transitionValidated(before: QueueData, action: Command, now: num
     case "assignQueueToCourt":
       editable();
       assign(item(action.queueId), action.courtId);
+      if (action.start) {
+        appendPlayerLogs(before, s, action, now);
+        return transitionValidated(s, { type: "startMatch", courtId: action.courtId }, now);
+      }
       break;
     case "importSession":
       requireCondition(

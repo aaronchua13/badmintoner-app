@@ -229,7 +229,7 @@ describe("manual billing and independent calculator", () => {
       values: { ...s.billing.receipts[1], amount: 80000, note: "Correction" },
     });
     expect(calculateBilling(s).rows[0].credit).toBe(5000);
-    s = run(s, { type: "deleteReceipt", id: "balance" });
+    s = run(s, { type: "deleteReceipt", id: "balance", original: s.billing.receipts.find((r) => r.id === "balance")! });
     expect(calculateBilling(s).rows[0].balance).toBe(75000);
   });
   it("locks final assigned amounts and preserves payments through reopening", () => {

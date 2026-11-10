@@ -254,7 +254,10 @@ export default function QueuingHeader(p: Props) {
                 : "Reset this session?"
           }
           open={confirm !== null}
-          onCancel={() => setConfirm(null)}
+          maskClosable={false}
+          keyboard={!busy}
+          cancelButtonProps={{ disabled: busy }}
+          onCancel={() => { if (!busy) setConfirm(null); }}
           confirmLoading={busy}
           okText={
             confirm === "stop"

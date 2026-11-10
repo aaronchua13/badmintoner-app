@@ -33,7 +33,8 @@ interface Props {
   players: Player[];
   courts: Court[];
   disabled: boolean;
-  onAssignToCourt: (queue: string, court: string) => Promise<ActionResult>;
+  canStart: boolean;
+  onAssignToCourt: (queue: string, court: string, start?: boolean) => Promise<ActionResult>;
   onRemoveQueueItem: (id: string) => Promise<ActionResult>;
   onMoveQueueItem: (from: number, to: number) => Promise<ActionResult>;
   onRemovePlayerFromQueue: (
@@ -173,6 +174,7 @@ function QueueRow({
             }}
           />
         </div>
+        <div className={styles.queueAssignActions}>
         <Dropdown
           trigger={["click"]}
           menu={{
@@ -192,6 +194,16 @@ function QueueRow({
             {courts.length ? "Assign to court" : "No empty court"}
           </Button>
         </Dropdown>
+        <Dropdown trigger={["click"]} menu={{ items: courts.map((c) => ({
+          key: c.id,
+          label: c.name,
+          onClick: () => { void p.onAssignToCourt(item.id, c.id, true); },
+        })) }}>
+          <Button disabled={p.disabled || !p.canStart || count !== 4 || waitingForPlayers || !courts.length}>
+            Assign and start
+          </Button>
+        </Dropdown>
+        </div>
       </div>
     </article>
   );

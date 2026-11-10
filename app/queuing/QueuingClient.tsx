@@ -635,8 +635,9 @@ export default function QueuingClient() {
                         players={players}
                         courts={courts}
                         disabled={disabled}
-                        onAssignToCourt={(q, c) =>
-                          report(actions.assignQueueToCourt(q, c))
+                        canStart={sessionStatus === "active"}
+                        onAssignToCourt={(q, c, start) =>
+                          report(actions.assignQueueToCourt(q, c, start))
                         }
                         onRemoveQueueItem={(id) =>
                           confirm(
@@ -1047,6 +1048,7 @@ export default function QueuingClient() {
                 ))}
                 {reason !== "Ready to assign" && <p className={styles.queuePickerReason}>{reason}</p>}
                 </div>
+                <div className={styles.queuePickerActions}>
                 <Button
                   aria-label={`Assign match ${index + 1}`}
                   disabled={disabled || !ids.length || !!unavailable.length || !target || target.status !== "idle" || target.players.some(Boolean)}
@@ -1055,6 +1057,16 @@ export default function QueuingClient() {
                       setQueueCourtId(null);
                   }}
                 >Assign</Button>
+                <Button
+                  type="primary"
+                  aria-label={`Assign and start match ${index + 1}`}
+                  disabled={disabled || sessionStatus !== "active" || ids.length !== 4 || !!unavailable.length || !target || target.status !== "idle" || target.players.some(Boolean)}
+                  onClick={async () => {
+                    if (queueCourtId && (await report(actions.assignQueueToCourt(item.id, queueCourtId, true))).ok)
+                      setQueueCourtId(null);
+                  }}
+                >Assign and start</Button>
+                </div>
               </section>
             );
           })}

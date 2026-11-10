@@ -98,7 +98,7 @@ describe("automatic player activity", () => {
     let s = run(fixture(), { type: "saveReceipt", values: receipt, editing: false });
     const recorded = structuredClone(s.playerLogs.at(-1));
     s = run(s, { type: "saveReceipt", values: { ...receipt, amount: 25000, method: "digital", note: "Corrected" }, original: receipt, editing: true });
-    s = run(s, { type: "deleteReceipt", id: receipt.id });
+    s = run(s, { type: "deleteReceipt", id: receipt.id, original: s.billing.receipts[0] });
     expect(s.playerLogs.find((entry) => entry.id === recorded?.id)).toEqual(recorded);
     expect(logs(s).slice(-3).map((entry) => entry.kind)).toEqual(["payment", "payment", "payment"]);
     expect(messages(s).at(-2)).toContain("₱100.00 cash");
